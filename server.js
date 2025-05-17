@@ -1,20 +1,28 @@
 require('dotenv').config();
 const express = require('express');
-const colors = require('colors');
 const connectDB = require('./config/db');
 const path = require('path');
-const { errorHandler } = require('./middleware/errorMiddleware');
 
-// Kết nối database
+// Route files
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const teamRoutes = require('./routes/teamRoutes');
+const projectRoutes = require('./routes/projectRoutes');
+const taskRoutes = require('./routes/taskRoutes');
+const commentRoutes = require('./routes/commentRoutes');
+const timeLogRoutes = require('./routes/timeLogRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const activityLogRoutes = require('./routes/activityLogRoutes');
+
+// Connect to database
 connectDB();
 
 const app = express();
 
-// Middleware xử lý JSON
+// Body parser
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
 
-// Middleware CORS
+// Enable CORS
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header(
@@ -28,43 +36,29 @@ app.use((req, res, next) => {
   next();
 });
 
-// Mount routes (API)
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/teams', require('./routes/teamRoutes'));
-app.use('/api/projects', require('./routes/projectRoutes'));
-app.use('/api/tasks', require('./routes/taskRoutes'));
-app.use('/api/comments', require('./routes/commentRoutes'));
-app.use('/api/timelogs', require('./routes/timeLogRoutes'));
-app.use('/api/notifications', require('./routes/notificationRoutes'));
-app.use('/api/activitylogs', require('./routes/activityLogRoutes'));
+// Mount routers
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/timelogs', timeLogRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/activitylogs', activityLogRoutes);
 
-// Phục vụ static file React build ở production
+// Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'client', 'build')));
+  // Set static folder
+  app.use(express.static('client/build'));
+
   app.get('*', (req, res) => {
     res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
   });
 }
 
-// Middleware xử lý lỗi
-app.use(errorHandler);
-
-// Khởi động server
 const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () =>
-  console.log(
-    `Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`.yellow.bold
-  )
-);
 
-// Graceful shutdown
-const gracefulShutdown = () => {
-  console.log('\nShutting down server gracefully...'.yellow.bold);
-  server.close(() => {
-    process.exit(0);
-  });
-};
-
-process.on('SIGINT', gracefulShutdown);
-process.on('SIGTERM', gracefulShutdown);
+app.listen(PORT, () => {
+  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+});
