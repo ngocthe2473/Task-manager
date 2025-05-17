@@ -1,23 +1,41 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Box, CssBaseline } from '@mui/material';
+import { Box, CssBaseline, Tabs, Tab } from '@mui/material';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import Dashboard from './components/Dashboard';
 import TaskBoard from './components/TaskBoard';
-import TaskDetail from './components/TaskDetail';
+import TableView from './components/TableView';
+import Calendar from './components/Calendar';
 import Teams from './components/Teams';
 import Settings from './components/Settings';
-import Calendar from './components/Calendar';
-import ActivityLog from './components/ActivityLog';
+import TaskDetail from './components/TaskDetail';
 
 const App = () => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('kanban'); // 'kanban', 'table', or 'calendar'
 
   const handleTaskClick = (task) => {
     setSelectedTask(task);
     setDetailOpen(true);
+  };
+
+  const handleViewChange = (event, newValue) => {
+    setViewMode(newValue);
+  };
+
+  // Function to render the appropriate task view
+  const renderTaskView = () => {
+    switch (viewMode) {
+      case 'table':
+        return <TableView onTaskClick={handleTaskClick} />;
+      case 'calendar':
+        return <Calendar />;
+      case 'kanban':
+      default:
+        return <TaskBoard onTaskClick={handleTaskClick} />;
+    }
   };
 
   return (
@@ -40,12 +58,21 @@ const App = () => {
               <Route path="/" element={<Dashboard />} />
               <Route 
                 path="/tasks" 
-                element={<TaskBoard onTaskClick={handleTaskClick} />}
+                element={
+                  <Box>
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
+                      <Tabs value={viewMode} onChange={handleViewChange} aria-label="task view options">
+                        <Tab label="Main table" value="table" />
+                        <Tab label="Kanban" value="kanban" />
+                        <Tab label="Calendar" value="calendar" />
+                      </Tabs>
+                    </Box>
+                    {renderTaskView()}
+                  </Box>
+                }
               />
               <Route path="/teams" element={<Teams />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/calendar" element={<Calendar />} />
-              <Route path="/activity" element={<ActivityLog />} />
             </Routes>
           </Box>
         </Box>
