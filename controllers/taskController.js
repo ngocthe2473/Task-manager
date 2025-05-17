@@ -4,110 +4,166 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const ActivityLog = require('../models/ActivityLog');
 
-// @desc    Get tasks for a project
-// @route   GET /api/projects/:projectId/tasks
+// @desc    Get all tasks
+// @route   GET /api/tasks
 // @access  Private
 exports.getTasks = async (req, res) => {
   try {
-    const tasks = await Task.find({ project: req.params.projectId })
-      .populate('assignee', 'username email')
+    // Chỉ lấy các root tasks (không phải subtasks)
+    const tasks = await Task.find({ parentTask: null })
+      .populate('assignee', 'name avatar')
+      .populate('project', 'name')
       .sort('-createdAt');
       
     res.json(tasks);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// @desc    Create a task
-// @route   POST /api/projects/:projectId/tasks
-// @access  Private/Manager
-exports.createTask = async (req, res) => {
-  try {
-    const project = await Project.findById(req.params.projectId);
-    if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
-    }
-
-    // Check if user is team manager or admin
-    const team = await Team.findById(project.team);
-    if (req.user.role !== 'admin' && team.manager.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
-    const { title, description, assigneeId, priority, dueDate } = req.body;
-
-    const task = await Task.create({
-      title,
-      description,
-      project: req.params.projectId,
-      assignee: assigneeId,
-      priority,
-      dueDate
-    });
-
-    // Create notification if task is assigned
-    if (assigneeId) {
-      await Notification.create({
-        user: assigneeId,
-        content: `You have been assigned a new task: ${title}`,
-        type: 'task_assigned',
-        relatedEntity: task._id,
-        onModel: 'Task'
-      });
-    }
-
-    // Log activity
-    await ActivityLog.create({
-      user: req.user.id,
-      action: 'create',
-      entityType: 'Task',
-      entityId: task._id
-    });
-
-    res.status(201).json(task);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// @desc    Update task status
-// @route   PUT /api/tasks/:id/status
+// @desc    Get task by ID
+// @route   GET /api/tasks/:id
 // @access  Private
-exports.updateTaskStatus = async (req, res) => {
+exports.getTaskById = async (req, res) => {
   try {
-    const { status } = req.body;
-    const task = await Task.findById(req.params.id);
-
+    const task = await Task.findById(req.params.id)
+      .populate('assignee', 'name avatar')
+      .populate('project', 'name')
+      .populate('attachments');
+    
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
+    
+    // Lấy subtasks nếu có
+    const subtasks = await Task.find({ parentTask: task._id })
+      .populate('assignee', 'name avatar')
+      .sort('createdAt');
+    
+    // Chuyển đổi Mongoose document sang plain object để có thể thêm trường
+    const taskObj = task.toObject();
+    taskObj.subtasks = subtasks;
+    
+    res.json(taskObj);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
-    // Check if user is task assignee or manager/admin
-    const project = await Project.findById(task.project);
-    const team = await Team.findById(project.team);
+// @desc    Create task
+// @route   POST /api/tasks
+// @access  Private
+exports.createTask = async (req, res) => {
+  try {
+    const { title, description, project, assignee, status, priority, dueDate, parentTask } = req.body;
     
-    const isAssignee = task.assignee && task.assignee.toString() === req.user.id;
-    const isManagerOrAdmin = req.user.role === 'admin' || team.manager.toString() === req.user.id;
-    
-    if (!isAssignee && !isManagerOrAdmin) {
-      return res.status(403).json({ message: 'Not authorized' });
+    // Kiểm tra project tồn tại không
+    const projectExists = await Project.findById(project);
+    if (!projectExists) {
+      return res.status(404).json({ message: 'Project not found' });
     }
-
-    task.status = status;
-    await task.save();
-
-    // Log activity
-    await ActivityLog.create({
-      user: req.user.id,
-      action: 'update',
-      entityType: 'Task',
-      entityId: task._id,
-      metadata: { field: 'status', newValue: status }
+    
+    // Nếu là subtask, kiểm tra parent task tồn tại không
+    if (parentTask) {
+      const parentTaskExists = await Task.findById(parentTask);
+      if (!parentTaskExists) {
+        return res.status(404).json({ message: 'Parent task not found' });
+      }
+    }
+    
+    const task = await Task.create({
+      title,
+      description,
+      project,
+      assignee,
+      status,
+      priority,
+      dueDate,
+      parentTask: parentTask || null
     });
+    
+    // Populate thông tin cần thiết
+    await task.populate('assignee', 'name avatar');
+    await task.populate('project', 'name');
+    
+    res.status(201).json(task);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
+// @desc    Update task
+// @route   PUT /api/tasks/:id
+// @access  Private
+exports.updateTask = async (req, res) => {
+  try {
+    const { title, description, status, priority, assignee, dueDate } = req.body;
+    
+    const task = await Task.findById(req.params.id);
+    
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+    
+    // Cập nhật task fields
+    if (title) task.title = title;
+    if (description !== undefined) task.description = description;
+    if (status) task.status = status;
+    if (priority) task.priority = priority;
+    if (assignee !== undefined) task.assignee = assignee;
+    if (dueDate !== undefined) task.dueDate = dueDate;
+    
+    await task.save();
+    
+    // Populate thông tin
+    await task.populate('assignee', 'name avatar');
+    await task.populate('project', 'name');
+    
     res.json(task);
   } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Delete task
+// @route   DELETE /api/tasks/:id
+// @access  Private
+exports.deleteTask = async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+    
+    // Xóa tất cả subtasks nếu có
+    await Task.deleteMany({ parentTask: task._id });
+    
+    await task.remove();
+    
+    res.json({ message: 'Task removed' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get subtasks for a task
+// @route   GET /api/tasks/:id/subtasks
+// @access  Private
+exports.getSubtasks = async (req, res) => {
+  try {
+    const subtasks = await Task.find({ parentTask: req.params.id })
+      .populate('assignee', 'name avatar')
+      .sort('createdAt');
+      
+    res.json(subtasks);
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 };

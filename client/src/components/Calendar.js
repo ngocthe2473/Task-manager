@@ -10,13 +10,17 @@ import {
   Select,
   FormControl,
   InputLabel,
-  Chip,
+  Card,
+  CardContent,
   Avatar,
-  useTheme
+  Chip,
+  useTheme,
+  Popover
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import TodayIcon from '@mui/icons-material/Today';
+import CircleIcon from '@mui/icons-material/Circle';
 import { getAllTasks } from '../services/fakeDatabaseService';
 
 const Calendar = () => {
@@ -25,6 +29,8 @@ const Calendar = () => {
   const [tasks, setTasks] = useState([]);
   const [viewMode, setViewMode] = useState('month');
   const [loading, setLoading] = useState(true);
+  const [hoveredTask, setHoveredTask] = useState(null);
+  const [anchorEl, setAnchorEl] = useState(null);
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -130,10 +136,25 @@ const Calendar = () => {
   // Get tasks for a specific day
   const getTasksForDay = (day, month, year) => {
     const date = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return tasks.filter(task => task.dueDate === date);
+    return tasks.filter(task => {
+      const taskDate = task.dueDate || task.due;
+      return taskDate === date;
+    });
   };
 
-  // Render month view
+  const handleTaskHover = (event, task) => {
+    setHoveredTask(task);
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handlePopoverClose = () => {
+    setHoveredTask(null);
+    setAnchorEl(null);
+  };
+
+  const open = Boolean(anchorEl) && Boolean(hoveredTask);
+
+  // Render month view with similar layout to the image provided
   const renderMonthView = () => {
     const days = getDaysForMonthView();
     const today = new Date();
@@ -141,9 +162,14 @@ const Calendar = () => {
 
     return (
       <Box sx={{ mt: 2 }}>
-        <Grid container>
+        <Grid container sx={{ mb: 1 }}>
           {dayNames.map((dayName, index) => (
-            <Grid item xs key={index} sx={{ textAlign: 'center', p: 1, fontWeight: 'bold' }}>
+            <Grid item xs key={index} sx={{ 
+              textAlign: 'center', 
+              p: 1, 
+              fontWeight: 'bold',
+              color: index === 0 ? 'error.main' : 'text.primary' // Sunday in red
+            }}>
               {dayName}
             </Grid>
           ))}
@@ -155,78 +181,192 @@ const Calendar = () => {
               day.month === today.getMonth() && 
               day.year === today.getFullYear();
             
+            const isSunday = index % 7 === 0;
             const tasksForDay = getTasksForDay(day.day, day.month, day.year);
             
             return (
               <Grid item xs key={index}>
-                <Paper
+                <Box
                   sx={{
-                    height: 120,
+                    height: 100,
                     p: 1,
                     m: 0.5,
+                    borderRadius: '4px',
+                    border: isToday ? `2px solid ${theme.palette.primary.main}` : '1px solid #eaeaea',
                     bgcolor: isToday ? alpha(theme.palette.primary.light, 0.1) : 'background.paper',
-                    color: day.isCurrentMonth ? 'text.primary' : 'text.disabled',
-                    border: isToday ? `1px solid ${theme.palette.primary.main}` : 'none',
+                    position: 'relative',
                     overflow: 'hidden'
                   }}
                 >
                   <Typography 
-                    variant="body2" 
+                    align="center"
+                    variant="body1" 
                     sx={{ 
                       fontWeight: isToday ? 'bold' : 'normal',
-                      color: isToday ? 'primary.main' : (day.isCurrentMonth ? 'text.primary' : 'text.disabled')
+                      fontSize: '1.1rem',
+                      color: !day.isCurrentMonth 
+                        ? theme.palette.text.disabled 
+                        : isSunday 
+                          ? theme.palette.error.main 
+                          : isToday 
+                            ? theme.palette.primary.main 
+                            : theme.palette.text.primary
                     }}
                   >
                     {day.day}
                   </Typography>
-                  <Box sx={{ mt: 1, overflow: 'hidden' }}>
-                    {tasksForDay.slice(0, 2).map(task => (
-                      <Box 
-                        key={task.id} 
-                        sx={{ 
-                          bgcolor: getPriorityColor(task.priority), 
-                          p: 0.5, 
-                          borderRadius: 1, 
-                          mb: 0.5, 
-                          fontSize: '0.7rem',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}
-                      >
-                        {task.title}
-                      </Box>
-                    ))}
-                    {tasksForDay.length > 2 && (
-                      <Typography variant="caption" color="text.secondary">
-                        +{tasksForDay.length - 2} more
-                      </Typography>
-                    )}
-                  </Box>
-                </Paper>
+                  
+                  {/* Task indicators */}
+                  {tasksForDay.length > 0 && (
+                    <Box sx={{ 
+                      mt: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 0.5
+                    }}>
+                      {tasksForDay.slice(0, 3).map((task, i) => (
+                        <Box 
+                          key={i}
+                          sx={{ 
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            fontSize: '0.7rem',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            '&:hover': {
+                              bgcolor: 'rgba(0,0,0,0.04)'
+                            }
+                          }}
+                          onMouseEnter={(e) => handleTaskHover(e, task)}
+                          onMouseLeave={handlePopoverClose}
+                        >
+                          <CircleIcon sx={{ 
+                            fontSize: '0.6rem', 
+                            color: getPriorityColor(task.priority) 
+                          }} />
+                          <Typography 
+                            variant="caption" 
+                            noWrap
+                            sx={{ 
+                              fontSize: '0.7rem',
+                              color: alpha(theme.palette.text.primary, 0.8)
+                            }}
+                          >
+                            {task.title}
+                          </Typography>
+                        </Box>
+                      ))}
+                      {tasksForDay.length > 3 && (
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            fontSize: '0.7rem',
+                            color: theme.palette.text.secondary,
+                            ml: 2
+                          }}
+                        >
+                          +{tasksForDay.length - 3} more
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                </Box>
               </Grid>
             );
           })}
         </Grid>
+
+        {/* Task Popover with Details */}
+        <Popover
+          id="task-popover"
+          open={open}
+          anchorEl={anchorEl}
+          onClose={handlePopoverClose}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'center',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'center',
+          }}
+          disableRestoreFocus
+        >
+          {hoveredTask && (
+            <Card sx={{ maxWidth: 280, minWidth: 250 }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ fontSize: '1rem', mb: 1 }}>
+                  {hoveredTask.title}
+                </Typography>
+                
+                {hoveredTask.description && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {hoveredTask.description.length > 80 
+                      ? hoveredTask.description.substring(0, 80) + '...' 
+                      : hoveredTask.description}
+                  </Typography>
+                )}
+                
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Due: {hoveredTask.dueDate || hoveredTask.due}
+                  </Typography>
+                  <Chip 
+                    label={hoveredTask.priority} 
+                    size="small" 
+                    sx={{ 
+                      bgcolor: priorityColors[hoveredTask.priority], 
+                      color: 'white',
+                      height: 20,
+                      fontSize: '0.6rem'
+                    }}
+                  />
+                </Box>
+                
+                {hoveredTask.assigneeName && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Avatar 
+                      sx={{ width: 24, height: 24, fontSize: '0.75rem', bgcolor: '#1976d2' }}
+                    >
+                      {hoveredTask.assigneeName.split(' ').map(n => n[0]).join('')}
+                    </Avatar>
+                    <Typography variant="caption">
+                      {hoveredTask.assigneeName}
+                    </Typography>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </Popover>
       </Box>
     );
   };
 
   const alpha = (color, opacity) => {
-    return color + opacity.toString(16).padStart(2, '0');
+    return color + Math.round(opacity * 255).toString(16).padStart(2, '0');
   };
 
   const getPriorityColor = (priority) => {
     switch(priority) {
       case 'High':
-        return alpha(theme.palette.error.main, 40);
+        return theme.palette.error.main;
       case 'Medium':
-        return alpha(theme.palette.warning.main, 40);
+        return theme.palette.warning.main;
       case 'Low':
-        return alpha(theme.palette.success.main, 40);
+        return theme.palette.success.main;
       default:
-        return alpha(theme.palette.info.main, 40);
+        return theme.palette.info.main;
     }
+  };
+
+  const priorityColors = {
+    High: theme.palette.error.main,
+    Medium: theme.palette.warning.main,
+    Low: theme.palette.success.main
   };
 
   const getMonthName = (month) => {
@@ -240,26 +380,22 @@ const Calendar = () => {
   return (
     <Box sx={{ flexGrow: 1, padding: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="div">
-          Calendar
+        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+          {getMonthName(currentDate.getMonth())}
+          <Typography 
+            component="span" 
+            variant="h4" 
+            sx={{ 
+              ml: 2,
+              color: theme.palette.text.secondary,
+              fontWeight: 'normal'
+            }}
+          >
+            {currentDate.getFullYear()}
+          </Typography>
         </Typography>
         
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <FormControl sx={{ minWidth: 120 }} size="small">
-            <InputLabel id="view-mode-label">View</InputLabel>
-            <Select
-              labelId="view-mode-label"
-              id="view-mode"
-              value={viewMode}
-              label="View"
-              onChange={(e) => setViewMode(e.target.value)}
-            >
-              <MenuItem value="month">Month</MenuItem>
-              <MenuItem value="week">Week</MenuItem>
-              <MenuItem value="day">Day</MenuItem>
-            </Select>
-          </FormControl>
-          
           <Button 
             variant="outlined" 
             startIcon={<TodayIcon />}
@@ -267,27 +403,26 @@ const Calendar = () => {
           >
             Today
           </Button>
-        </Box>
-      </Box>
-      
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <IconButton onClick={handlePreviousPeriod}>
             <ArrowBackIcon />
           </IconButton>
-          
-          <Typography variant="h6">
-            {getMonthName(currentDate.getMonth())} {currentDate.getFullYear()}
-          </Typography>
-          
           <IconButton onClick={handleNextPeriod}>
             <ArrowForwardIcon />
           </IconButton>
         </Box>
-        
+      </Box>
+      
+      <Paper 
+        sx={{ 
+          p: 2, 
+          mb: 3,
+          backgroundColor: theme.palette.background.paper,
+          boxShadow: '0 3px 10px rgba(0,0,0,0.1)'
+        }}
+      >
         {viewMode === 'month' && renderMonthView()}
         
-        {/* We can implement week and day views later */}
+        {/* Week and day views placeholder */}
         {viewMode === 'week' && (
           <Typography sx={{ p: 4, textAlign: 'center' }}>
             Week view will be implemented soon
