@@ -1,135 +1,124 @@
 const Task = require('../models/Task');
-const Project = require('../models/Project');
-const User = require('../models/User');
-const Notification = require('../models/Notification');
-const ActivityLog = require('../models/ActivityLog');
+const mongoose = require('mongoose');
 
-// @desc    Get all tasks
+// @desc    Lấy tất cả tasks
 // @route   GET /api/tasks
 // @access  Private
 exports.getTasks = async (req, res) => {
   try {
-    // Chỉ lấy các root tasks (không phải subtasks)
-    const tasks = await Task.find({ parentTask: null })
+    const tasks = await Task.find()
       .populate('assignee', 'name avatar')
-      .populate('project', 'name')
-      .sort('-createdAt');
-      
-    res.json(tasks);
+      .populate('creator', 'name')
+      .sort({ createdAt: -1 });
+    
+    res.status(200).json(tasks);
   } catch (error) {
-    console.error(error);
+    console.error('Error getting tasks:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// @desc    Get task by ID
+// @desc    Lấy task theo ID
 // @route   GET /api/tasks/:id
 // @access  Private
 exports.getTaskById = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id)
       .populate('assignee', 'name avatar')
-      .populate('project', 'name')
-      .populate('attachments');
+      .populate('creator', 'name');
     
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
     
-    // Lấy subtasks nếu có
-    const subtasks = await Task.find({ parentTask: task._id })
-      .populate('assignee', 'name avatar')
-      .sort('createdAt');
-    
-    // Chuyển đổi Mongoose document sang plain object để có thể thêm trường
-    const taskObj = task.toObject();
-    taskObj.subtasks = subtasks;
-    
-    res.json(taskObj);
+    res.status(200).json(task);
   } catch (error) {
-    console.error(error);
+    console.error('Error getting task by ID:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// @desc    Create task
+// @desc    Tạo task mới
 // @route   POST /api/tasks
 // @access  Private
 exports.createTask = async (req, res) => {
   try {
-    const { title, description, project, assignee, status, priority, dueDate, parentTask } = req.body;
+    const { 
+      title, 
+      description, 
+      status, 
+      priority, 
+      dueDate, 
+      startTime, 
+      endTime, 
+      assignee, 
+      project 
+    } = req.body;
     
-    // Kiểm tra project tồn tại không
-    const projectExists = await Project.findById(project);
-    if (!projectExists) {
-      return res.status(404).json({ message: 'Project not found' });
+    // Xác nhận title
+    if (!title) {
+      return res.status(400).json({ message: 'Title is required' });
     }
     
-    // Nếu là subtask, kiểm tra parent task tồn tại không
-    if (parentTask) {
-      const parentTaskExists = await Task.findById(parentTask);
-      if (!parentTaskExists) {
-        return res.status(404).json({ message: 'Parent task not found' });
-      }
-    }
-    
-    const task = await Task.create({
+    // Tạo task mới
+    const newTask = new Task({
       title,
       description,
-      project,
-      assignee,
-      status,
-      priority,
-      dueDate,
-      parentTask: parentTask || null
+      status: status || 'todo',
+      priority: priority || 'medium',
+      dueDate: dueDate || null,
+      startTime,
+      endTime,
+      assignee: assignee || null,
+      creator: req.user.id,
+      project: project || null
     });
     
-    // Populate thông tin cần thiết
-    await task.populate('assignee', 'name avatar');
-    await task.populate('project', 'name');
+    const savedTask = await newTask.save();
     
-    res.status(201).json(task);
+    // Populate assignee & creator
+    await savedTask.populate('assignee', 'name avatar');
+    await savedTask.populate('creator', 'name');
+    
+    res.status(201).json(savedTask);
   } catch (error) {
-    console.error(error);
+    console.error('Error creating task:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// @desc    Update task
+// @desc    Cập nhật task
 // @route   PUT /api/tasks/:id
 // @access  Private
 exports.updateTask = async (req, res) => {
   try {
-    const { title, description, status, priority, assignee, dueDate } = req.body;
-    
     const task = await Task.findById(req.params.id);
     
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
     
-    // Cập nhật task fields
-    if (title) task.title = title;
-    if (description !== undefined) task.description = description;
-    if (status) task.status = status;
-    if (priority) task.priority = priority;
-    if (assignee !== undefined) task.assignee = assignee;
-    if (dueDate !== undefined) task.dueDate = dueDate;
+    // Cập nhật các trường
+    const updatedData = {
+      ...req.body,
+      updatedAt: Date.now()
+    };
     
-    await task.save();
+    const updatedTask = await Task.findByIdAndUpdate(
+      req.params.id, 
+      updatedData, 
+      { new: true }
+    ).populate('assignee', 'name avatar')
+      .populate('creator', 'name');
     
-    // Populate thông tin
-    await task.populate('assignee', 'name avatar');
-    await task.populate('project', 'name');
-    
-    res.json(task);
+    res.status(200).json(updatedTask);
   } catch (error) {
-    console.error(error);
+    console.error('Error updating task:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// @desc    Delete task
+// @desc    Xóa task
 // @route   DELETE /api/tasks/:id
 // @access  Private
 exports.deleteTask = async (req, res) => {
@@ -140,30 +129,11 @@ exports.deleteTask = async (req, res) => {
       return res.status(404).json({ message: 'Task not found' });
     }
     
-    // Xóa tất cả subtasks nếu có
-    await Task.deleteMany({ parentTask: task._id });
+    await Task.findByIdAndDelete(req.params.id);
     
-    await task.remove();
-    
-    res.json({ message: 'Task removed' });
+    res.status(200).json({ message: 'Task deleted successfully' });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// @desc    Get subtasks for a task
-// @route   GET /api/tasks/:id/subtasks
-// @access  Private
-exports.getSubtasks = async (req, res) => {
-  try {
-    const subtasks = await Task.find({ parentTask: req.params.id })
-      .populate('assignee', 'name avatar')
-      .sort('createdAt');
-      
-    res.json(subtasks);
-  } catch (error) {
-    console.error(error);
+    console.error('Error deleting task:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

@@ -23,7 +23,6 @@ const Sidebar = () => {
   const menuItems = [
     { path: '/', label: 'Dashboard', icon: <DashboardIcon /> },
     { path: '/tasks', label: 'Tasks', icon: <AssignmentIcon /> },
-    { path: '/calendar', label: 'Calendar', icon: <CalendarTodayIcon /> },
     { path: '/teams', label: 'Teams', icon: <PeopleIcon /> },
     { path: '/activity', label: 'Activity', icon: <HistoryIcon /> },
     { path: '/settings', label: 'Settings', icon: <SettingsIcon /> }

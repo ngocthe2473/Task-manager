@@ -2,36 +2,31 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const UserSchema = new mongoose.Schema({
-  username: {
+  name: {
     type: String,
-    required: true,
-    unique: true,
+    required: [true, 'Vui lòng nhập tên'],
     trim: true
   },
   email: {
     type: String,
-    required: true,
+    required: [true, 'Vui lòng nhập email'],
     unique: true,
-    match: [/.+\@.+\..+/, 'Please enter a valid email']
-  },
-  name: {
-    type: String,
-    required: true,
-    trim: true
+    trim: true,
+    match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Vui lòng nhập email hợp lệ']
   },
   password: {
     type: String,
-    required: true,
-    minlength: 6
+    required: [true, 'Vui lòng nhập mật khẩu'],
+    minlength: [6, 'Mật khẩu phải có ít nhất 6 ký tự']
+  },
+  avatar: {
+    type: String,
+    default: ''
   },
   role: {
     type: String,
     enum: ['admin', 'manager', 'member'],
     default: 'member'
-  },
-  team: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Team'
   },
   createdAt: {
     type: Date,
@@ -39,14 +34,17 @@ const UserSchema = new mongoose.Schema({
   }
 });
 
-UserSchema.pre('save', async function(next) {
+// Mã hóa mật khẩu trước khi lưu
+UserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
-    next();
+    return next();
   }
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
+  next();
 });
 
+// So sánh mật khẩu
 UserSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };

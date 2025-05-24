@@ -1,9 +1,11 @@
-import React from 'react';
-import { AppBar, Toolbar, Typography, InputBase, Badge, Avatar, Button } from '@mui/material';
-import { styled, alpha } from '@mui/material/styles';
-import SearchIcon from '@mui/icons-material/Search';
+import React, { useContext, useState } from 'react';
+import { AppBar, Toolbar, Typography, Box, Avatar, IconButton, Menu, MenuItem, Button, Badge, InputBase } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import AddIcon from '@mui/icons-material/Add';
+import { AuthContext } from '../context/AuthContext';
+import { styled, alpha } from '@mui/material/styles';
+import SearchIcon from '@mui/icons-material/Search';
 
 const Search = styled('div')(({ theme }) => ({
   position: 'relative',
@@ -45,10 +47,32 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
 }));
 
 const Navbar = () => {
+  const navigate = useNavigate();
+  const { userInfo, logout } = useContext(AuthContext);
+  const [anchorEl, setAnchorEl] = useState(null);
+  
+  const handleMenu = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+  
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+  
+  const handleSettings = () => {
+    handleClose();
+    navigate('/settings');
+  };
+
   return (
-    <AppBar position="static" color="primary">
+    <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: '1px solid #e0e0e0', bgcolor: 'white' }}>
       <Toolbar>
-        <Typography variant="h6" noWrap component="div" sx={{ display: { xs: 'none', sm: 'block' } }}>
+        <Typography variant="h6" color="inherit" sx={{ flexGrow: 1 }}>
           Task Manager
         </Typography>
         <Search>
@@ -69,10 +93,47 @@ const Navbar = () => {
         <Badge badgeContent={4} color="error" sx={{ marginRight: 2 }}>
           <NotificationsIcon />
         </Badge>
-        <Avatar alt="User Name" src="/static/images/avatar/1.jpg" />
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton
+            onClick={handleMenu}
+            size="small"
+            sx={{ ml: 2 }}
+            aria-controls="menu-appbar"
+            aria-haspopup="true"
+          >
+            <Avatar 
+              alt={userInfo?.name} 
+              src={userInfo?.avatar}
+              sx={{ width: 32, height: 32 }}
+            >
+              {userInfo?.name ? userInfo.name.charAt(0) : 'U'}
+            </Avatar>
+          </IconButton>
+          
+          <Menu
+            id="menu-appbar"
+            anchorEl={anchorEl}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            keepMounted
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+            open={Boolean(anchorEl)}
+            onClose={handleClose}
+          >
+            <MenuItem onClick={handleSettings}>Tài khoản của tôi</MenuItem>
+            <MenuItem onClick={handleLogout}>Đăng xuất</MenuItem>
+          </Menu>
+        </Box>
       </Toolbar>
     </AppBar>
   );
 };
 
 export default Navbar;
+
+

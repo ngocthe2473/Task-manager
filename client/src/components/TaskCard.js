@@ -37,12 +37,27 @@ const priorityColors = {
 };
 
 const TaskCard = ({ task, onClick, onAddSubtask }) => {
-  const { title, assignee, assigneeName, priority, due, dueDate = due, id } = task;
-  const initials = assigneeName ? assigneeName.split(' ').map(name => name[0]).join('') : '';
+  // Always define hooks at the top level, not conditionally
   const [showActions, setShowActions] = useState(false);
   
+  if (!task) return null;
+  
+  // Safely destructure task properties
+  const { id, title, description, priority, assignee, assigneeName, dueDate, due } = task;
+  
+  // Use fallback values for properties that might be undefined
+  const displayTitle = title || 'Untitled Task';
+  const displayPriority = priority || 'Medium';
+  const displayDueDate = dueDate || due || '';
+  
+  // Safely get initials
+  const getInitials = (name) => {
+    if (!name) return '?';
+    return name.charAt(0) || '?';
+  };
+  
   // Calculate if due date is approaching
-  const dueDateObj = new Date(dueDate);
+  const dueDateObj = new Date(displayDueDate);
   const today = new Date();
   const daysUntilDue = Math.ceil((dueDateObj - today) / (1000 * 60 * 60 * 24));
   const isDueSoon = daysUntilDue <= 2 && daysUntilDue >= 0;
@@ -103,22 +118,46 @@ const TaskCard = ({ task, onClick, onAddSubtask }) => {
       
       <CardContent>
         <Typography variant="h6" component="div" sx={{ fontSize: '1rem', fontWeight: 'bold' }}>
-          {title}
+          {displayTitle}
         </Typography>
         
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
-          <Avatar sx={{ width: 28, height: 28, fontSize: '0.875rem', bgcolor: '#1976d2' }}>
-            {initials}
+        {description && (
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            sx={{ 
+              mb: 2, 
+              overflow: 'hidden', 
+              textOverflow: 'ellipsis', 
+              display: '-webkit-box', 
+              WebkitLineClamp: 2, 
+              WebkitBoxOrient: 'vertical' 
+            }}
+          >
+            {description}
+          </Typography>
+        )}
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Avatar 
+            sx={{ 
+              width: 28, 
+              height: 28, 
+              fontSize: '0.75rem', 
+              bgcolor: assignee ? '#1976d2' : '#e0e0e0' 
+            }}
+          >
+            {assigneeName ? getInitials(assigneeName) : '?'}
           </Avatar>
           
           <Chip 
-            label={priority}
+            label={displayPriority}
             size="small"
             sx={{ 
-              bgcolor: priorityColors[priority], 
+              bgcolor: priorityColors[displayPriority] || '#777',
               color: 'white',
-              height: 24,
-              fontSize: '0.75rem'
+              height: '22px',
+              fontSize: '0.7rem',
             }}
           />
         </Box>
@@ -127,11 +166,12 @@ const TaskCard = ({ task, onClick, onAddSubtask }) => {
           display: 'flex', 
           alignItems: 'center', 
           mt: 1, 
+          fontSize: '0.75rem',
           color: isOverdue ? 'error.main' : isDueSoon ? 'warning.main' : 'text.secondary' 
         }}>
           <AlarmIcon sx={{ fontSize: 16, mr: 0.5 }} />
           <Typography variant="caption">
-            {isOverdue ? 'Overdue' : isDueSoon ? 'Due soon' : dueDate}
+            {isOverdue ? 'Overdue' : isDueSoon ? 'Due soon' : displayDueDate}
           </Typography>
         </Box>
         

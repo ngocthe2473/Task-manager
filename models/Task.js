@@ -3,24 +3,15 @@ const mongoose = require('mongoose');
 const TaskSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: true,
-    trim: true
-  },
-  description: {
-    type: String
-  },
-  project: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Project',
     required: true
   },
-  assignee: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+  description: {
+    type: String,
+    default: ''
   },
   status: {
     type: String,
-    enum: ['todo', 'in_progress', 'done'],
+    enum: ['todo', 'inprogress', 'review', 'done'],
     default: 'todo'
   },
   priority: {
@@ -31,17 +22,25 @@ const TaskSchema = new mongoose.Schema({
   dueDate: {
     type: Date
   },
-  // Thêm trường để hỗ trợ subtasks
-  parentTask: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Task',
-    default: null
+  startTime: {
+    type: String
   },
-  // Mảng attachments cho task
-  attachments: [{
+  endTime: {
+    type: String
+  },
+  assignee: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Attachment'
-  }],
+    ref: 'User'
+  },
+  creator: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  project: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Project'
+  },
   createdAt: {
     type: Date,
     default: Date.now

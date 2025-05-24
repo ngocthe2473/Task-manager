@@ -1,13 +1,27 @@
 const express = require('express');
-const { protect, admin } = require('../middlewares/auth');
-const {
+const router = express.Router();
+const { 
+  registerUser, 
+  loginUser, 
+  getUserProfile, 
+  updateUserProfile,
   getUsers,
   getUser,
   updateUser,
   deleteUser
 } = require('../controllers/userController');
-const router = express.Router();
+const { protect, admin } = require('../middleware/authMiddleware');
 
+// Public Routes
+router.post('/register', registerUser);
+router.post('/login', loginUser);
+
+// Protected Routes
+router.route('/profile')
+  .get(protect, getUserProfile)
+  .put(protect, updateUserProfile);
+
+// Admin Routes
 router.route('/')
   .get(protect, admin, getUsers);
 

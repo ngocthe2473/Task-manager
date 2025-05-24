@@ -1,116 +1,196 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Paper, CircularProgress, Button, Dialog, TextField, FormControl, InputLabel, Select, MenuItem, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import {
+  Box, Typography, Button, Grid, Paper, Stack, Chip,
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, MenuItem, FormControl, InputLabel, Select,
+  CircularProgress, Alert, Snackbar
+} from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import TaskCard from './TaskCard';
-import { getAllTasks, addTask } from '../services/fakeDatabaseService';
+import { getAllTasks } from '../services/fakeDatabaseService';
 
 const TaskBoard = ({ onTaskClick }) => {
-  const [loading, setLoading] = useState(true);
-  const [columns, setColumns] = useState([]);
-  const [openNewTaskDialog, setOpenNewTaskDialog] = useState(false);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+  
+  const [openDialog, setOpenDialog] = useState(false);
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
+    status: 'To Do',
     priority: 'Medium',
-    status: 'todo',
-    dueDate: '',
+    dueDate: null,
     assignee: ''
   });
+  
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [users, setUsers] = useState([]);
-
+  
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchTasks = async () => {
+      setLoading(true);
       try {
-        const tasks = await getAllTasks();
-        const usersData = await fetch('/api/users').then(res => res.json()).catch(() => [
-          { id: '1', name: 'John Doe' },
-          { id: '2', name: 'Jane Smith' }
-        ]);
-        
-        setUsers(usersData);
-        
-        // Group tasks by status
-        const todo = tasks.filter(task => task.status === 'todo');
-        const inProgress = tasks.filter(task => task.status === 'inprogress');
-        const review = tasks.filter(task => task.status === 'review');
-        const done = tasks.filter(task => task.status === 'done');
-        
-        setColumns([
-          {
-            id: 'todo',
-            title: 'To Do',
-            color: '#e2ebf6',
-            tasks: todo
-          },
-          {
-            id: 'inprogress',
-            title: 'In Progress',
-            color: '#fff8dd',
-            tasks: inProgress
-          },
-          {
-            id: 'review',
-            title: 'Review',
-            color: '#defbe6',
-            tasks: review
-          },
-          {
-            id: 'done',
-            title: 'Done',
-            color: '#edf5ff',
-            tasks: done
+        const response = await fetch('/api/tasks', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token') || (JSON.parse(localStorage.getItem('userInfo')) || {}).token}`
           }
-        ]);
+        });
         
-        setLoading(false);
-      } catch (error) {
-        console.error('Error loading tasks:', error);
+        if (!response.ok) {
+          throw new Error('Failed to fetch tasks');
+        }
+        
+        const data = await response.json();
+        setTasks(data);
+      } catch (err) {
+        setError('Error loading tasks');
+        console.error(err);
+        const fakeTasks = await getAllTasks();
+        setTasks(fakeTasks);
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('/api/users', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token') || (JSON.parse(localStorage.getItem('userInfo')) || {}).token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setUsers(data);
+        } else {
+          setUsers([
+            { _id: '1', name: 'John Doe' },
+            { _id: '2', name: 'Jane Smith' }
+          ]);
+        }
+      } catch (err) {
+        console.error('Error fetching users:', err);
+        setUsers([
+          { _id: '1', name: 'John Doe' },
+          { _id: '2', name: 'Jane Smith' }
+        ]);
+      }
+    };
+    
+    fetchTasks();
+    fetchUsers();
   }, []);
+  
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+  };
 
   const handleNewTaskChange = (e) => {
     const { name, value } = e.target;
-    setNewTask(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setNewTask((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleCreateTask = async () => {
+  const handleDateChange = (e) => {
+    setNewTask((prev) => ({ ...prev, dueDate: e.target.value }));
+  };
+
+  const handleAddTask = async () => {
+    if (!newTask.title.trim()) {
+      setOpenSnackbar(true);
+      setSnackbarMessage('Task title cannot be empty');
+      setSnackbarSeverity('error');
+      return;
+    }
+    
     try {
-      const createdTask = await addTask({
-        ...newTask,
-        assigneeName: users.find(user => user.id === newTask.assignee)?.name || '',
-        project: '1', // Default project ID
-        projectName: 'Main Project' // Default project name
-      });
-
-      // Update the columns with the new task
-      const updatedColumns = [...columns];
-      const columnIndex = updatedColumns.findIndex(column => column.id === createdTask.status);
+      setLoading(true);
       
-      if (columnIndex !== -1) {
-        updatedColumns[columnIndex].tasks = [...updatedColumns[columnIndex].tasks, createdTask];
-        setColumns(updatedColumns);
+      const priorityMap = {
+        'Low': 'low',
+        'Medium': 'medium',
+        'High': 'high'
+      };
+      
+      const statusMap = {
+        'To Do': 'todo',
+        'In Progress': 'inprogress',
+        'Review': 'review',
+        'Done': 'done'
+      };
+      
+      const taskData = {
+        title: newTask.title,
+        description: newTask.description,
+        priority: priorityMap[newTask.priority] || 'medium',
+        status: statusMap[newTask.status] || 'todo',
+        dueDate: newTask.dueDate,
+        assignee: newTask.assignee
+      };
+      
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || (JSON.parse(localStorage.getItem('userInfo')) || {}).token}`
+        },
+        body: JSON.stringify(taskData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create task');
       }
-
-      // Reset form and close dialog
+      
+      const createdTask = await response.json();
+      
+      setTasks([createdTask, ...tasks]);
+      
       setNewTask({
         title: '',
         description: '',
+        status: 'To Do',
         priority: 'Medium',
-        status: 'todo',
-        dueDate: '',
+        dueDate: null,
         assignee: ''
       });
-      setOpenNewTaskDialog(false);
-    } catch (error) {
-      console.error("Error creating task:", error);
+      setOpenDialog(false);
+      
+      setOpenSnackbar(true);
+      setSnackbarMessage('Task added successfully');
+      setSnackbarSeverity('success');
+      
+    } catch (err) {
+      console.error(err);
+      setOpenSnackbar(true);
+      setSnackbarMessage('Failed to add task');
+      setSnackbarSeverity('error');
+    } finally {
+      setLoading(false);
     }
+  };
+  
+  const getTasksByStatus = (status) => {
+    if (!tasks || !Array.isArray(tasks)) return [];
+    
+    const statusMap = {
+      'To Do': 'todo',
+      'In Progress': 'inprogress',
+      'Review': 'review',
+      'Done': 'done'
+    };
+    
+    return tasks.filter(task => {
+      const dbStatus = task.status?.toLowerCase();
+      const uiStatus = Object.keys(statusMap).find(key => statusMap[key] === dbStatus) || status;
+      return uiStatus === status;
+    });
+  };
+
+  const handleCloseSnackbar = () => {
+    setOpenSnackbar(false);
   };
 
   if (loading) {
@@ -122,168 +202,173 @@ const TaskBoard = ({ onTaskClick }) => {
   }
 
   return (
-    <Box sx={{ flexGrow: 1, padding: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+    <Box sx={{ p: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
         <Typography variant="h4">Tasks</Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
+        <Button
+          variant="contained"
           startIcon={<AddIcon />}
-          onClick={() => setOpenNewTaskDialog(true)}
+          onClick={() => setOpenDialog(true)}
         >
-          Create New Task
+          Add Task
         </Button>
       </Box>
       
-      <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 2 }}>
-        {columns.map(column => (
-          <Paper
-            key={column.id}
-            sx={{
-              width: 300,
-              minWidth: 300,
-              minHeight: 'calc(100vh - 250px)',
-              backgroundColor: column.color,
-              padding: 2,
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-          >
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              mb: 2 
-            }}>
-              <Typography variant="h6">
-                {column.title} ({column.tasks.length})
-              </Typography>
-              <Button 
-                size="small" 
-                startIcon={<AddIcon />}
-                onClick={() => {
-                  setNewTask(prev => ({ ...prev, status: column.id }));
-                  setOpenNewTaskDialog(true);
-                }}
-              >
-                Add
-              </Button>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+      )}
+      
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, bgcolor: '#f5f5f5' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">To Do</Typography>
+              <Chip label={getTasksByStatus('To Do').length} size="small" />
             </Box>
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: 2,
-              overflowY: 'auto',
-              flexGrow: 1
-            }}>
-              {column.tasks.map(task => (
-                <TaskCard 
-                  key={task.id} 
-                  task={task} 
-                  onClick={() => onTaskClick(task)}
-                />
+            <Stack spacing={2}>
+              {getTasksByStatus('To Do').map((task) => (
+                <TaskCard key={task._id || task.id} task={task} onClick={onTaskClick} />
               ))}
-            </Box>
+            </Stack>
           </Paper>
-        ))}
-      </Box>
-
-      {/* Dialog for creating new task */}
-      <Dialog open={openNewTaskDialog} onClose={() => setOpenNewTaskDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create New Task</DialogTitle>
+        </Grid>
+        
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, bgcolor: '#fff8e1' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">In Progress</Typography>
+              <Chip label={getTasksByStatus('In Progress').length} size="small" />
+            </Box>
+            <Stack spacing={2}>
+              {getTasksByStatus('In Progress').map((task) => (
+                <TaskCard key={task._id || task.id} task={task} onClick={onTaskClick} />
+              ))}
+            </Stack>
+          </Paper>
+        </Grid>
+        
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, bgcolor: '#e8f5e9' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">Review</Typography>
+              <Chip label={getTasksByStatus('Review').length} size="small" />
+            </Box>
+            <Stack spacing={2}>
+              {getTasksByStatus('Review').map((task) => (
+                <TaskCard key={task._id || task.id} task={task} onClick={onTaskClick} />
+              ))}
+            </Stack>
+          </Paper>
+        </Grid>
+        
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, bgcolor: '#e3f2fd' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">Done</Typography>
+              <Chip label={getTasksByStatus('Done').length} size="small" />
+            </Box>
+            <Stack spacing={2}>
+              {getTasksByStatus('Done').map((task) => (
+                <TaskCard key={task._id || task.id} task={task} onClick={onTaskClick} />
+              ))}
+            </Stack>
+          </Paper>
+        </Grid>
+      </Grid>
+      
+      <Dialog open={openDialog} onClose={handleCloseDialog} fullWidth>
+        <DialogTitle>Add New Task</DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField
-              label="Title"
-              name="title"
-              value={newTask.title}
-              onChange={handleNewTaskChange}
-              fullWidth
-              required
-            />
-            
-            <TextField
-              label="Description"
-              name="description"
-              value={newTask.description}
-              onChange={handleNewTaskChange}
-              fullWidth
-              multiline
-              rows={3}
-            />
-            
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <FormControl fullWidth>
-                <InputLabel>Priority</InputLabel>
-                <Select
-                  name="priority"
-                  value={newTask.priority}
-                  label="Priority"
-                  onChange={handleNewTaskChange}
-                >
-                  <MenuItem value="Low">Low</MenuItem>
-                  <MenuItem value="Medium">Medium</MenuItem>
-                  <MenuItem value="High">High</MenuItem>
-                </Select>
-              </FormControl>
-              
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  name="status"
-                  value={newTask.status}
-                  label="Status"
-                  onChange={handleNewTaskChange}
-                >
-                  <MenuItem value="todo">To Do</MenuItem>
-                  <MenuItem value="inprogress">In Progress</MenuItem>
-                  <MenuItem value="review">Review</MenuItem>
-                  <MenuItem value="done">Done</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-            
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField
-                label="Due Date"
-                name="dueDate"
-                type="date"
-                value={newTask.dueDate}
+          <TextField
+            margin="dense"
+            label="Title"
+            name="title"
+            value={newTask.title}
+            onChange={handleNewTaskChange}
+            fullWidth
+            required
+          />
+          <TextField
+            margin="dense"
+            label="Description"
+            name="description"
+            value={newTask.description}
+            onChange={handleNewTaskChange}
+            multiline
+            rows={4}
+            fullWidth
+          />
+          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel>Status</InputLabel>
+              <Select
+                name="status"
+                value={newTask.status}
+                label="Status"
                 onChange={handleNewTaskChange}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-              />
-              
-              <FormControl fullWidth>
-                <InputLabel>Assignee</InputLabel>
-                <Select
-                  name="assignee"
-                  value={newTask.assignee}
-                  label="Assignee"
-                  onChange={handleNewTaskChange}
-                >
-                  {users.map(user => (
-                    <MenuItem key={user.id} value={user.id}>
-                      {user.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
+              >
+                <MenuItem value="To Do">To Do</MenuItem>
+                <MenuItem value="In Progress">In Progress</MenuItem>
+                <MenuItem value="Review">Review</MenuItem>
+                <MenuItem value="Done">Done</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Priority</InputLabel>
+              <Select
+                name="priority"
+                value={newTask.priority}
+                label="Priority"
+                onChange={handleNewTaskChange}
+              >
+                <MenuItem value="Low">Low</MenuItem>
+                <MenuItem value="Medium">Medium</MenuItem>
+                <MenuItem value="High">High</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+            <TextField
+              label="Due Date"
+              type="date"
+              name="dueDate"
+              value={newTask.dueDate || ''}
+              onChange={handleDateChange}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+            />
+            <FormControl fullWidth>
+              <InputLabel>Assignee</InputLabel>
+              <Select
+                name="assignee"
+                value={newTask.assignee}
+                label="Assignee"
+                onChange={handleNewTaskChange}
+              >
+                {(Array.isArray(users) ? users : []).map(user => (
+                  <MenuItem key={user._id || user.id} value={user._id || user.id}>
+                    {user.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenNewTaskDialog(false)}>Cancel</Button>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            onClick={handleCreateTask}
-            disabled={!newTask.title}
-          >
-            Create
-          </Button>
+          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleAddTask}>Add</Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar 
+        open={openSnackbar} 
+        autoHideDuration={6000} 
+        onClose={handleCloseSnackbar}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
