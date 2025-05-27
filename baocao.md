@@ -6,7 +6,7 @@
 
 * Tên trường, khoa, ngành
 * Tên học phần
-* Tên đề tài: **"Xây dựng một website với MongoDB"**
+* Tên đề tài: **"Xây dựng một website Quản lí công việc với MongoDB"**
 * Họ tên sinh viên, mã số sinh viên
 * Giảng viên hướng dẫn
 * Ngày tháng năm nộp
