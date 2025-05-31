@@ -26,36 +26,37 @@ const seedData = async () => {
     await Task.deleteMany();
 
     // Tạo users mẫu
-    console.log('Creating sample users...'.yellow);    const hashedPassword = await bcrypt.hash('123456', 12);
+    console.log('Creating sample users...'.yellow);
+    const hashedPassword = await bcrypt.hash('123456', 12);
     
     const users = await User.create([
       {
-        name: 'Admin User',
+        username: 'admin',
         email: 'admin@example.com',
         password: hashedPassword,
-        role: 'admin',
-        avatar: 'https://ui-avatars.com/api/?name=Admin+User&background=random'
+        name: 'Admin User',
+        role: 'admin'
       },
       {
-        name: 'Trần Ngọc Thế',
+        username: 'the',
         email: 'the@example.com',
         password: hashedPassword,
-        role: 'user',
-        avatar: 'https://ui-avatars.com/api/?name=Trần+Ngọc+Thế&background=random'
+        name: 'Trần Ngọc Thế',
+        role: 'manager'
       },
       {
-        name: 'Nguyễn Tấn Long',
+        username: 'long',
         email: 'long@example.com',
         password: hashedPassword,
-        role: 'user',
-        avatar: 'https://ui-avatars.com/api/?name=Nguyễn+Tấn+Long&background=random'
+        name: 'Nguyễn Tấn Long',
+        role: 'member'
       },
       {
-        name: 'Trần Đại Việt',
+        username: 'viet',
         email: 'viet@example.com',
         password: hashedPassword,
-        role: 'user',
-        avatar: 'https://ui-avatars.com/api/?name=Trần+Đại+Việt&background=random'
+        name: 'Trần Đại Việt',
+        role: 'member'
       }
     ]);
 
@@ -64,11 +65,8 @@ const seedData = async () => {
     const team = await Team.create({
       name: 'Nhóm Phát Triển Web',
       description: 'Nhóm phát triển hệ thống quản lý công việc',
-      members: [
-        { user: users[1]._id, team_role: 'leader' }, // Thế làm leader
-        { user: users[2]._id, team_role: 'member' }, // Long làm member
-        { user: users[3]._id, team_role: 'member' }  // Việt làm member
-      ]
+      manager: users[1]._id, // Thế làm manager
+      members: [users[1]._id, users[2]._id, users[3]._id]
     });
 
     // Tạo project mẫu
@@ -89,9 +87,7 @@ const seedData = async () => {
         title: 'Thiết kế giao diện đăng nhập',
         description: 'Tạo form đăng nhập với validation',
         project: project._id,
-        assignee: users[1]._id,
-        creator: users[0]._id,
-        createdBy: users[0]._id,
+        assignee: users[1]._id, // Thế
         status: 'done',
         priority: 'high',
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -100,10 +96,8 @@ const seedData = async () => {
         title: 'Phát triển API quản lý tasks',
         description: 'Tạo CRUD operations cho tasks',
         project: project._id,
-        assignee: users[2]._id,
-        creator: users[0]._id,
-        createdBy: users[0]._id,
-        status: 'inprogress',
+        assignee: users[2]._id, // Long
+        status: 'in_progress',
         priority: 'medium',
         dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
       },
@@ -111,9 +105,8 @@ const seedData = async () => {
         title: 'Tích hợp hệ thống notification',
         description: 'Thêm thông báo real-time cho users',
         project: project._id,
-        assignee: users[3]._id,
-        creator: users[0]._id,
-        status: 'todo', // Giữ nguyên vì 'todo' đúng
+        assignee: users[3]._id, // Việt
+        status: 'todo',
         priority: 'low',
         dueDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000)
       }

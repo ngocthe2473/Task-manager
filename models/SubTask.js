@@ -16,14 +16,11 @@ const subTaskSchema = new mongoose.Schema({
   assignee: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User' 
-  },  status: { 
+  },
+  status: { 
     type: String, 
     enum: ['todo', 'in_progress', 'done'], 
     default: 'todo' 
-  },
-  completed: {
-    type: Boolean,
-    default: false
   },
   priority: { 
     type: String, 
@@ -32,10 +29,6 @@ const subTaskSchema = new mongoose.Schema({
   },
   dueDate: { 
     type: Date 
-  },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
   },
   createdAt: { 
     type: Date, 
