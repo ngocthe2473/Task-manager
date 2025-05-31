@@ -87,8 +87,9 @@ const seedData = async () => {
         title: 'Thiết kế giao diện đăng nhập',
         description: 'Tạo form đăng nhập với validation',
         project: project._id,
-        assignee: users[1]._id, // Thế
-        status: 'done',
+        assignee: users[1]._id,
+        creator: users[0]._id,
+        status: 'done', // Giữ nguyên vì 'done' đúng
         priority: 'high',
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       },
@@ -96,8 +97,9 @@ const seedData = async () => {
         title: 'Phát triển API quản lý tasks',
         description: 'Tạo CRUD operations cho tasks',
         project: project._id,
-        assignee: users[2]._id, // Long
-        status: 'in_progress',
+        assignee: users[2]._id,
+        creator: users[0]._id,
+        status: 'inprogress', // Sửa 'in_progress' thành 'inprogress'
         priority: 'medium',
         dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
       },
@@ -105,8 +107,9 @@ const seedData = async () => {
         title: 'Tích hợp hệ thống notification',
         description: 'Thêm thông báo real-time cho users',
         project: project._id,
-        assignee: users[3]._id, // Việt
-        status: 'todo',
+        assignee: users[3]._id,
+        creator: users[0]._id,
+        status: 'todo', // Giữ nguyên vì 'todo' đúng
         priority: 'low',
         dueDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000)
       }
