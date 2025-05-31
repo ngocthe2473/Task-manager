@@ -1,102 +1,144 @@
+const asyncHandler = require('express-async-handler');
 const Project = require('../models/Project');
-const Team = require('../models/Team');
-const ActivityLog = require('../models/ActivityLog');
+const Task = require('../models/Task');
 
 // @desc    Get all projects
 // @route   GET /api/projects
 // @access  Private
-exports.getProjects = async (req, res) => {
-  try {
-    let query = {};
-    
-    // For non-admin users, show only their team's projects
-    if (req.user.role !== 'admin') {
-      const user = await User.findById(req.user.id);
-      query.team = user.team;
-    }
+const getProjects = asyncHandler(async (req, res) => {
+  const projects = await Project.find({})
+    .populate('team', 'name')
+    .sort({ createdAt: -1 });
+  
+  res.json(projects);
+});
 
-    const projects = await Project.find(query)
-      .populate('team', 'name')
-      .sort('-createdAt');
-      
-    res.json(projects);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+// @desc    Get project by ID
+// @route   GET /api/projects/:id
+// @access  Private
+const getProjectById = asyncHandler(async (req, res) => {
+  const project = await Project.findById(req.params.id)
+    .populate('team', 'name members');
+
+  if (!project) {
+    res.status(404);
+    throw new Error('Project không tồn tại');
   }
-};
 
-// @desc    Create a project
+  res.json(project);
+});
+
+// @desc    Create new project
 // @route   POST /api/projects
-// @access  Private/Manager
-exports.createProject = async (req, res) => {
-  try {
-    const { name, description, teamId, startDate, endDate } = req.body;
+// @access  Private
+const createProject = asyncHandler(async (req, res) => {
+  const { name, description, team, startDate, endDate } = req.body;
 
-    // Check if team exists
-    const team = await Team.findById(teamId);
-    if (!team) {
-      return res.status(404).json({ message: 'Team not found' });
-    }
+  const project = await Project.create({
+    name,
+    description,
+    team,
+    startDate,
+    endDate,
+  });
 
-    // Check if user is team manager or admin
-    if (req.user.role !== 'admin' && team.manager.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
+  const populatedProject = await Project.findById(project._id)
+    .populate('team', 'name');
 
-    const project = await Project.create({
-      name,
-      description,
-      team: teamId,
-      startDate,
-      endDate
-    });
+  res.status(201).json(populatedProject);
+});
 
-    // Log activity
-    await ActivityLog.create({
-      user: req.user.id,
-      action: 'create',
-      entityType: 'Project',
-      entityId: project._id
-    });
+// @desc    Update project
+// @route   PUT /api/projects/:id
+// @access  Private
+const updateProject = asyncHandler(async (req, res) => {
+  const project = await Project.findById(req.params.id);
 
-    res.status(201).json(project);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+  if (!project) {
+    res.status(404);
+    throw new Error('Project không tồn tại');
   }
-};
 
-// @desc    Update project status
-// @route   PUT /api/projects/:id/status
-// @access  Private/Manager
-exports.updateProjectStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-    const project = await Project.findById(req.params.id);
+  const updatedProject = await Project.findByIdAndUpdate(
+    req.params.id,
+    req.body,
+    { new: true }
+  ).populate('team', 'name');
 
-    if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
-    }
+  res.json(updatedProject);
+});
 
-    // Check if user is team manager or admin
-    const team = await Team.findById(project.team);
-    if (req.user.role !== 'admin' && team.manager.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
+// @desc    Delete project
+// @route   DELETE /api/projects/:id
+// @access  Private
+const deleteProject = asyncHandler(async (req, res) => {
+  const project = await Project.findById(req.params.id);
 
-    project.status = status;
-    await project.save();
-
-    // Log activity
-    await ActivityLog.create({
-      user: req.user.id,
-      action: 'update',
-      entityType: 'Project',
-      entityId: project._id,
-      metadata: { field: 'status', newValue: status }
-    });
-
-    res.json(project);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+  if (!project) {
+    res.status(404);
+    throw new Error('Project không tồn tại');
   }
+
+  // Xóa tất cả tasks thuộc project này
+  await Task.deleteMany({ project: req.params.id });
+
+  await Project.findByIdAndDelete(req.params.id);
+  res.json({ message: 'Project và tất cả task liên quan đã được xóa' });
+});
+
+// @desc    Get project statistics
+// @route   GET /api/projects/:id/stats
+// @access  Private
+const getProjectStats = asyncHandler(async (req, res) => {
+  const projectId = req.params.id;
+  
+  const project = await Project.findById(projectId);
+  if (!project) {
+    res.status(404);
+    throw new Error('Project không tồn tại');
+  }
+
+  const totalTasks = await Task.countDocuments({ project: projectId });
+  const todoTasks = await Task.countDocuments({ project: projectId, status: 'todo' });
+  const inProgressTasks = await Task.countDocuments({ project: projectId, status: 'in_progress' });
+  const doneTasks = await Task.countDocuments({ project: projectId, status: 'done' });
+
+  const overdueTasks = await Task.countDocuments({
+    project: projectId,
+    dueDate: { $lt: new Date() },
+    status: { $ne: 'done' }
+  });
+
+  const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+
+  res.json({
+    project: project.name,
+    totalTasks,
+    todoTasks,
+    inProgressTasks,
+    doneTasks,
+    overdueTasks,
+    progress,
+  });
+});
+
+// @desc    Get tasks by project
+// @route   GET /api/projects/:id/tasks
+// @access  Private
+const getProjectTasks = asyncHandler(async (req, res) => {
+  const tasks = await Task.find({ project: req.params.id })
+    .populate('assignee', 'name email')
+    .sort({ createdAt: -1 });
+  
+  res.json(tasks);
+});
+
+module.exports = {
+  getProjects,
+  getProjectById,
+  createProject,
+  updateProject,
+  deleteProject,
+  getProjectStats,
+  getProjectTasks,
 };

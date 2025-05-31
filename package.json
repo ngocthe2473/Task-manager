@@ -11,7 +11,8 @@
     "data:import": "node seed.js -i",
     "data:destroy": "node seed.js -d",
     "build": "npm run build --prefix client",
-    "heroku-postbuild": "NPM_CONFIG_PRODUCTION=false npm install --prefix client && npm run build --prefix client"
+    "heroku-postbuild": "NPM_CONFIG_PRODUCTION=false npm install --prefix client && npm run build --prefix client",
+    "seed": "node scripts/seedAtlas.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
