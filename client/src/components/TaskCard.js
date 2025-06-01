@@ -44,7 +44,7 @@ const TaskCard = ({ task, onClick, onEdit, onDelete }) => {
   const displayPriority = priority || 'Medium';
   const displayDueDate = dueDate || due || '';
   const getInitials = (name) => {
-    if (!name) return '?';
+    if (!name || typeof name !== 'string') return '?';
     return name.charAt(0) || '?';
   };
   const dueDateObj = new Date(displayDueDate);

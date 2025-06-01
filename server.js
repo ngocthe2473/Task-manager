@@ -1,6 +1,16 @@
 require('dotenv').config();
 const express = require('express');
+// Mở comment đoạn này nếu bạn muốn bỏ qua lỗi kết nối MongoDB
+// process.env.SKIP_MONGODB = "true";
+
 const connectDB = require('./config/db');
+if (process.env.SKIP_MONGODB !== "true") {
+  // Connect to database
+  connectDB();
+} else {
+  console.log('Running without MongoDB connection (using mock data)'.yellow.bold);
+}
+
 const path = require('path');
 
 // Route files
@@ -13,9 +23,6 @@ const commentRoutes = require('./routes/commentRoutes');
 const timeLogRoutes = require('./routes/timeLogRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const activityLogRoutes = require('./routes/activityLogRoutes');
-
-// Connect to database
-connectDB();
 
 const app = express();
 

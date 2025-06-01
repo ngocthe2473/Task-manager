@@ -462,10 +462,10 @@ const Dashboard = () => {
                       <TaskItem key={task.id}>
                         <TaskInfo>
                           <TaskAvatar priority={task.priority}>
-                            {task.title ? task.title.charAt(0) : '?'}
+                            {task.title.charAt(0)}
                           </TaskAvatar>
                           <TaskDetails>
-                            <TaskTitle>{task.title || 'Untitled Task'}</TaskTitle>
+                            <TaskTitle>{task.title}</TaskTitle>
                             <TaskMeta>
                               {task.project?.name || 'No Project'} • Due {formatDate(task.dueDate)}
                             </TaskMeta>
@@ -473,17 +473,17 @@ const Dashboard = () => {
                         </TaskInfo>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                           {task.assignee && (
-                            <Tooltip title={task.assignee.name || 'Unassigned'}>
+                            <Tooltip title={task.assignee.name}>
                               <Avatar 
                                 sx={{ width: 24, height: 24, fontSize: 12 }}
                               >
-                                {task.assignee && task.assignee.name ? task.assignee.name.charAt(0) : '?'}
+                                {task.assignee.name.charAt(0)}
                               </Avatar>
                             </Tooltip>
                           )}
                           <StatusChip 
-                            label={task.status === 'in-progress' ? 'In Progress' : (task.status ? task.status.charAt(0).toUpperCase() + task.status.slice(1) : 'Unknown')}
-                            status={isOverdue(task.dueDate) && task.status !== 'done' ? 'overdue' : (task.status || 'todo')}
+                            label={task.status === 'in-progress' ? 'In Progress' : task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+                            status={isOverdue(task.dueDate) && task.status !== 'done' ? 'overdue' : task.status}
                             size="small"
                           />
                         </Box>
@@ -637,7 +637,7 @@ const Dashboard = () => {
                   {teamMembers.map((member) => (
                     <TeamMember key={member.id}>
                       <MemberAvatar sx={{ bgcolor: `hsl(${member.id * 60}, 70%, 60%)` }}>
-                        {member.name ? member.name.charAt(0) : '?'}
+                        {member.name.charAt(0)}
                       </MemberAvatar>
                       <MemberInfo>
                         <MemberName>{member.name}</MemberName>
@@ -704,7 +704,7 @@ const Dashboard = () => {
                                   bgcolor: project.color
                                 }}
                               >
-                                {project.name ? project.name.charAt(0) : '?'}
+                                {project.name.charAt(0)}
                               </Avatar>
                               <ProjectTitle>{project.name}</ProjectTitle>
                             </Box>
