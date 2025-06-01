@@ -164,7 +164,7 @@ const AddProjectButton = styled(Box)(({ theme }) => ({
   },
 }));
 
-const Sidebar = ({ open = true, onClose }) => {
+const Sidebar = ({ open, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [projectsExpanded, setProjectsExpanded] = useState(true);
@@ -184,11 +184,12 @@ const Sidebar = ({ open = true, onClose }) => {
   ];
 
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Tasks', icon: <TasksIcon />, path: '/tasks' },
-    { text: 'Calendar', icon: <CalendarIcon />, path: '/calendar' },
-    { text: 'Teams', icon: <TeamIcon />, path: '/teams' },
     { text: 'Projects', icon: <ProjectIcon />, path: '/projects' },
+    { text: 'Calendar', icon: <CalendarIcon />, path: '/calendar' },
+    { text: 'Team', icon: <TeamIcon />, path: '/team' },
+    { text: 'Timeline', icon: <TimelineIcon />, path: '/timeline' },
     { text: 'Reports', icon: <ReportsIcon />, path: '/reports' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' }
   ];
@@ -233,9 +234,10 @@ const Sidebar = ({ open = true, onClose }) => {
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, color: '#333' }}>
               Task Summary
             </Typography>
-              <StatItem>
+            
+            <StatItem>
               <StatLabel>
-                <CompletedIcon sx={{ fontSize: 16, color: '#4caf50' }} />
+                <CheckCircle sx={{ fontSize: 16, color: '#4caf50' }} />
                 Completed
               </StatLabel>
               <StatValue>{stats.completed}</StatValue>

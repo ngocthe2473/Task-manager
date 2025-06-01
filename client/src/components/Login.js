@@ -57,6 +57,22 @@ const Login = () => {
     setError('');
 
     try {
+      // Chế độ đăng nhập giả lập
+      const mockUser = {
+        id: '1',
+        name: 'John Doe',
+        email: formData.email,
+        role: 'Project Manager',
+        token: 'fake-jwt-token'
+      };
+      
+      setTimeout(() => {
+        login(mockUser);
+        navigate('/');
+      }, 1000);
+      
+      // Đoạn code kết nối API thực (đã bị tắt)
+      /*
       const response = await fetch('/api/users/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -75,6 +91,7 @@ const Login = () => {
       // Đăng nhập thành công
       login(data);
       navigate('/');
+      */
     } catch (error) {
       setError(error.message);
     } finally {
