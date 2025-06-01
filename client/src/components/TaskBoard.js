@@ -3,12 +3,19 @@ import {
   Box, Typography, Button, Grid, Paper, Stack, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, MenuItem, FormControl, InputLabel, Select,
-  CircularProgress, Alert, Snackbar
+  CircularProgress, Alert, Snackbar, Collapse, IconButton
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import SortIcon from '@mui/icons-material/Sort';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import TaskCard from './TaskCard';
 import EditTaskDialog from './EditTaskDialog';
 import { getAllTasks } from '../services/fakeDatabaseService';
+import { notificationService } from '../services/notificationService';
 
 const TaskBoard = ({ onTaskClick }) => {
   const [openSnackbar, setOpenSnackbar] = useState(false);
@@ -24,23 +31,91 @@ const TaskBoard = ({ onTaskClick }) => {
     dueDate: null,
     assignee: ''
   });
-  
-  const [tasks, setTasks] = useState([]);
+    const [tasks, setTasks] = useState([]);
   const [editTask, setEditTask] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  // Search/filter state
+  
+  // Enhanced search/filter state
   const [search, setSearch] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    status: '',
+    priority: '',
+    assignee: '',
+    dueDate: '',
+    overdue: false
+  });
+  const [sortBy, setSortBy] = useState('');
+  const [sortOrder, setSortOrder] = useState('desc');
+  
   // Drag & drop state
   const [draggedTask, setDraggedTask] = useState(null);
-  // Search/filter logic
+  
+  // Enhanced search/filter logic
   const filteredTasks = tasks.filter(task => {
+    // Search filter
     const q = search.toLowerCase();
-    return (
+    const matchesSearch = !q || (
       task.title?.toLowerCase().includes(q) ||
       task.description?.toLowerCase().includes(q) ||
       (task.assigneeName && task.assigneeName.toLowerCase().includes(q))
     );
+    
+    // Status filter
+    const matchesStatus = !filters.status || 
+      (task.status?.toLowerCase() === filters.status.toLowerCase());
+    
+    // Priority filter
+    const matchesPriority = !filters.priority || 
+      (task.priority?.toLowerCase() === filters.priority.toLowerCase());
+    
+    // Assignee filter
+    const matchesAssignee = !filters.assignee || 
+      (task.assignee === filters.assignee);
+    
+    // Due date filter
+    const matchesDueDate = !filters.dueDate || (task.dueDate && 
+      new Date(task.dueDate).toDateString() === new Date(filters.dueDate).toDateString());
+    
+    // Overdue filter
+    const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done';
+    const matchesOverdue = !filters.overdue || isOverdue;
+    
+    return matchesSearch && matchesStatus && matchesPriority && 
+           matchesAssignee && matchesDueDate && matchesOverdue;
+  }).sort((a, b) => {
+    if (!sortBy) return 0;
+    
+    let aValue, bValue;
+    switch (sortBy) {
+      case 'title':
+        aValue = a.title || '';
+        bValue = b.title || '';
+        break;
+      case 'dueDate':
+        aValue = a.dueDate ? new Date(a.dueDate) : new Date('9999-12-31');
+        bValue = b.dueDate ? new Date(b.dueDate) : new Date('9999-12-31');
+        break;
+      case 'priority':
+        const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+        aValue = priorityOrder[a.priority?.toLowerCase()] || 0;
+        bValue = priorityOrder[b.priority?.toLowerCase()] || 0;
+        break;
+      case 'createdAt':
+        aValue = new Date(a.createdAt || a.updatedAt || 0);
+        bValue = new Date(b.createdAt || b.updatedAt || 0);
+        break;
+      default:
+        return 0;
+    }
+    
+    if (sortOrder === 'asc') {
+      return aValue > bValue ? 1 : -1;
+    } else {
+      return aValue < bValue ? 1 : -1;
+    }
   });
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [users, setUsers] = useState([]);
@@ -96,9 +171,35 @@ const TaskBoard = ({ onTaskClick }) => {
         ]);
       }
     };
-    
-    fetchTasks();
+      fetchTasks();
     fetchUsers();
+    
+    // Listen for real-time task updates
+    const handleTaskUpdated = (event) => {
+      const updatedTask = event.detail;
+      setTasks(prevTasks => 
+        prevTasks.map(task => 
+          (task._id || task.id) === (updatedTask._id || updatedTask.id) 
+            ? updatedTask 
+            : task
+        )
+      );
+    };
+    
+    const handleTaskCreated = (event) => {
+      const newTask = event.detail;
+      setTasks(prevTasks => [newTask, ...prevTasks]);
+    };
+    
+    // Add event listeners
+    window.addEventListener('task_updated', handleTaskUpdated);
+    window.addEventListener('task_created', handleTaskCreated);
+    
+    // Cleanup event listeners
+    return () => {
+      window.removeEventListener('task_updated', handleTaskUpdated);
+      window.removeEventListener('task_created', handleTaskCreated);
+    };
   }, []);
   
   const handleCloseDialog = () => {
@@ -164,8 +265,7 @@ const TaskBoard = ({ onTaskClick }) => {
       }
       
       const createdTask = await response.json();
-      
-      setTasks([createdTask, ...tasks]);
+        setTasks([createdTask, ...tasks]);
       
       setNewTask({
         title: '',
@@ -176,6 +276,14 @@ const TaskBoard = ({ onTaskClick }) => {
         assignee: ''
       });
       setOpenDialog(false);
+      
+      // Create notification for task creation
+      notificationService.addTaskCreatedNotification(createdTask);
+      
+      // If task has an assignee, create assignment notification
+      if (createdTask.assignee && createdTask.assignee._id) {
+        notificationService.addTaskAssignedNotification(createdTask);
+      }
       
       setOpenSnackbar(true);
       setSnackbarMessage('Task added successfully');
@@ -242,11 +350,22 @@ const TaskBoard = ({ onTaskClick }) => {
           'Authorization': `Bearer ${localStorage.getItem('token') || (JSON.parse(localStorage.getItem('userInfo')) || {}).token}`
         },
         body: JSON.stringify(updated)
-      });
-      if (!response.ok) throw new Error('Failed to update task');
+      });      if (!response.ok) throw new Error('Failed to update task');
       const data = await response.json();
       setTasks(tasks.map(t => (t._id || t.id) === (editTask._id || editTask.id) ? data : t));
       setEditDialogOpen(false);
+      
+      // Create notifications for task updates
+      const originalStatus = editTask.status;
+      if (data.status === 'completed' && originalStatus !== 'completed') {
+        notificationService.addTaskCompletedNotification(data);
+      }
+      
+      // If assignee changed, create assignment notification
+      if (updated.assignee && updated.assignee !== editTask.assignee) {
+        notificationService.addTaskAssignedNotification(data);
+      }
+      
       setOpenSnackbar(true);
       setSnackbarMessage('Task updated');
       setSnackbarSeverity('success');
@@ -278,30 +397,189 @@ const TaskBoard = ({ onTaskClick }) => {
       </Box>
     );
   }
-
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, alignItems: 'center' }}>
         <Typography variant="h4">Tasks</Typography>
-        <TextField
-          placeholder="Search tasks..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          size="small"
-          sx={{ minWidth: 220, mr: 2 }}
-        />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setOpenDialog(true)}
-        >
-          Add Task
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <TextField
+            placeholder="Search tasks, assignees..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            size="small"
+            sx={{ minWidth: 280 }}
+            InputProps={{
+              startAdornment: <SearchIcon sx={{ mr: 1, color: 'action.active' }} />,
+              endAdornment: search && (
+                <IconButton size="small" onClick={() => setSearch('')}>
+                  <ClearIcon />
+                </IconButton>
+              )
+            }}
+          />
+          <Button
+            variant="outlined"
+            startIcon={<FilterListIcon />}
+            onClick={() => setShowFilters(!showFilters)}
+            sx={{ minWidth: 100 }}
+          >
+            Filter
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setOpenDialog(true)}
+          >
+            Add Task
+          </Button>
+        </Box>
       </Box>
+
+      {/* Advanced Filters */}
+      <Collapse in={showFilters}>
+        <Paper sx={{ p: 2, mb: 2, bgcolor: 'grey.50' }}>
+          <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
+            Advanced Filters & Sort
+          </Typography>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={filters.status}
+                  label="Status"
+                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="todo">To Do</MenuItem>
+                  <MenuItem value="inprogress">In Progress</MenuItem>
+                  <MenuItem value="review">Review</MenuItem>
+                  <MenuItem value="done">Done</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Priority</InputLabel>
+                <Select
+                  value={filters.priority}
+                  label="Priority"
+                  onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="low">Low</MenuItem>
+                  <MenuItem value="medium">Medium</MenuItem>
+                  <MenuItem value="high">High</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Assignee</InputLabel>
+                <Select
+                  value={filters.assignee}
+                  label="Assignee"
+                  onChange={(e) => setFilters(prev => ({ ...prev, assignee: e.target.value }))}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {users.map(user => (
+                    <MenuItem key={user._id || user.id} value={user._id || user.id}>
+                      {user.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <TextField
+                label="Due Date"
+                type="date"
+                size="small"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                value={filters.dueDate}
+                onChange={(e) => setFilters(prev => ({ ...prev, dueDate: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Sort By</InputLabel>
+                <Select
+                  value={sortBy}
+                  label="Sort By"
+                  onChange={(e) => setSortBy(e.target.value)}
+                >
+                  <MenuItem value="">None</MenuItem>
+                  <MenuItem value="title">Title</MenuItem>
+                  <MenuItem value="dueDate">Due Date</MenuItem>
+                  <MenuItem value="priority">Priority</MenuItem>
+                  <MenuItem value="createdAt">Created Date</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant={sortOrder === 'asc' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setSortOrder('asc')}
+                  disabled={!sortBy}
+                >
+                  ASC
+                </Button>
+                <Button
+                  variant={sortOrder === 'desc' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setSortOrder('desc')}
+                  disabled={!sortBy}
+                >
+                  DESC
+                </Button>
+              </Box>
+            </Grid>
+          </Grid>
+          <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => {
+                setFilters({
+                  status: '',
+                  priority: '',
+                  assignee: '',
+                  dueDate: '',
+                  overdue: false
+                });
+                setSortBy('');
+                setSortOrder('desc');
+                setSearch('');
+              }}
+            >
+              Clear All Filters
+            </Button>
+            <Button
+              variant={filters.overdue ? 'contained' : 'outlined'}
+              size="small"
+              color="error"
+              onClick={() => setFilters(prev => ({ ...prev, overdue: !prev.overdue }))}
+            >
+              Show Overdue Only
+            </Button>
+          </Box>
+        </Paper>
+      </Collapse>
       
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
       )}
+
+      {/* Results Summary */}
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          Showing {filteredTasks.length} of {tasks.length} tasks
+          {search && ` matching "${search}"`}
+        </Typography>
+      </Box>
       
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6} md={3}>

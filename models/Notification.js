@@ -9,10 +9,21 @@ const NotificationSchema = new mongoose.Schema({
   content: {
     type: String,
     required: true
-  },
-  type: {
+  },  type: {
     type: String,
-    enum: ['task_assigned', 'comment', 'due_date_reminder', 'project_update'],
+    enum: [
+      'task_assigned', 
+      'task_created', 
+      'task_completed', 
+      'task_comment', 
+      'task_due_soon', 
+      'task_overdue',
+      'comment', 
+      'due_date_reminder', 
+      'project_update',
+      'daily_digest',
+      'deadline_warning'
+    ],
     required: true
   },
   isRead: {

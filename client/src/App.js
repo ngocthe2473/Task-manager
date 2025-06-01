@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Box, CssBaseline } from '@mui/material';
-import Sidebar from './components/Sidebar';
-import Navbar from './components/Navbar';
+import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import TaskBoard from './components/TaskBoard';
 import Calendar from './components/Calendar';
@@ -39,111 +38,41 @@ const App = () => {
               {/* Private Routes */}
               <Route path="/" element={
                 <PrivateRoute>
-                  <>
-                    <Navbar />
-                    <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
-                      <Sidebar />
-                      <Box
-                        component="main"
-                        sx={{
-                          flexGrow: 1,
-                          p: 0,
-                          overflowY: 'auto',
-                          backgroundColor: '#f7f8fa'
-                        }}
-                      >
-                        <Dashboard />
-                      </Box>
-                    </Box>
-                  </>
+                  <Layout>
+                    <Dashboard />
+                  </Layout>
                 </PrivateRoute>
               } />
 
               <Route path="/tasks" element={
                 <PrivateRoute>
-                  <>
-                    <Navbar />
-                    <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
-                      <Sidebar />
-                      <Box
-                        component="main"
-                        sx={{
-                          flexGrow: 1,
-                          p: 0,
-                          overflowY: 'auto',
-                          backgroundColor: '#f7f8fa'
-                        }}
-                      >
-                        <TaskBoard onTaskClick={handleTaskClick} />
-                      </Box>
-                    </Box>
-                  </>
+                  <Layout>
+                    <TaskBoard onTaskClick={handleTaskClick} />
+                  </Layout>
                 </PrivateRoute>
               } />
 
               <Route path="/calendar" element={
                 <PrivateRoute>
-                  <>
-                    <Navbar />
-                    <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
-                      <Sidebar />
-                      <Box
-                        component="main"
-                        sx={{
-                          flexGrow: 1,
-                          p: 0,
-                          overflowY: 'auto',
-                          backgroundColor: '#f7f8fa'
-                        }}
-                      >
-                        <Calendar />
-                      </Box>
-                    </Box>
-                  </>
+                  <Layout>
+                    <Calendar />
+                  </Layout>
                 </PrivateRoute>
               } />
 
               <Route path="/teams" element={
                 <PrivateRoute>
-                  <>
-                    <Navbar />
-                    <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
-                      <Sidebar />
-                      <Box
-                        component="main"
-                        sx={{
-                          flexGrow: 1,
-                          p: 0,
-                          overflowY: 'auto',
-                          backgroundColor: '#f7f8fa'
-                        }}
-                      >
-                        <Teams />
-                      </Box>
-                    </Box>
-                  </>
+                  <Layout>
+                    <Teams />
+                  </Layout>
                 </PrivateRoute>
               } />
 
               <Route path="/settings" element={
                 <PrivateRoute>
-                  <>
-                    <Navbar />
-                    <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
-                      <Sidebar />
-                      <Box
-                        component="main"
-                        sx={{
-                          flexGrow: 1,
-                          p: 0,
-                          overflowY: 'auto',
-                          backgroundColor: '#f7f8fa'
-                        }}
-                      >
-                        <Settings />
-                      </Box>
-                    </Box>
-                  </>
+                  <Layout>
+                    <Settings />
+                  </Layout>
                 </PrivateRoute>
               } />
             </Routes>

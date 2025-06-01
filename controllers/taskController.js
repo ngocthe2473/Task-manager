@@ -1,5 +1,6 @@
 const Task = require('../models/Task');
 const mongoose = require('mongoose');
+const { createTaskNotification } = require('./notificationController');
 
 // @desc    Lấy tất cả tasks
 // @route   GET /api/tasks
@@ -80,6 +81,32 @@ exports.createTask = async (req, res) => {
     await savedTask.populate('assignee', 'name avatar');
     await savedTask.populate('creator', 'name');
     
+    // Create notifications
+    try {
+      // Notify assignee if different from creator
+      if (assignee && assignee !== req.user.id) {
+        await createTaskNotification(assignee, 'task_assigned', savedTask._id, {
+          taskTitle: title
+        });
+      }
+      
+      // Notify creator that task was created
+      await createTaskNotification(req.user.id, 'task_created', savedTask._id, {
+        taskTitle: title
+      });    } catch (notificationError) {
+      console.error('Error creating notifications:', notificationError);
+      // Don't fail the task creation if notifications fail
+    }
+    
+    // Emit real-time task creation via WebSocket
+    try {
+      if (global.io) {
+        global.io.emit('task_created', savedTask);
+      }
+    } catch (socketError) {
+      console.error('Error emitting task creation:', socketError);
+    }
+    
     res.status(201).json(savedTask);
   } catch (error) {
     console.error('Error creating task:', error);
@@ -98,6 +125,10 @@ exports.updateTask = async (req, res) => {
       return res.status(404).json({ message: 'Task not found' });
     }
     
+    // Store original values for comparison
+    const originalAssignee = task.assignee?.toString();
+    const originalStatus = task.status;
+    
     // Cập nhật các trường
     const updatedData = {
       ...req.body,
@@ -110,6 +141,42 @@ exports.updateTask = async (req, res) => {
       { new: true }
     ).populate('assignee', 'name avatar')
       .populate('creator', 'name');
+      // Create notifications for task updates
+    try {
+      // If assignee changed, notify new assignee
+      if (req.body.assignee && req.body.assignee !== originalAssignee) {
+        await createTaskNotification(req.body.assignee, 'task_assigned', updatedTask._id, {
+          taskTitle: updatedTask.title
+        });
+      }
+      
+      // If task completed, notify creator and assignee
+      if (req.body.status === 'completed' && originalStatus !== 'completed') {
+        if (updatedTask.assignee && updatedTask.assignee._id.toString() !== req.user.id) {
+          await createTaskNotification(updatedTask.assignee._id, 'task_completed', updatedTask._id, {
+            taskTitle: updatedTask.title
+          });
+        }
+        if (updatedTask.creator._id.toString() !== req.user.id) {
+          await createTaskNotification(updatedTask.creator._id, 'task_completed', updatedTask._id, {
+            taskTitle: updatedTask.title
+          });
+        }
+      }
+    } catch (notificationError) {
+      console.error('Error creating notifications:', notificationError);
+      // Don't fail the update if notifications fail
+    }
+    
+    // Emit real-time update via WebSocket
+    try {
+      if (global.io) {
+        // Broadcast to all connected users (you can make this more targeted if needed)
+        global.io.emit('task_updated', updatedTask);
+      }
+    } catch (socketError) {
+      console.error('Error emitting task update:', socketError);
+    }
     
     res.status(200).json(updatedTask);
   } catch (error) {

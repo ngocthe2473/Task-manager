@@ -1,11 +1,11 @@
 import React, { useContext, useState } from 'react';
 import { AppBar, Toolbar, Typography, Box, Avatar, IconButton, Menu, MenuItem, Button, Badge, InputBase } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import NotificationsIcon from '@mui/icons-material/Notifications';
 import AddIcon from '@mui/icons-material/Add';
 import { AuthContext } from '../context/AuthContext';
 import { styled, alpha } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
+import NotificationCenter from './NotificationCenter';
 
 const Search = styled('div')(({ theme }) => ({
   position: 'relative',
@@ -88,11 +88,8 @@ const Navbar = () => {
           startIcon={<AddIcon />}
           sx={{ marginRight: 2 }}
         >
-          New Task
-        </Button>
-        <Badge badgeContent={4} color="error" sx={{ marginRight: 2 }}>
-          <NotificationsIcon />
-        </Badge>
+          New Task        </Button>
+        <NotificationCenter />
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <IconButton
             onClick={handleMenu}
