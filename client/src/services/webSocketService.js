@@ -1,5 +1,5 @@
 import io from 'socket.io-client';
-import { notificationService } from './notificationService';
+import notificationService from './notificationService';
 
 class WebSocketService {
   constructor() {

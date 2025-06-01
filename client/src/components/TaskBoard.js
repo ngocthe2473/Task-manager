@@ -15,7 +15,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import TaskCard from './TaskCard';
 import EditTaskDialog from './EditTaskDialog';
 import { getAllTasks } from '../services/fakeDatabaseService';
-import { notificationService } from '../services/notificationService';
+import notificationService from '../services/notificationService';
 
 const TaskBoard = ({ onTaskClick }) => {
   const [openSnackbar, setOpenSnackbar] = useState(false);
