@@ -29,7 +29,7 @@ import {
   ArrowForward as ArrowForwardIcon
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
-import { getAllTasks, getUserProfile, getProjects, getTeams, getCalendarTasks } from '../services/apiService';
+import { getAllTasks } from '../services/fakeDatabaseService';
 import { format } from 'date-fns';
 
 // Modern minimalist styled components
@@ -258,25 +258,66 @@ const Dashboard = () => {
     upcomingTasks: 0,
     overdueTasks: 0,
     productivity: 0
-  });  const [recentTasks, setRecentTasks] = useState([]);
-  const [user, setUser] = useState(null);
-  const [teamMembers, setTeamMembers] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [upcomingEvents, setUpcomingEvents] = useState([]);
+  });
+  const [recentTasks, setRecentTasks] = useState([]);
+  
+  // Mock user data
+  const user = {
+    name: 'John Doe',
+    role: 'Project Manager'
+  };
+  
+  // Mock team data
+  const teamMembers = [
+    { id: 1, name: 'Jane Smith', role: 'UI/UX Designer', avatar: null },
+    { id: 2, name: 'Michael Brown', role: 'Frontend Developer', avatar: null },
+    { id: 3, name: 'Sarah Johnson', role: 'Backend Developer', avatar: null },
+    { id: 4, name: 'Alex Wilson', role: 'QA Engineer', avatar: null }
+  ];
+  
+  // Mock project data
+  const projects = [
+    {
+      id: 1,
+      name: 'Website Redesign',
+      progress: 65,
+      taskCount: 24,
+      completedTasks: 16,
+      color: '#2196f3',
+      dueDate: '2024-06-15'
+    },
+    {
+      id: 2,
+      name: 'Mobile App Development',
+      progress: 40,
+      taskCount: 32,
+      completedTasks: 12,
+      color: '#4caf50',
+      dueDate: '2024-07-20'
+    },
+    {
+      id: 3,
+      name: 'Marketing Campaign',
+      progress: 80,
+      taskCount: 18,
+      completedTasks: 14,
+      color: '#ff9800',
+      dueDate: '2024-06-05'
+    }
+  ];
+  
+  // Mock upcoming events
+  const upcomingEvents = [
+    { id: 1, title: 'Team Meeting', date: '2024-06-01', time: '10:00 AM' },
+    { id: 2, title: 'Client Presentation', date: '2024-06-03', time: '2:00 PM' },
+    { id: 3, title: 'Sprint Review', date: '2024-06-05', time: '11:00 AM' }
+  ];
+
   useEffect(() => {
-    const fetchAllData = async () => {
+    const fetchTasks = async () => {
       try {
-        // Fetch all data in parallel
-        const [tasksData, userProfile, projectsData, teamsData, calendarData] = await Promise.all([
-          getAllTasks(),
-          getUserProfile().catch(() => null), // Handle case where user profile fails
-          getProjects().catch(() => []), // Handle case where projects fail
-          getTeams().catch(() => []), // Handle case where teams fail
-          getCalendarTasks().catch(() => []) // Handle case where calendar fails
-        ]);
+        const allTasks = await getAllTasks();
         
-        // Process tasks data for stats
-        const allTasks = tasksData || [];
         const completed = allTasks.filter(task => task.status === 'done').length;
         const inProgress = allTasks.filter(task => task.status === 'in-progress').length;
         const upcoming = allTasks.filter(task => task.status === 'todo').length;
@@ -284,7 +325,7 @@ const Dashboard = () => {
           task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done'
         ).length;
         
-        // Calculate productivity
+        // Calculate productivity (just a mock calculation)
         const productivity = Math.round((completed / (completed + inProgress + upcoming)) * 100) || 0;
         
         setStats({
@@ -303,32 +344,14 @@ const Dashboard = () => {
             .slice(0, 5)
         );
         
-        // Set other data
-        setUser(userProfile);
-        setProjects(projectsData || []);
-        
-        // Extract team members from teams data
-        const allTeamMembers = [];
-        if (teamsData && Array.isArray(teamsData)) {
-          teamsData.forEach(team => {
-            if (team.members && Array.isArray(team.members)) {
-              allTeamMembers.push(...team.members);
-            }
-          });
-        }
-        setTeamMembers(allTeamMembers);
-        
-        // Set upcoming events from calendar
-        setUpcomingEvents(calendarData || []);
-        
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        console.error('Error fetching tasks:', error);
         setLoading(false);
       }
     };
     
-    fetchAllData();
+    fetchTasks();
   }, []);
 
   // Helper function to format date
@@ -355,9 +378,10 @@ const Dashboard = () => {
     greeting = 'Good Afternoon';
   }
 
-  return (    <DashboardContainer>
+  return (
+    <DashboardContainer>
       <DashboardHeader>
-        <WelcomeTitle>{greeting}, {user?.name || 'User'}!</WelcomeTitle>
+        <WelcomeTitle>{greeting}, {user.name}!</WelcomeTitle>
         <WelcomeSubtitle>
           Here's what's happening with your projects today.
         </WelcomeSubtitle>

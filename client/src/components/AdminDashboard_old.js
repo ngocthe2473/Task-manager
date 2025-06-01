@@ -64,7 +64,6 @@ import {
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
-import { getUsers } from '../services/apiService';
 
 // Epic Admin Animations
 const matrixRain = keyframes`
@@ -346,14 +345,46 @@ const AdminDashboard = () => {
 
     return () => clearInterval(interval);
   }, []);
+
   const fetchAdminData = async () => {
     try {
-      // Fetch real user data from API
-      const usersData = await getUsers();
-      setUsers(usersData || []);
+      // Mock data
+      const mockUsers = [
+        {
+          _id: '1',
+          name: 'Trần Ngọc Thế',
+          email: 'the@example.com',
+          role: 'admin',
+          isActive: true,
+          lastLogin: '2024-01-20T10:30:00Z',
+          tasksCompleted: 45,
+          avatar: 'T'
+        },
+        {
+          _id: '2',
+          name: 'Nguyễn Tấn Long',
+          email: 'long@example.com',
+          role: 'manager',
+          isActive: true,
+          lastLogin: '2024-01-20T09:15:00Z',
+          tasksCompleted: 32,
+          avatar: 'L'
+        },
+        {
+          _id: '3',
+          name: 'Trần Đại Việt',
+          email: 'viet@example.com',
+          role: 'user',
+          isActive: false,
+          lastLogin: '2024-01-19T16:45:00Z',
+          tasksCompleted: 28,
+          avatar: 'V'
+        }
+      ];
+
+      setUsers(mockUsers);
     } catch (error) {
       console.error('Error fetching admin data:', error);
-      setUsers([]);
     }
   };
 
@@ -763,7 +794,7 @@ const AdminDashboard = () => {
                       <Chip
                         label={user.role.toUpperCase()}
                         size="small"
-                        color={user.role === 'admin' ? 'error' : user.role === 'admin' ? 'warning' : 'primary'}
+                        color={user.role === 'admin' ? 'error' : user.role === 'manager' ? 'warning' : 'primary'}
                         variant="filled"
                         sx={{ fontWeight: 'bold' }}
                       />

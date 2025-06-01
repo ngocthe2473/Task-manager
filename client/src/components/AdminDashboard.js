@@ -51,7 +51,6 @@ import {
 import { styled } from '@mui/material/styles';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
 import { PieChart, Pie, Cell, Legend } from 'recharts';
-import { getAllTasks, getUsers, getProjects } from '../services/apiService';
 
 // Modern minimalist styled components
 const DashboardContainer = styled(Box)(({ theme }) => ({
@@ -207,7 +206,7 @@ const teamPerformance = [
 
 const recentUsers = [
   { id: 1, name: 'John Doe', email: 'john@example.com', role: 'Admin', status: 'active', joined: '2024-05-15' },
-  { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'Admin', status: 'active', joined: '2024-05-12' },
+  { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'Manager', status: 'active', joined: '2024-05-12' },
   { id: 3, name: 'Mike Johnson', email: 'mike@example.com', role: 'Developer', status: 'pending', joined: '2024-05-10' },
   { id: 4, name: 'Sarah Wilson', email: 'sarah@example.com', role: 'Designer', status: 'inactive', joined: '2024-05-05' },
   { id: 5, name: 'Alex Brown', email: 'alex@example.com', role: 'Developer', status: 'active', joined: '2024-04-28' }
@@ -262,47 +261,6 @@ const AdminDashboard = () => {
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    activeProjects: 0,
-    totalTasks: 0,
-    completedTasks: 0
-  });
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      const [usersData, projectsData, tasksData] = await Promise.all([
-        getUsers(),
-        getProjects(),
-        getAllTasks()
-      ]);
-
-      setUsers(usersData);
-      setProjects(projectsData);
-      setTasks(tasksData);
-
-      // Calculate stats
-      setStats({
-        totalUsers: usersData.length,
-        activeProjects: projectsData.filter(p => p.status === 'in_progress').length,
-        totalTasks: tasksData.length,
-        completedTasks: tasksData.filter(t => t.status === 'done' || t.status === 'completed').length
-      });
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -363,7 +321,7 @@ const AdminDashboard = () => {
                   <PersonIcon sx={{ color: '#2196f3' }} />
                   Total Users
                 </CardTitle>
-                <StatValue>{stats.totalUsers}</StatValue>
+                <StatValue>128</StatValue>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <TrendingUpIcon sx={{ color: '#4caf50', fontSize: 18 }} />
                   <StatLabel>+12% since last month</StatLabel>
@@ -379,7 +337,7 @@ const AdminDashboard = () => {
                   <EventIcon sx={{ color: '#ff9800' }} />
                   Active Projects
                 </CardTitle>
-                <StatValue>{stats.activeProjects}</StatValue>
+                <StatValue>24</StatValue>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <TrendingUpIcon sx={{ color: '#4caf50', fontSize: 18 }} />
                   <StatLabel>+5 new this month</StatLabel>
@@ -395,7 +353,7 @@ const AdminDashboard = () => {
                   <TasksIcon sx={{ color: '#4caf50' }} />
                   Completed Tasks
                 </CardTitle>
-                <StatValue>{stats.completedTasks}</StatValue>
+                <StatValue>392</StatValue>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <TrendingUpIcon sx={{ color: '#4caf50', fontSize: 18 }} />
                   <StatLabel>+18% this week</StatLabel>
@@ -761,7 +719,7 @@ const AdminDashboard = () => {
                     label="Role"
                   >
                     <MenuItem value="Admin">Admin</MenuItem>
-                    <MenuItem value="Admin">Admin</MenuItem>
+                    <MenuItem value="Manager">Manager</MenuItem>
                     <MenuItem value="Developer">Developer</MenuItem>
                     <MenuItem value="Designer">Designer</MenuItem>
                     <MenuItem value="Tester">Tester</MenuItem>

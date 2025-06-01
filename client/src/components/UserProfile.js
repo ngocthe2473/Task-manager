@@ -76,18 +76,18 @@ const ProfileCard = styled(Card)(({ theme }) => ({
   },
 }));
 
-const UserProfile = () => {  const theme = useTheme();
+const UserProfile = () => {
+  const theme = useTheme();
   const [tabValue, setTabValue] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [userStats, setUserStats] = useState({
-    tasksCompleted: 0,
-    projectsJoined: 0,
-    achievements: 0,
-    skillLevel: 0,
-    teamRating: 0,
-    streakDays: 0,
+    tasksCompleted: 127,
+    projectsJoined: 8,
+    achievements: 15,
+    skillLevel: 85,
+    teamRating: 4.8,
+    streakDays: 23,
   });
-  const [loading, setLoading] = useState(true);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -97,28 +97,23 @@ const UserProfile = () => {  const theme = useTheme();
     setIsEditing(!isEditing);
   };
 
-  // Fetch real user data
+  // Mock fetch user data
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        // TODO: Replace with actual API calls to get user statistics
-        // For now, initialize with empty stats
+    // Simulate an API call
+    const fetchData = () => {
+      setTimeout(() => {
         setUserStats({
-          tasksCompleted: 0,
-          projectsJoined: 0,
-          achievements: 0,
-          skillLevel: 0,
-          teamRating: 0,
-          streakDays: 0,
+          tasksCompleted: 150,
+          projectsJoined: 10,
+          achievements: 20,
+          skillLevel: 90,
+          teamRating: 4.9,
+          streakDays: 30,
         });
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        setLoading(false);
-      }
+      }, 1000);
     };
 
-    fetchUserData();
+    fetchData();
   }, []);
 
   return (

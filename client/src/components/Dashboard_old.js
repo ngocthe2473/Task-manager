@@ -37,8 +37,7 @@ import {
   RocketLaunch as RocketIcon,
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
-import { getAllTasks } from '../services/apiService';
-import { format } from 'date-fns';
+import { getAllTasks } from '../services/fakeDatabaseService';
 
 // Pro Animations
 const float = keyframes`
@@ -689,8 +688,9 @@ const Dashboard = () => {
                                 label={task.status} 
                                 size="small"
                                 variant="outlined"
-                              />                              <Typography variant="caption" color="text.secondary">
-                                Due: {typeof task.dueDate === 'string' ? task.dueDate : format(new Date(task.dueDate), 'MMM dd, yyyy')}
+                              />
+                              <Typography variant="caption" color="text.secondary">
+                                Due: {task.dueDate}
                               </Typography>
                             </Box>
                           </CardContent>

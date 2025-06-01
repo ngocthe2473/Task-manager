@@ -29,7 +29,6 @@ import {
   Group as GroupIcon,
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
-import { getTeams, getUsers, getAllTasks } from '../services/apiService';
 
 // Animations
 const slideIn = keyframes`
@@ -111,55 +110,63 @@ const StatsCard = styled(Card)(({ theme }) => ({
 
 const TeamManagement = () => {
   const theme = useTheme();
-  const [teamMembers, setTeamMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchTeamData = async () => {
-      try {
-        const teamsData = await getTeams();
-        const usersData = await getUsers();
-        const tasksData = await getAllTasks();
-        
-        // Extract team members from teams and combine with user data
-        const allTeamMembers = [];
-        if (teamsData && Array.isArray(teamsData)) {
-          teamsData.forEach(team => {
-            if (team.members && Array.isArray(team.members)) {
-              team.members.forEach(memberId => {
-                const user = usersData.find(u => u._id === memberId);
-                if (user) {
-                  // Calculate tasks completed for this user
-                  const userTasks = tasksData.filter(task => task.assignedTo === user._id);
-                  const completedTasks = userTasks.filter(task => task.status === 'done').length;
-                  
-                  allTeamMembers.push({
-                    id: user._id,
-                    name: user.name,
-                    role: user.role || 'Team Member',
-                    avatar: user.name ? user.name.charAt(0).toUpperCase() : 'U',
-                    status: 'online', // Default status, would need real-time data
-                    tasksCompleted: completedTasks,
-                    efficiency: userTasks.length > 0 ? Math.round((completedTasks / userTasks.length) * 100) : 0,
-                    skills: user.skills || [],
-                    joinDate: user.createdAt || new Date().toISOString(),
-                  });
-                }
-              });
-            }
-          });
-        }
-        
-        setTeamMembers(allTeamMembers);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching team data:', error);
-        setLoading(false);
-      }
-    };
-
-    fetchTeamData();
-  }, []);
+  const [teamMembers, setTeamMembers] = useState([
+    {
+      id: 1,
+      name: 'Trần Ngọc Thế',
+      role: 'Project Manager',
+      avatar: 'T',
+      status: 'online',
+      tasksCompleted: 45,
+      efficiency: 95,
+      skills: ['Management', 'React', 'Node.js'],
+      joinDate: '2023-01-15',
+    },
+    {
+      id: 2,
+      name: 'Nguyễn Văn A',
+      role: 'Developer',
+      avatar: 'A',
+      status: 'offline',
+      tasksCompleted: 30,
+      efficiency: 85,
+      skills: ['React', 'Node.js'],
+      joinDate: '2023-02-20',
+    },
+    {
+      id: 3,
+      name: 'Lê Thị B',
+      role: 'Designer',
+      avatar: 'B',
+      status: 'online',
+      tasksCompleted: 25,
+      efficiency: 90,
+      skills: ['Photoshop', 'Illustrator'],
+      joinDate: '2023-03-10',
+    },
+    {
+      id: 4,
+      name: 'Trần Văn C',
+      role: 'Tester',
+      avatar: 'C',
+      status: 'busy',
+      tasksCompleted: 20,
+      efficiency: 80,
+      skills: ['Testing', 'QA'],
+      joinDate: '2023-04-05',
+    },
+    {
+      id: 5,
+      name: 'Nguyễn Thị D',
+      role: 'Developer',
+      avatar: 'D',
+      status: 'online',
+      tasksCompleted: 35,
+      efficiency: 92,
+      skills: ['React', 'Node.js', 'MongoDB'],
+      joinDate: '2023-05-15',
+    },
+  ]);
 
   return (
     <Box sx={{ 
