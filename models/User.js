@@ -13,11 +13,6 @@ const UserSchema = new mongoose.Schema({  name: {
     trim: true,
     match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Vui lòng nhập email hợp lệ']
   },
-  name: {
-    type: String,
-    required: true,
-    trim: true
-  },
   password: {
     type: String,
     required: [true, 'Vui lòng nhập mật khẩu'],

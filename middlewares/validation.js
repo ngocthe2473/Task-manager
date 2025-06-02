@@ -203,20 +203,6 @@ const validateTeamCreation = [
     .trim()
     .isLength({ max: 500 })
     .withMessage('Description must be at most 500 characters'),
-  body('manager')
-    .optional()
-    .isMongoId()
-    .withMessage('Manager must be a valid user ID'),
-  body('members')
-    .optional()
-    .isArray()
-    .withMessage('Members must be an array')
-    .custom((members) => {
-      if (members && members.some(id => !id.match(/^[0-9a-fA-F]{24}$/))) {
-        throw new Error('All member IDs must be valid MongoDB ObjectIds');
-      }
-      return true;
-    }),
   handleValidationErrors
 ];
 

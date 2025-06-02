@@ -2,7 +2,8 @@
   "name": "task-manager",
   "version": "1.0.0",
   "description": "Task Manager Application",
-  "main": "server.js",  "scripts": {
+  "main": "server.js",
+  "scripts": {
     "start": "node server.js",
     "server": "nodemon server.js",
     "client": "npm start --prefix client",
