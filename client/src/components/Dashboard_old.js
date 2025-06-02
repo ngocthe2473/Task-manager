@@ -38,6 +38,7 @@ import {
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
 import { getAllTasks } from '../services/fakeDatabaseService';
+import { format } from 'date-fns';
 
 // Pro Animations
 const float = keyframes`
@@ -688,9 +689,8 @@ const Dashboard = () => {
                                 label={task.status} 
                                 size="small"
                                 variant="outlined"
-                              />
-                              <Typography variant="caption" color="text.secondary">
-                                Due: {task.dueDate}
+                              />                              <Typography variant="caption" color="text.secondary">
+                                Due: {typeof task.dueDate === 'string' ? task.dueDate : format(new Date(task.dueDate), 'MMM dd, yyyy')}
                               </Typography>
                             </Box>
                           </CardContent>

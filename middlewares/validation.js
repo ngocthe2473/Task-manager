@@ -15,6 +15,11 @@ const handleValidationErrors = (req, res, next) => {
 
 // User validation rules
 const validateUserRegistration = [
+  body('username')
+    .isLength({ min: 3, max: 30 })
+    .withMessage('Username must be between 3 and 30 characters')
+    .matches(/^[a-zA-Z0-9_]+$/)
+    .withMessage('Username can only contain letters, numbers, and underscores'),
   body('email')
     .isEmail()
     .withMessage('Please enter a valid email address')
@@ -30,8 +35,8 @@ const validateUserRegistration = [
     .withMessage('Name must be between 2 and 50 characters'),
   body('role')
     .optional()
-    .isIn(['admin', 'user'])
-    .withMessage('Role must be admin or user'),
+    .isIn(['admin', 'manager', 'member'])
+    .withMessage('Role must be admin, manager, or member'),
   handleValidationErrors
 ];
 
@@ -59,8 +64,8 @@ const validateUserUpdate = [
     .normalizeEmail(),
   body('role')
     .optional()
-    .isIn(['admin', 'member'])
-    .withMessage('Role must be admin or member'),
+    .isIn(['admin', 'manager', 'member'])
+    .withMessage('Role must be admin, manager, or member'),
   handleValidationErrors
 ];
 
@@ -198,6 +203,20 @@ const validateTeamCreation = [
     .trim()
     .isLength({ max: 500 })
     .withMessage('Description must be at most 500 characters'),
+  body('manager')
+    .optional()
+    .isMongoId()
+    .withMessage('Manager must be a valid user ID'),
+  body('members')
+    .optional()
+    .isArray()
+    .withMessage('Members must be an array')
+    .custom((members) => {
+      if (members && members.some(id => !id.match(/^[0-9a-fA-F]{24}$/))) {
+        throw new Error('All member IDs must be valid MongoDB ObjectIds');
+      }
+      return true;
+    }),
   handleValidationErrors
 ];
 
@@ -206,11 +225,16 @@ const validateTeamUpdate = [
     .optional()
     .trim()
     .isLength({ min: 1, max: 100 })
-    .withMessage('Team name must be at most 100 characters'),  body('description')
+    .withMessage('Team name must be at most 100 characters'),
+  body('description')
     .optional()
     .trim()
     .isLength({ max: 500 })
     .withMessage('Description must be at most 500 characters'),
+  body('manager')
+    .optional()
+    .isMongoId()
+    .withMessage('Manager must be a valid user ID'),
   handleValidationErrors
 ];
 

@@ -113,7 +113,7 @@ exports.getCalendarView = async (req, res) => {
           ]
         });
       }
-    } else if (req.user.role === 'admin' && team) {
+    } else if (req.user.role === 'manager' && team) {
       // Managers can filter by specific team if provided
       const teamProjects = await Project.find({ team }).select('_id');
       const projectIds = teamProjects.map(p => p._id);

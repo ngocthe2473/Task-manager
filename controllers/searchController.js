@@ -115,7 +115,7 @@ exports.globalSearch = async (req, res) => {
       }
 
       const projects = await Project.find(projectFilter)
-        .populate('team', 'name')
+        .populate('team', 'name manager')
         .populate('createdBy', 'name')
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -136,7 +136,8 @@ exports.globalSearch = async (req, res) => {
       };
 
       const teams = await Team.find(teamFilter)
-        .populate('members.user', 'name email')
+        .populate('manager', 'name email')
+        .populate('members', 'name email')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum);
@@ -332,7 +333,7 @@ exports.advancedSearch = async (req, res) => {
       });
 
       const projects = await Project.find(projectFilter)
-        .populate('team', 'name')
+        .populate('team', 'name manager')
         .populate('createdBy', 'name')
         .sort(sort)
         .skip(skip)

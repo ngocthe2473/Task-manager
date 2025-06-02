@@ -3,15 +3,15 @@ const router = express.Router();
 const { protect, authorize } = require('../middlewares/auth');
 const attachmentController = require('../controllers/attachmentController');
 
-// @desc    Get all attachments with filtering (Admin only)
+// @desc    Get all attachments with filtering (Admin/Manager only)
 // @route   GET /api/attachments
-// @access  Private (Admin only)
-router.get('/', protect, authorize('admin'), attachmentController.getAttachments);
+// @access  Private (Admin/Manager)
+router.get('/', protect, authorize('admin', 'manager'), attachmentController.getAttachments);
 
 // @desc    Get storage statistics
 // @route   GET /api/attachments/stats
-// @access  Private (Admin only)
-router.get('/stats', protect, authorize('admin'), attachmentController.getStorageStats);
+// @access  Private (Admin/Manager)
+router.get('/stats', protect, authorize('admin', 'manager'), attachmentController.getStorageStats);
 
 // @desc    Bulk delete attachments
 // @route   DELETE /api/attachments/bulk
