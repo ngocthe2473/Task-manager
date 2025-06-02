@@ -63,22 +63,23 @@ const SectionTitle = styled(Typography)(({ theme }) => ({
   padding: '16px 24px 8px 24px',
 }));
 
-const StyledListItem = styled(ListItem)(({ theme, active }) => ({
+// Use $active for transient prop that won't be passed to DOM
+const StyledListItem = styled(ListItem)(({ theme, $active }) => ({
   margin: '2px 16px',
   borderRadius: '12px',
   cursor: 'pointer',
   transition: 'all 0.2s ease',
-  backgroundColor: active ? '#e3f2fd' : 'transparent',
+  backgroundColor: $active ? '#e3f2fd' : 'transparent',
   '&:hover': {
-    backgroundColor: active ? '#e3f2fd' : '#f5f5f5',
+    backgroundColor: $active ? '#e3f2fd' : '#f5f5f5',
   },
   '& .MuiListItemIcon-root': {
     minWidth: '40px',
-    color: active ? '#2196f3' : '#666',
+    color: $active ? '#2196f3' : '#666',
   },
   '& .MuiListItemText-primary': {
-    color: active ? '#2196f3' : '#333',
-    fontWeight: active ? 600 : 400,
+    color: $active ? '#2196f3' : '#333',
+    fontWeight: $active ? 600 : 400,
     fontSize: '14px',
   },
 }));
@@ -210,11 +211,10 @@ const Sidebar = ({ open = true, onClose }) => {
         {/* Navigation Menu */}
         <Box>
           <SectionTitle>Navigation</SectionTitle>
-          <List>
-            {menuItems.map((item) => (
+          <List>            {menuItems.map((item) => (
               <StyledListItem
                 key={item.text}
-                active={isActive(item.path)}
+                $active={isActive(item.path)}
                 onClick={() => handleNavigation(item.path)}
               >
                 <ListItemIcon>{item.icon}</ListItemIcon>

@@ -500,11 +500,14 @@ const Calendar = () => {
                   {selectedTask.startTime} - {selectedTask.endTime}
                 </Typography>
               </Box>
-              
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CalendarTodayIcon fontSize="small" color="action" />
                 <Typography variant="body2">
-                  {selectedTask.dueDate}
+                  {selectedTask.dueDate instanceof Date 
+                    ? format(selectedTask.dueDate, 'MMM dd, yyyy') 
+                    : typeof selectedTask.dueDate === 'string' 
+                      ? format(new Date(selectedTask.dueDate), 'MMM dd, yyyy')
+                      : 'No due date'}
                 </Typography>
               </Box>
               
@@ -979,9 +982,12 @@ const Calendar = () => {
               )}
               
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Box>
-                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 0.5 }}>
-                    <strong>Due:</strong> {hoveredTask.dueDate}
+                <Box>                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 0.5 }}>
+                    <strong>Due:</strong> {hoveredTask.dueDate instanceof Date 
+                      ? format(hoveredTask.dueDate, 'MMM dd, yyyy') 
+                      : typeof hoveredTask.dueDate === 'string' 
+                        ? format(new Date(hoveredTask.dueDate), 'MMM dd, yyyy')
+                        : 'No due date'}
                   </Typography>
                   <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
                     <strong>Time:</strong> {hoveredTask.startTime} - {hoveredTask.endTime}
@@ -1164,9 +1170,8 @@ const Calendar = () => {
       </Grid>
     </GlassPaper>
   );
-
   const renderEnhancedTaskCard = (task, height = 'auto') => (
-    <Zoom in timeout={300}>
+    <Zoom in timeout={300} key={`task-zoom-${task.id}`}>
       <TaskCard
         priority={task.priority}
         sx={{ height, minHeight: '60px', mb: 0.5 }}
@@ -1334,10 +1339,11 @@ const Calendar = () => {
                     </Box>
 
                     {/* Enhanced tasks display */}
-                    <Box sx={{ maxHeight: 80, overflow: 'hidden' }}>
-                      {tasksForDay.slice(0, 2).map((task, index) => 
-                        renderEnhancedTaskCard(task, '30px')
-                      )}
+                    <Box sx={{ maxHeight: 80, overflow: 'hidden' }}>                      {tasksForDay.slice(0, 2).map((task, index) => (
+                        <React.Fragment key={`task-${task.id}-${index}`}>
+                          {renderEnhancedTaskCard(task, '30px')}
+                        </React.Fragment>
+                      ))}
                       {tasksForDay.length > 2 && (
                         <Chip
                           label={`+${tasksForDay.length - 2} more`}
@@ -1425,9 +1431,12 @@ const Calendar = () => {
               </Box>
               <Typography variant="body2" color="text.secondary">
                 {selectedTask.startTime} - {selectedTask.endTime}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {selectedTask.dueDate}
+              </Typography>              <Typography variant="body2" color="text.secondary">
+                {selectedTask.dueDate instanceof Date 
+                  ? format(selectedTask.dueDate, 'MMM dd, yyyy') 
+                  : typeof selectedTask.dueDate === 'string' 
+                    ? format(new Date(selectedTask.dueDate), 'MMM dd, yyyy')
+                    : 'No due date'}
               </Typography>
             </Box>
 

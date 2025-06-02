@@ -68,8 +68,33 @@ export const getProjects = async () => {
   return response.data;
 };
 
+export const getProjectById = async (id) => {
+  const response = await api.get(`/projects/${id}`);
+  return response.data;
+};
+
 export const addProject = async (projectData) => {
   const response = await api.post('/projects', projectData);
+  return response.data;
+};
+
+export const updateProject = async (id, projectData) => {
+  const response = await api.put(`/projects/${id}`, projectData);
+  return response.data;
+};
+
+export const deleteProject = async (id) => {
+  const response = await api.delete(`/projects/${id}`);
+  return response.data;
+};
+
+export const getProjectStats = async (id) => {
+  const response = await api.get(`/projects/${id}/stats`);
+  return response.data;
+};
+
+export const getProjectTasks = async (id) => {
+  const response = await api.get(`/projects/${id}/tasks`);
   return response.data;
 };
 

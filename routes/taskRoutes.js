@@ -11,20 +11,27 @@ const {
   getSubTasks, 
   createSubTask 
 } = require('../controllers/subTaskController');
-const { protect } = require('../middleware/authMiddleware');
+const { authenticate } = require('../middlewares/auth');
+const { 
+  validateTaskCreation, 
+  validateTaskUpdate, 
+  validateMongoId, 
+  validatePagination 
+} = require('../middlewares/validation');
+const { createRateLimit } = require('../middlewares/rateLimiting');
 
 // Task routes
 router.route('/')
-  .get(protect, getTasks)
-  .post(protect, createTask);
+  .get(authenticate, validatePagination, getTasks)
+  .post(authenticate, createRateLimit, validateTaskCreation, createTask);
 
 router.route('/:id')
-  .get(protect, getTaskById)
-  .put(protect, updateTask)
-  .delete(protect, deleteTask);
+  .get(authenticate, validateMongoId, getTaskById)
+  .put(authenticate, validateMongoId, validateTaskUpdate, updateTask)
+  .delete(authenticate, validateMongoId, deleteTask);
 
 // SubTask routes
-router.get('/:taskId/subtasks', protect, getSubTasks);
-router.post('/:taskId/subtasks', protect, createSubTask);
+router.get('/:taskId/subtasks', authenticate, validateMongoId, getSubTasks);
+router.post('/:taskId/subtasks', authenticate, validateMongoId, createSubTask);
 
 module.exports = router;

@@ -29,6 +29,9 @@ import {
   Fade,
   Zoom,
   AvatarGroup,
+  Snackbar,
+  Alert,
+  CircularProgress
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -42,9 +45,20 @@ import {
   Speed as SpeedIcon,
   Rocket as RocketIcon,
   Analytics as AnalyticsIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Visibility as ViewIcon
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
 import { format } from 'date-fns';
+import { 
+  getProjects, 
+  addProject, 
+  updateProject, 
+  deleteProject,
+  getProjectStats,
+  getUsers 
+} from '../services/apiService';
 
 // Pro Animations
 const floatAnimation = keyframes`
@@ -55,11 +69,6 @@ const floatAnimation = keyframes`
 const glowPulse = keyframes`
   0%, 100% { box-shadow: 0 0 20px rgba(0, 123, 255, 0.3); }
   50% { box-shadow: 0 0 40px rgba(0, 123, 255, 0.6); }
-`;
-
-const shimmerEffect = keyframes`
-  0% { background-position: -200px 0; }
-  100% { background-position: calc(200px + 100%) 0; }
 `;
 
 // Styled Components
@@ -95,23 +104,10 @@ const ProjectCard = styled(Card)(({ theme, priority }) => {
       height: '6px',
       background: getGradient(priority),
     },
-    '&::after': {
-      content: '""',
-      position: 'absolute',
-      top: 0,
-      left: '-100%',
-      width: '100%',
-      height: '100%',
-      background: `linear-gradient(90deg, transparent, ${alpha(theme.palette.primary.main, 0.1)}, transparent)`,
-      transition: 'left 0.8s ease',
-    },
     '&:hover': {
       transform: 'translateY(-12px) scale(1.02)',
       boxShadow: '0 25px 50px rgba(0, 0, 0, 0.15)',
       animation: `${glowPulse} 2s ease-in-out infinite`,
-      '&::after': {
-        left: '100%',
-      },
     },
   };
 });
@@ -138,9 +134,21 @@ const StatsCard = styled(Card)(({ theme, gradient }) => ({
 const ProjectManagement = () => {
   const theme = useTheme();
   const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [teams, setTeams] = useState([]);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    team: '',
+    status: 'planning',
+    priority: 'Medium',
+    startDate: '',
+    endDate: ''
+  });
   const [stats, setStats] = useState({
     totalProjects: 0,
     activeProjects: 0,
@@ -150,91 +158,179 @@ const ProjectManagement = () => {
 
   useEffect(() => {
     fetchProjects();
+    fetchTeams();
   }, []);
 
   const fetchProjects = async () => {
     try {
-      // Mock data - replace with actual API call
-      const mockProjects = [
-        {
-          _id: '1',
-          name: 'Task Manager Pro',
-          description: 'Advanced task management system with real-time collaboration features',
-          status: 'in_progress',
-          priority: 'High',
-          progress: 75,
-          startDate: '2024-01-01',
-          endDate: '2024-03-01',
-          teamMembers: [
-            { name: 'Trần Ngọc Thế', avatar: 'T', role: 'Manager' },
-            { name: 'Nguyễn Tấn Long', avatar: 'L', role: 'Developer' },
-            { name: 'Trần Đại Việt', avatar: 'V', role: 'Designer' }
-          ],
-          tasks: { total: 25, completed: 18, inProgress: 5, pending: 2 }
-        },
-        {
-          _id: '2',
-          name: 'E-Commerce Platform',
-          description: 'Modern e-commerce solution with AI-powered recommendations',
-          status: 'planning',
-          priority: 'Medium',
-          progress: 25,
-          startDate: '2024-02-01',
-          endDate: '2024-06-01',
-          teamMembers: [
-            { name: 'Nguyễn Tấn Long', avatar: 'L', role: 'Lead Developer' },
-            { name: 'Trần Đại Việt', avatar: 'V', role: 'UI/UX Designer' }
-          ],
-          tasks: { total: 40, completed: 8, inProgress: 12, pending: 20 }
-        },
-        {
-          _id: '3',
-          name: 'Mobile App Development',
-          description: 'Cross-platform mobile application for task management',
-          status: 'completed',
-          priority: 'Low',
-          progress: 100,
-          startDate: '2023-10-01',
-          endDate: '2023-12-31',
-          teamMembers: [
-            { name: 'Trần Ngọc Thế', avatar: 'T', role: 'Project Manager' },
-            { name: 'Trần Đại Việt', avatar: 'V', role: 'Mobile Developer' }
-          ],
-          tasks: { total: 30, completed: 30, inProgress: 0, pending: 0 }
-        }
-      ];
-
-      setProjects(mockProjects);
+      setLoading(true);
+      const data = await getProjects();
+      setProjects(data);
       
       // Calculate stats
+      const totalProjects = data.length;
+      const activeProjects = data.filter(p => p.status === 'in_progress').length;
+      const completedProjects = data.filter(p => p.status === 'completed').length;
+      
       setStats({
-        totalProjects: mockProjects.length,
-        activeProjects: mockProjects.filter(p => p.status === 'in_progress').length,
-        completedProjects: mockProjects.filter(p => p.status === 'completed').length,
-        teamMembers: new Set(mockProjects.flatMap(p => p.teamMembers.map(m => m.name))).size,
+        totalProjects,
+        activeProjects,
+        completedProjects,
+        teamMembers: 0 // Will be calculated from teams
       });
     } catch (error) {
       console.error('Error fetching projects:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error loading projects',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const fetchTeams = async () => {
+    try {
+      const users = await getUsers();
+      setTeams(users);
+    } catch (error) {
+      console.error('Error fetching teams:', error);
+    }
+  };
+
+  const handleCreateProject = async () => {
+    try {
+      const newProject = await addProject(formData);
+      setProjects(prev => [newProject, ...prev]);
+      setOpenDialog(false);
+      resetForm();
+      setSnackbar({
+        open: true,
+        message: 'Project created successfully!',
+        severity: 'success'
+      });
+      fetchProjects(); // Refresh to get updated stats
+    } catch (error) {
+      console.error('Error creating project:', error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'Error creating project',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleUpdateProject = async () => {
+    try {
+      const updatedProject = await updateProject(selectedProject._id, formData);
+      setProjects(prev => 
+        prev.map(p => p._id === selectedProject._id ? updatedProject : p)
+      );
+      setOpenDialog(false);
+      resetForm();
+      setSnackbar({
+        open: true,
+        message: 'Project updated successfully!',
+        severity: 'success'
+      });
+      fetchProjects(); // Refresh to get updated stats
+    } catch (error) {
+      console.error('Error updating project:', error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'Error updating project',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleDeleteProject = async (projectId) => {
+    if (window.confirm('Are you sure you want to delete this project? This will also delete all associated tasks.')) {
+      try {
+        await deleteProject(projectId);
+        setProjects(prev => prev.filter(p => p._id !== projectId));
+        setSnackbar({
+          open: true,
+          message: 'Project deleted successfully!',
+          severity: 'success'
+        });
+        fetchProjects(); // Refresh to get updated stats
+      } catch (error) {
+        console.error('Error deleting project:', error);
+        setSnackbar({
+          open: true,
+          message: error.response?.data?.message || 'Error deleting project',
+          severity: 'error'
+        });
+      }
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      team: '',
+      status: 'planning',
+      priority: 'Medium',
+      startDate: '',
+      endDate: ''
+    });
+    setSelectedProject(null);
+  };
+
+  const handleEditProject = (project) => {
+    setSelectedProject(project);
+    setFormData({
+      name: project.name || '',
+      description: project.description || '',
+      team: project.team?._id || '',
+      status: project.status || 'planning',
+      priority: project.priority || 'Medium',
+      startDate: project.startDate ? format(new Date(project.startDate), 'yyyy-MM-dd') : '',
+      endDate: project.endDate ? format(new Date(project.endDate), 'yyyy-MM-dd') : ''
+    });
+    setOpenDialog(true);
+  };
+
+  const handleMenuClick = (event, project) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedProject(project);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedProject(null);
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'planning': return 'warning';
-      case 'in_progress': return 'info';
-      case 'completed': return 'success';
-      case 'on_hold': return 'error';
-      default: return 'default';
+      case 'completed':
+        return 'success';
+      case 'in_progress':
+        return 'info';
+      case 'planning':
+        return 'warning';
+      case 'on_hold':
+        return 'error';
+      default:
+        return 'default';
     }
   };
 
-  const getStatusLabel = (status) => {
+  const getStatusText = (status) => {
     switch (status) {
-      case 'planning': return 'Planning';
-      case 'in_progress': return 'In Progress';
-      case 'completed': return 'Completed';
-      case 'on_hold': return 'On Hold';
-      default: return status;
+      case 'completed':
+        return 'Completed';
+      case 'in_progress':
+        return 'In Progress';
+      case 'planning':
+        return 'Planning';
+      case 'on_hold':
+        return 'On Hold';
+      default:
+        return 'Unknown';
     }
   };
 
@@ -245,8 +341,21 @@ const ProjectManagement = () => {
     ));
   };
 
+  const getProgressColor = (progress) => {
+    if (progress >= 80) return `${theme.palette.success.main}, ${theme.palette.success.light}`;
+    if (progress >= 50) return `${theme.palette.info.main}, ${theme.palette.info.light}`;
+    if (progress >= 20) return `${theme.palette.warning.main}, ${theme.palette.warning.light}`;
+    return `${theme.palette.error.main}, ${theme.palette.error.light}`;
+  };
+
+  const calculateProgress = (project) => {
+    if (!project.tasks || project.tasks.length === 0) return 0;
+    const completed = project.tasks.filter(task => task.status === 'completed').length;
+    return Math.round((completed / project.tasks.length) * 100);
+  };
+
   const renderProjectCard = (project, index) => (
-    <Grid item xs={12} md={6} lg={4} key={project._id}>
+    <Grid item xs={12} md={6} lg={4} key={project._id || index}>
       <Zoom in timeout={400 + index * 100}>
         <ProjectCard priority={project.priority}>
           <CardContent sx={{ p: 3 }}>
@@ -265,10 +374,7 @@ const ProjectManagement = () => {
               </Box>
               <IconButton
                 size="small"
-                onClick={(e) => {
-                  setAnchorEl(e.currentTarget);
-                  setSelectedProject(project);
-                }}
+                onClick={(e) => handleMenuClick(e, project)}
               >
                 <MoreVertIcon />
               </IconButton>
@@ -278,24 +384,24 @@ const ProjectManagement = () => {
             <Box sx={{ mb: 3 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Chip
-                  label={getStatusLabel(project.status)}
+                  label={getStatusText(project.status)}
                   color={getStatusColor(project.status)}
                   size="small"
                   variant="filled"
                 />
                 <Typography variant="body2" fontWeight="bold">
-                  {project.progress}%
+                  {calculateProgress(project)}%
                 </Typography>
               </Box>
               <LinearProgress
                 variant="determinate"
-                value={project.progress}
+                value={calculateProgress(project)}
                 sx={{
                   height: 8,
                   borderRadius: 4,
                   background: alpha(theme.palette.grey[300], 0.3),
                   '& .MuiLinearProgress-bar': {
-                    background: `linear-gradient(90deg, ${getProgressColor(project.progress)})`,
+                    background: `linear-gradient(90deg, ${getProgressColor(calculateProgress(project))})`,
                     borderRadius: 4,
                   },
                 }}
@@ -304,8 +410,11 @@ const ProjectManagement = () => {
 
             {/* Description */}
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3, minHeight: 40 }}>
-              {project.description.substring(0, 100)}
-              {project.description.length > 100 && '...'}
+              {project.description ? (
+                project.description.length > 100 
+                  ? `${project.description.substring(0, 100)}...`
+                  : project.description
+              ) : 'No description available'}
             </Typography>
 
             {/* Team Members */}
@@ -314,68 +423,43 @@ const ProjectManagement = () => {
                 Team Members
               </Typography>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 32, height: 32, fontSize: '0.875rem' } }}>
-                  {project.teamMembers.map((member, idx) => (
-                    <Tooltip key={idx} title={`${member.name} - ${member.role}`}>
-                      <Avatar
-                        sx={{
-                          background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        {member.avatar}
-                      </Avatar>
-                    </Tooltip>
-                  ))}
-                </AvatarGroup>
+                {project.teamMembers && project.teamMembers.length > 0 ? (
+                  <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 32, height: 32, fontSize: '0.875rem' } }}>
+                    {project.teamMembers.map((member, idx) => (
+                      <Tooltip key={idx} title={member.name || member.username}>
+                        <Avatar
+                          sx={{
+                            background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          {(member.name || member.username)?.charAt(0)?.toUpperCase()}
+                        </Avatar>
+                      </Tooltip>
+                    ))}
+                  </AvatarGroup>
+                ) : (
+                  <Typography variant="caption" color="text.secondary">
+                    No team members assigned
+                  </Typography>
+                )}
                 <Typography variant="caption" color="text.secondary">
-                  {project.teamMembers.length} members
+                  {project.teamMembers ? project.teamMembers.length : 0} members
                 </Typography>
               </Box>
             </Box>
 
-            {/* Tasks Summary */}
-            <Box sx={{ 
-              p: 2, 
-              borderRadius: 2, 
-              background: alpha(theme.palette.primary.main, 0.05),
-              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-            }}>
-              <Grid container spacing={2} sx={{ textAlign: 'center' }}>
-                <Grid item xs={3}>
-                  <Typography variant="h6" fontWeight="bold" color="primary">
-                    {project.tasks.total}
-                  </Typography>
-                  <Typography variant="caption">Total</Typography>
-                </Grid>
-                <Grid item xs={3}>
-                  <Typography variant="h6" fontWeight="bold" color="success.main">
-                    {project.tasks.completed}
-                  </Typography>
-                  <Typography variant="caption">Done</Typography>
-                </Grid>
-                <Grid item xs={3}>
-                  <Typography variant="h6" fontWeight="bold" color="info.main">
-                    {project.tasks.inProgress}
-                  </Typography>
-                  <Typography variant="caption">Active</Typography>
-                </Grid>
-                <Grid item xs={3}>
-                  <Typography variant="h6" fontWeight="bold" color="warning.main">
-                    {project.tasks.pending}
-                  </Typography>
-                  <Typography variant="caption">Pending</Typography>
-                </Grid>
-              </Grid>
-            </Box>
-
             {/* Timeline */}
-            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CalendarTodayIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-              <Typography variant="caption" color="text.secondary">
-                {format(new Date(project.startDate), 'MMM dd')} - {format(new Date(project.endDate), 'MMM dd, yyyy')}
-              </Typography>
-            </Box>
+            {(project.startDate || project.endDate) && (
+              <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CalendarTodayIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                <Typography variant="caption" color="text.secondary">
+                  {project.startDate && format(new Date(project.startDate), 'MMM dd')}
+                  {project.startDate && project.endDate && ' - '}
+                  {project.endDate && format(new Date(project.endDate), 'MMM dd, yyyy')}
+                </Typography>
+              </Box>
+            )}
           </CardContent>
 
           <CardActions sx={{ px: 3, pb: 3 }}>
@@ -388,7 +472,7 @@ const ProjectManagement = () => {
                 fontWeight: 'bold',
                 textTransform: 'none',
               }}
-              onClick={() => handleViewProject(project)}
+              onClick={() => handleEditProject(project)}
             >
               View Details
             </Button>
@@ -398,17 +482,13 @@ const ProjectManagement = () => {
     </Grid>
   );
 
-  const getProgressColor = (progress) => {
-    if (progress >= 80) return `${theme.palette.success.main}, ${theme.palette.success.light}`;
-    if (progress >= 50) return `${theme.palette.info.main}, ${theme.palette.info.light}`;
-    if (progress >= 20) return `${theme.palette.warning.main}, ${theme.palette.warning.light}`;
-    return `${theme.palette.error.main}, ${theme.palette.error.light}`;
-  };
-
-  const handleViewProject = (project) => {
-    setSelectedProject(project);
-    setOpenDialog(true);
-  };
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ 
@@ -526,7 +606,10 @@ const ProjectManagement = () => {
             transform: 'scale(1.1)',
           },
         }}
-        onClick={() => setOpenDialog(true)}
+        onClick={() => {
+          resetForm();
+          setOpenDialog(true);
+        }}
       >
         <AddIcon />
       </Fab>
@@ -535,19 +618,29 @@ const ProjectManagement = () => {
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
-        onClose={() => setAnchorEl(null)}
+        onClose={handleMenuClose}
       >
-        <MenuItem onClick={() => setAnchorEl(null)}>Edit Project</MenuItem>
-        <MenuItem onClick={() => setAnchorEl(null)}>View Tasks</MenuItem>
-        <MenuItem onClick={() => setAnchorEl(null)}>Manage Team</MenuItem>
-        <MenuItem onClick={() => setAnchorEl(null)}>Archive Project</MenuItem>
+        <MenuItem onClick={() => {
+          handleEditProject(selectedProject);
+          handleMenuClose();
+        }}>
+          <EditIcon sx={{ mr: 1 }} />
+          Edit Project
+        </MenuItem>
+        <MenuItem onClick={() => {
+          handleDeleteProject(selectedProject._id);
+          handleMenuClose();
+        }}>
+          <DeleteIcon sx={{ mr: 1 }} />
+          Delete Project
+        </MenuItem>
       </Menu>
 
-      {/* Project Details Dialog */}
+      {/* Project Dialog */}
       <Dialog
         open={openDialog}
         onClose={() => setOpenDialog(false)}
-        maxWidth="lg"
+        maxWidth="md"
         fullWidth
         PaperProps={{
           sx: {
@@ -562,33 +655,111 @@ const ProjectManagement = () => {
           color: 'white',
           fontWeight: 'bold'
         }}>
-          {selectedProject ? selectedProject.name : 'Create New Project'}
+          {selectedProject ? 'Edit Project' : 'Create New Project'}
         </DialogTitle>
         <DialogContent sx={{ p: 4 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Project details and advanced management features coming soon...
-          </Typography>
-          {selectedProject && (
-            <Box>
-              <Typography variant="body1" paragraph>
-                {selectedProject.description}
-              </Typography>
-              {/* Add more project details here */}
-            </Box>
-          )}
+          <Grid container spacing={3} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Project Name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={formData.status}
+                  label="Status"
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                >
+                  <MenuItem value="planning">Planning</MenuItem>
+                  <MenuItem value="in_progress">In Progress</MenuItem>
+                  <MenuItem value="completed">Completed</MenuItem>
+                  <MenuItem value="on_hold">On Hold</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Priority</InputLabel>
+                <Select
+                  value={formData.priority}
+                  label="Priority"
+                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                >
+                  <MenuItem value="Low">Low</MenuItem>
+                  <MenuItem value="Medium">Medium</MenuItem>
+                  <MenuItem value="High">High</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Start Date"
+                value={formData.startDate}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="End Date"
+                value={formData.endDate}
+                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setOpenDialog(false)}>Close</Button>
+          <Button onClick={() => setOpenDialog(false)}>
+            Cancel
+          </Button>
           <Button 
             variant="contained"
             sx={{ 
               background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
             }}
+            onClick={selectedProject ? handleUpdateProject : handleCreateProject}
           >
-            {selectedProject ? 'Save Changes' : 'Create Project'}
+            {selectedProject ? 'Update Project' : 'Create Project'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

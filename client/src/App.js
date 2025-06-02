@@ -9,6 +9,7 @@ import Calendar from './components/Calendar';
 import Teams from './components/Teams';
 import Settings from './components/Settings';
 import TaskDetail from './components/TaskDetail';
+import ProjectManagement from './components/ProjectManagement';
 import Login from './components/Login';
 import Register from './components/Register';
 import { AuthProvider } from './context/AuthContext';
@@ -123,9 +124,7 @@ const App = () => {
                     </Box>
                   </>
                 </PrivateRoute>
-              } />
-
-              <Route path="/settings" element={
+              } />              <Route path="/settings" element={
                 <PrivateRoute>
                   <>
                     <Navbar />
@@ -141,6 +140,28 @@ const App = () => {
                         }}
                       >
                         <Settings />
+                      </Box>
+                    </Box>
+                  </>
+                </PrivateRoute>
+              } />
+
+              <Route path="/projects" element={
+                <PrivateRoute>
+                  <>
+                    <Navbar />
+                    <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
+                      <Sidebar />
+                      <Box
+                        component="main"
+                        sx={{
+                          flexGrow: 1,
+                          p: 0,
+                          overflowY: 'auto',
+                          backgroundColor: '#f7f8fa'
+                        }}
+                      >
+                        <ProjectManagement />
                       </Box>
                     </Box>
                   </>

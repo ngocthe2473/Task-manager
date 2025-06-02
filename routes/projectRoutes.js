@@ -1,5 +1,12 @@
 const express = require('express');
-const { protect } = require('../middlewares/auth');
+const { authenticate, authorize } = require('../middlewares/auth');
+const {
+  validateProjectCreation,
+  validateProjectUpdate,
+  validateMongoId,
+  validatePagination
+} = require('../middlewares/validation');
+const { createRateLimit } = require('../middlewares/rateLimiting');
 const {
   getProjects,
   getProjectById,
@@ -7,21 +14,22 @@ const {
   updateProject,
   deleteProject,
   getProjectStats,
-  getProjectTasks
+  getMyProjects
 } = require('../controllers/projectController');
 const router = express.Router();
 
-// Public routes
+// Project routes
 router.route('/')
-  .get(protect, getProjects)
-  .post(protect, createProject);
+  .get(authenticate, validatePagination, getProjects)
+  .post(authenticate, authorize(['admin', 'manager']), createRateLimit, validateProjectCreation, createProject);
+
+router.get('/my', authenticate, getMyProjects);
 
 router.route('/:id')
-  .get(protect, getProjectById)
-  .put(protect, updateProject)
-  .delete(protect, deleteProject);
+  .get(authenticate, validateMongoId, getProjectById)
+  .put(authenticate, authorize(['admin', 'manager']), validateMongoId, validateProjectUpdate, updateProject)
+  .delete(authenticate, authorize(['admin', 'manager']), validateMongoId, deleteProject);
 
-router.get('/:id/stats', protect, getProjectStats);
-router.get('/:id/tasks', protect, getProjectTasks);
+router.get('/:id/stats', authenticate, validateMongoId, getProjectStats);
 
 module.exports = router;

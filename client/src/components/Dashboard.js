@@ -460,30 +460,29 @@ const Dashboard = () => {
                   {recentTasks.length > 0 ? (
                     recentTasks.map(task => (
                       <TaskItem key={task.id}>
-                        <TaskInfo>
-                          <TaskAvatar priority={task.priority}>
-                            {task.title ? task.title.charAt(0) : '?'}
+                        <TaskInfo>                          <TaskAvatar priority={task.priority}>
+                            {task.title ? task.title.charAt(0) : 'T'}
                           </TaskAvatar>
                           <TaskDetails>
-                            <TaskTitle>{task.title || 'Untitled Task'}</TaskTitle>
+                            <TaskTitle>{task.title}</TaskTitle>
                             <TaskMeta>
                               {task.project?.name || 'No Project'} • Due {formatDate(task.dueDate)}
                             </TaskMeta>
                           </TaskDetails>
-                        </TaskInfo>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          {task.assignee && (
-                            <Tooltip title={task.assignee.name || 'Unassigned'}>
+                        </TaskInfo>                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          {task.assigneeName && (
+                            <Tooltip title={task.assigneeName}>
                               <Avatar 
                                 sx={{ width: 24, height: 24, fontSize: 12 }}
                               >
-                                {task.assignee && task.assignee.name ? task.assignee.name.charAt(0) : '?'}
+                                {task.assigneeName.charAt(0)}
                               </Avatar>
                             </Tooltip>
-                          )}
-                          <StatusChip 
-                            label={task.status === 'in-progress' ? 'In Progress' : (task.status ? task.status.charAt(0).toUpperCase() + task.status.slice(1) : 'Unknown')}
-                            status={isOverdue(task.dueDate) && task.status !== 'done' ? 'overdue' : (task.status || 'todo')}
+                          )}                          <StatusChip 
+                            label={task.status === 'in-progress' ? 'In Progress' : 
+                                   (task.status ? task.status.charAt(0).toUpperCase() + task.status.slice(1) : 'Unknown')}
+                            status={isOverdue(task.dueDate) && task.status !== 'done' ? 'overdue' : 
+                                    (task.status || 'todo')}
                             size="small"
                           />
                         </Box>
@@ -635,9 +634,8 @@ const Dashboard = () => {
                 
                 <Box>
                   {teamMembers.map((member) => (
-                    <TeamMember key={member.id}>
-                      <MemberAvatar sx={{ bgcolor: `hsl(${member.id * 60}, 70%, 60%)` }}>
-                        {member.name ? member.name.charAt(0) : '?'}
+                    <TeamMember key={member.id}>                      <MemberAvatar sx={{ bgcolor: `hsl(${member.id * 60}, 70%, 60%)` }}>
+                        {member.name ? member.name.charAt(0) : 'U'}
                       </MemberAvatar>
                       <MemberInfo>
                         <MemberName>{member.name}</MemberName>
@@ -696,15 +694,14 @@ const Dashboard = () => {
                       <ProjectCard>
                         <CardContent>
                           <ProjectHeader>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Avatar 
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>                              <Avatar 
                                 sx={{
                                   width: 32,
                                   height: 32,
                                   bgcolor: project.color
                                 }}
                               >
-                                {project.name ? project.name.charAt(0) : '?'}
+                                {project.name ? project.name.charAt(0) : 'P'}
                               </Avatar>
                               <ProjectTitle>{project.name}</ProjectTitle>
                             </Box>
