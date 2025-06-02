@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -12,6 +12,7 @@ import {
   MenuItem,
   Button
 } from '@mui/material';
+import { AuthContext } from '../context/AuthContext';
 import {
   Menu as MenuIcon,
   Notifications as NotificationsIcon,
@@ -151,14 +152,7 @@ const ModernIconButton = styled(IconButton)(({ theme }) => ({
 const Navbar = ({ onMenuToggle }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [anchorEl, setAnchorEl] = useState(null);
-
-  // Mock user data
-  const user = {
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    role: 'Project Manager',
-    avatar: null
-  };
+  const { userInfo, logout: authLogout } = useContext(AuthContext);
 
   const handleUserMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -167,10 +161,9 @@ const Navbar = ({ onMenuToggle }) => {
   const handleUserMenuClose = () => {
     setAnchorEl(null);
   };
-
   const handleLogout = () => {
     handleUserMenuClose();
-    // Add logout logic here
+    authLogout();
   };
 
   return (
@@ -219,21 +212,20 @@ const Navbar = ({ onMenuToggle }) => {
           </ModernIconButton>
 
           <UserSection onClick={handleUserMenuOpen}>
-            <Avatar
-              sx={{
+            <Avatar              sx={{
                 width: 36,
                 height: 36,
                 background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
               }}
             >
-              {user?.name?.charAt(0) || 'U'}
+              {userInfo?.name?.charAt(0) || 'U'}
             </Avatar>
             <UserInfo>
               <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
-                {user?.name || 'User'}
+                {userInfo?.name || 'User'}
               </Typography>
               <Typography variant="caption" sx={{ color: '#666' }}>
-                {user?.role || 'Member'}
+                {userInfo?.role || 'Member'}
               </Typography>
             </UserInfo>
           </UserSection>

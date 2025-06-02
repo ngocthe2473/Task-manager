@@ -21,6 +21,7 @@ import {
   FormControl,
   InputLabel,
   Select,
+  FormHelperText,
   Fab,
   useTheme,
   alpha,
@@ -47,7 +48,9 @@ import {
   Analytics as AnalyticsIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Visibility as ViewIcon
+  Visibility as ViewIcon,
+  AddBox as AddBoxIcon,
+  FolderSpecial as FolderSpecialIcon
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
 import { format } from 'date-fns';
@@ -76,13 +79,13 @@ const ProjectCard = styled(Card)(({ theme, priority }) => {
   const getGradient = (priority) => {
     switch (priority) {
       case 'High':
-        return 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 50%, #ff9ff3 100%)';
+        return 'linear-gradient(135deg, #FF6B6B 0%, #EE5A24 50%, #FF416C 100%)';
       case 'Medium':
-        return 'linear-gradient(135deg, #ffa726 0%, #ff9800 50%, #ffcc80 100%)';
+        return 'linear-gradient(135deg, #4481EB 0%, #04BEFE 50%, #4481EB 100%)';
       case 'Low':
-        return 'linear-gradient(135deg, #42a5f5 0%, #1976d2 50%, #90caf9 100%)';
+        return 'linear-gradient(135deg, #43E97B 0%, #38F9D7 50%, #43E97B 100%)';
       default:
-        return 'linear-gradient(135deg, #78909c 0%, #546e7a 50%, #b0bec5 100%)';
+        return 'linear-gradient(135deg, #A8BFFF 0%, #884D80 50%, #A8BFFF 100%)';
     }
   };
 
@@ -149,6 +152,8 @@ const ProjectManagement = () => {
     startDate: '',
     endDate: ''
   });
+  const [formErrors, setFormErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [stats, setStats] = useState({
     totalProjects: 0,
     activeProjects: 0,
@@ -199,26 +204,46 @@ const ProjectManagement = () => {
     }
   };
 
-  const handleCreateProject = async () => {
-    try {
-      const newProject = await addProject(formData);
-      setProjects(prev => [newProject, ...prev]);
-      setOpenDialog(false);
-      resetForm();
-      setSnackbar({
-        open: true,
-        message: 'Project created successfully!',
-        severity: 'success'
-      });
-      fetchProjects(); // Refresh to get updated stats
-    } catch (error) {
-      console.error('Error creating project:', error);
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || 'Error creating project',
-        severity: 'error'
-      });
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.name.trim()) errors.name = 'Project name is required';
+    if (!formData.description.trim()) errors.description = 'Description is required';
+    if (!formData.team) errors.team = 'Team is required';
+    if (!formData.startDate) errors.startDate = 'Start date is required';
+    if (!formData.endDate) errors.endDate = 'End date is required';
+    if (formData.startDate && formData.endDate && new Date(formData.startDate) > new Date(formData.endDate)) {
+      errors.endDate = 'End date must be after start date';
     }
+    return errors;
+  };
+
+  const handleCreateProject = async () => {
+    setIsSubmitting(true);
+    const errors = validateForm();
+    setFormErrors(errors);
+
+    if (Object.keys(errors).length === 0) {
+      try {
+        const newProject = await addProject(formData);
+        setProjects(prev => [newProject, ...prev]);
+        setOpenDialog(false);
+        resetForm();
+        setSnackbar({
+          open: true,
+          message: 'Project created successfully!',
+          severity: 'success'
+        });
+        fetchProjects();
+      } catch (error) {
+        console.error('Error creating project:', error);
+        setSnackbar({
+          open: true,
+          message: error.response?.data?.message || 'Error creating project',
+          severity: 'error'
+        });
+      }
+    }
+    setIsSubmitting(false);
   };
 
   const handleUpdateProject = async () => {
@@ -267,6 +292,21 @@ const ProjectManagement = () => {
     }
   };
 
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    // Clear error when user starts typing
+    if (formErrors[name]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -277,7 +317,7 @@ const ProjectManagement = () => {
       startDate: '',
       endDate: ''
     });
-    setSelectedProject(null);
+    setFormErrors({});
   };
 
   const handleEditProject = (project) => {
@@ -353,6 +393,158 @@ const ProjectManagement = () => {
     const completed = project.tasks.filter(task => task.status === 'completed').length;
     return Math.round((completed / project.tasks.length) * 100);
   };
+
+  const renderDialog = () => (
+    <Dialog
+      open={openDialog}
+      onClose={() => {
+        setOpenDialog(false);
+        resetForm();
+      }}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: '20px',
+          background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.95)}, ${alpha(theme.palette.background.paper, 0.85)})`,
+          backdropFilter: 'blur(20px)',
+        }
+      }}
+    >
+      <DialogTitle sx={{ 
+        borderBottom: `1px solid ${theme.palette.divider}`,
+        pb: 2,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1
+      }}>
+        {selectedProject ? <EditIcon color="primary" /> : <AddBoxIcon color="primary" />}
+        {selectedProject ? 'Edit Project' : 'Create New Project'}
+      </DialogTitle>
+
+      <DialogContent sx={{ mt: 2 }}>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <TextField
+              name="name"
+              label="Project Name"
+              fullWidth
+              value={formData.name}
+              onChange={handleInputChange}
+              error={!!formErrors.name}
+              helperText={formErrors.name}
+              required
+              sx={{ mb: 2 }}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <TextField
+              name="description"
+              label="Description"
+              fullWidth
+              multiline
+              rows={4}
+              value={formData.description}
+              onChange={handleInputChange}
+              error={!!formErrors.description}
+              helperText={formErrors.description}
+              required
+              sx={{ mb: 2 }}
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth error={!!formErrors.team}>
+              <InputLabel>Team</InputLabel>
+              <Select
+                name="team"
+                value={formData.team}
+                onChange={handleInputChange}
+                required
+              >
+                {teams.map((team) => (
+                  <MenuItem key={team._id} value={team._id}>
+                    {team.name}
+                  </MenuItem>
+                ))}
+              </Select>
+              {formErrors.team && (
+                <FormHelperText>{formErrors.team}</FormHelperText>
+              )}
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth>
+              <InputLabel>Priority</InputLabel>
+              <Select
+                name="priority"
+                value={formData.priority}
+                onChange={handleInputChange}
+              >
+                <MenuItem value="High">High</MenuItem>
+                <MenuItem value="Medium">Medium</MenuItem>
+                <MenuItem value="Low">Low</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              name="startDate"
+              label="Start Date"
+              type="date"
+              fullWidth
+              value={formData.startDate}
+              onChange={handleInputChange}
+              error={!!formErrors.startDate}
+              helperText={formErrors.startDate}
+              InputLabelProps={{ shrink: true }}
+              required
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              name="endDate"
+              label="End Date"
+              type="date"
+              fullWidth
+              value={formData.endDate}
+              onChange={handleInputChange}
+              error={!!formErrors.endDate}
+              helperText={formErrors.endDate}
+              InputLabelProps={{ shrink: true }}
+              required
+            />
+          </Grid>
+        </Grid>
+      </DialogContent>
+
+      <DialogActions sx={{ p: 3 }}>
+        <Button 
+          onClick={() => {
+            setOpenDialog(false);
+            resetForm();
+          }}
+          variant="outlined"
+          color="inherit"
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={selectedProject ? handleUpdateProject : handleCreateProject}
+          variant="contained"
+          color="primary"
+          disabled={isSubmitting}
+          startIcon={isSubmitting ? <CircularProgress size={20} /> : (selectedProject ? <EditIcon /> : <AddIcon />)}
+        >
+          {isSubmitting ? 'Processing...' : (selectedProject ? 'Update Project' : 'Create Project')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
 
   const renderProjectCard = (project, index) => (
     <Grid item xs={12} md={6} lg={4} key={project._id || index}>
@@ -491,130 +683,114 @@ const ProjectManagement = () => {
   }
 
   return (
-    <Box sx={{ 
-      flexGrow: 1, 
-      p: 4,
-      background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.02)}, ${alpha(theme.palette.secondary.main, 0.02)})`,
-      minHeight: '100vh',
-    }}>
-      {/* Header */}
-      <Fade in timeout={600}>
-        <Box sx={{ mb: 4 }}>
-          <Typography 
-            variant="h3" 
-            fontWeight="bold"
-            sx={{
-              background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-              backgroundClip: 'text',
-              textFillColor: 'transparent',
-              mb: 1,
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <RocketIcon sx={{ mr: 2, fontSize: 48, color: theme.palette.primary.main }} />
-            Project Command Center
-          </Typography>
-          <Typography variant="h6" color="text.secondary" fontWeight="300">
-            Orchestrate your projects with precision and style
-          </Typography>
-        </Box>
-      </Fade>
+    <Box sx={{ p: 3 }}>
+      {/* Header Section */}
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h4" sx={{ 
+          fontWeight: 'bold',
+          background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent'
+        }}>
+          Project Management
+        </Typography>
+        
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setSelectedProject(null);
+            setOpenDialog(true);
+          }}
+          sx={{
+            borderRadius: '20px',
+            background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+            '&:hover': {
+              background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
+            }
+          }}
+        >
+          Create Project
+        </Button>
+      </Box>
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Fade in timeout={800}>
-            <StatsCard gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
-              <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                <AssignmentIcon sx={{ fontSize: 48, mb: 2 }} />
-                <Typography variant="h3" fontWeight="bold">
-                  {stats.totalProjects}
-                </Typography>
-                <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                  Total Projects
-                </Typography>
-              </CardContent>
-            </StatsCard>
-          </Fade>
+          <StatsCard
+            gradient={`linear-gradient(135deg, #2193b0, #6dd5ed)`}
+            sx={{ p: 2 }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <AssignmentIcon sx={{ mr: 1 }} />
+              <Typography variant="h6">Total Projects</Typography>
+            </Box>
+            <Typography variant="h4">{stats.totalProjects}</Typography>
+          </StatsCard>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
-          <Fade in timeout={1000}>
-            <StatsCard gradient="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)">
-              <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                <TrendingUpIcon sx={{ fontSize: 48, mb: 2 }} />
-                <Typography variant="h3" fontWeight="bold">
-                  {stats.activeProjects}
-                </Typography>
-                <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                  Active Projects
-                </Typography>
-              </CardContent>
-            </StatsCard>
-          </Fade>
+          <StatsCard
+            gradient={`linear-gradient(135deg, #11998e, #38ef7d)`}
+            sx={{ p: 2 }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <TrendingUpIcon sx={{ mr: 1 }} />
+              <Typography variant="h6">Active Projects</Typography>
+            </Box>
+            <Typography variant="h4">{stats.activeProjects}</Typography>
+          </StatsCard>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
-          <Fade in timeout={1200}>
-            <StatsCard gradient="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)">
-              <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                <AnalyticsIcon sx={{ fontSize: 48, mb: 2 }} />
-                <Typography variant="h3" fontWeight="bold">
-                  {stats.completedProjects}
-                </Typography>
-                <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                  Completed
-                </Typography>
-              </CardContent>
-            </StatsCard>
-          </Fade>
+          <StatsCard
+            gradient={`linear-gradient(135deg, #ee0979, #ff6a00)`}
+            sx={{ p: 2 }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <RocketIcon sx={{ mr: 1 }} />
+              <Typography variant="h6">Completed</Typography>
+            </Box>
+            <Typography variant="h4">{stats.completedProjects}</Typography>
+          </StatsCard>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
-          <Fade in timeout={1400}>
-            <StatsCard gradient="linear-gradient(135deg, #fa709a 0%, #fee140 100%)">
-              <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                <PeopleIcon sx={{ fontSize: 48, mb: 2 }} />
-                <Typography variant="h3" fontWeight="bold">
-                  {stats.teamMembers}
-                </Typography>
-                <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                  Team Members
-                </Typography>
-              </CardContent>
-            </StatsCard>
-          </Fade>
+          <StatsCard
+            gradient={`linear-gradient(135deg, #4A00E0, #8E2DE2)`}
+            sx={{ p: 2 }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <PeopleIcon sx={{ mr: 1 }} />
+              <Typography variant="h6">Team Members</Typography>
+            </Box>
+            <Typography variant="h4">{stats.teamMembers}</Typography>
+          </StatsCard>
         </Grid>
       </Grid>
 
-      {/* Projects Grid */}
+      {/* Project Cards Grid */}
       <Grid container spacing={3}>
-        {projects.map((project, index) => renderProjectCard(project, index))}
+        {loading ? (
+          <Grid item xs={12} sx={{ textAlign: 'center', py: 5 }}>
+            <CircularProgress size={40} />
+          </Grid>
+        ) : projects.length === 0 ? (
+          <Grid item xs={12} sx={{ textAlign: 'center', py: 5 }}>
+            <FolderSpecialIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary">
+              No projects found. Create your first project!
+            </Typography>
+          </Grid>
+        ) : (
+          projects.map(renderProjectCard)
+        )}
       </Grid>
 
-      {/* Floating Action Button */}
-      <Fab
-        color="primary"
-        sx={{
-          position: 'fixed',
-          bottom: 32,
-          right: 32,
-          background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-          animation: `${floatAnimation} 3s ease-in-out infinite`,
-          '&:hover': {
-            transform: 'scale(1.1)',
-          },
-        }}
-        onClick={() => {
-          resetForm();
-          setOpenDialog(true);
-        }}
-      >
-        <AddIcon />
-      </Fab>
+      {/* Project Dialog */}
+      {renderDialog()}
 
-      {/* Context Menu */}
+      {/* Project Menu */}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
@@ -624,137 +800,27 @@ const ProjectManagement = () => {
           handleEditProject(selectedProject);
           handleMenuClose();
         }}>
-          <EditIcon sx={{ mr: 1 }} />
-          Edit Project
+          <EditIcon sx={{ mr: 1 }} /> Edit
         </MenuItem>
         <MenuItem onClick={() => {
           handleDeleteProject(selectedProject._id);
           handleMenuClose();
-        }}>
-          <DeleteIcon sx={{ mr: 1 }} />
-          Delete Project
+        }} sx={{ color: theme.palette.error.main }}>
+          <DeleteIcon sx={{ mr: 1 }} /> Delete
         </MenuItem>
       </Menu>
 
-      {/* Project Dialog */}
-      <Dialog
-        open={openDialog}
-        onClose={() => setOpenDialog(false)}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.95)}, ${alpha(theme.palette.background.paper, 0.9)})`,
-            backdropFilter: 'blur(20px)',
-          }
-        }}
-      >
-        <DialogTitle sx={{ 
-          background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-          color: 'white',
-          fontWeight: 'bold'
-        }}>
-          {selectedProject ? 'Edit Project' : 'Create New Project'}
-        </DialogTitle>
-        <DialogContent sx={{ p: 4 }}>
-          <Grid container spacing={3} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Project Name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="Description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={formData.status}
-                  label="Status"
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                >
-                  <MenuItem value="planning">Planning</MenuItem>
-                  <MenuItem value="in_progress">In Progress</MenuItem>
-                  <MenuItem value="completed">Completed</MenuItem>
-                  <MenuItem value="on_hold">On Hold</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Priority</InputLabel>
-                <Select
-                  value={formData.priority}
-                  label="Priority"
-                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                >
-                  <MenuItem value="Low">Low</MenuItem>
-                  <MenuItem value="Medium">Medium</MenuItem>
-                  <MenuItem value="High">High</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                type="date"
-                label="Start Date"
-                value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                type="date"
-                label="End Date"
-                value={formData.endDate}
-                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setOpenDialog(false)}>
-            Cancel
-          </Button>
-          <Button 
-            variant="contained"
-            sx={{ 
-              background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-            }}
-            onClick={selectedProject ? handleUpdateProject : handleCreateProject}
-          >
-            {selectedProject ? 'Update Project' : 'Create Project'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Snackbar */}
+      {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
+          variant="filled"
           sx={{ width: '100%' }}
         >
           {snackbar.message}

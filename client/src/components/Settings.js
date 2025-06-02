@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -16,8 +16,12 @@ import {
   Card,
   CardContent,
   IconButton,
-  Chip
+  Chip,
+  Alert,
+  Snackbar,
+  CircularProgress
 } from '@mui/material';
+import { AuthContext } from '../context/AuthContext';
 import {
   Person as PersonIcon,
   Security as SecurityIcon,
@@ -209,67 +213,143 @@ const StatusChip = styled(Chip)(({ theme }) => ({
 
 const Settings = () => {
   const [currentTab, setCurrentTab] = useState(0);
-  const [settings, setSettings] = useState({
-    profile: {
-      name: 'John Doe',
-      email: 'john.doe@example.com',
-      phone: '+1 (555) 123-4567',
-      department: 'Engineering',
-      role: 'Senior Developer'
-    },
-    notifications: {
-      email: true,
-      push: true,
-      desktop: false,
-      taskUpdates: true,
-      mentions: true,
-      projectNews: false
-    },
-    appearance: {
-      darkMode: false,
-      compactView: false,
-      showAvatars: true
-    },
-    privacy: {
-      profileVisible: true,
-      activityVisible: false,
-      onlineStatus: true
-    }
+  const { userInfo, updateUser } = useContext(AuthContext);
+  const [isLoading, setIsLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
   });
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    department: '',
+    role: ''
+  });
+
+  useEffect(() => {
+    if (userInfo) {
+      setFormData({
+        name: userInfo.name || '',
+        email: userInfo.email || '',
+        phone: userInfo.phone || '',
+        department: userInfo.department || '',
+        role: userInfo.role || ''
+      });
+    }
+  }, [userInfo]);
 
   const handleTabChange = (event, newValue) => {
     setCurrentTab(newValue);
   };
 
-  const handleSettingChange = (category, setting, value) => {
-    setSettings(prev => ({
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
       ...prev,
-      [category]: {
-        ...prev[category],
-        [setting]: value
-      }
+      [field]: value
     }));
   };
 
-  const handleProfileChange = (field, value) => {
-    setSettings(prev => ({
-      ...prev,
-      profile: {
-        ...prev.profile,
-        [field]: value
-      }
-    }));
+  const handleSave = async () => {
+    try {
+      setIsLoading(true);
+      const updatedUser = await updateUser(formData);
+      setSnackbar({
+        open: true,
+        message: 'Settings updated successfully',
+        severity: 'success'
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message || 'Failed to update settings',
+        severity: 'error'
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleSave = () => {
-    // Save settings logic here
-    console.log('Settings saved:', settings);
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
   };
+
+  const renderProfileTab = () => (
+    <Box>
+      <ProfileCard>
+        <CardContent>
+          <ProfileHeader>
+            <AvatarUpload>
+              <LargeAvatar>{userInfo?.name?.charAt(0) || 'U'}</LargeAvatar>
+              <AvatarButton>
+                <PhotoCameraIcon fontSize="small" />
+              </AvatarButton>
+            </AvatarUpload>
+            <Box>
+              <Typography variant="h6">{userInfo?.name}</Typography>
+              <StatusChip
+                label="Active"
+                icon={<span className="dot" />}
+                size="small"
+              />
+            </Box>
+          </ProfileHeader>
+
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6}>
+              <StyledTextField
+                fullWidth
+                label="Full Name"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <StyledTextField
+                fullWidth
+                label="Email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <StyledTextField
+                fullWidth
+                label="Phone"
+                value={formData.phone}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <StyledTextField
+                fullWidth
+                label="Department"
+                value={formData.department}
+                onChange={(e) => handleInputChange('department', e.target.value)}
+              />
+            </Grid>
+          </Grid>
+          
+          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+            <SaveButton
+              variant="contained"
+              onClick={handleSave}
+              disabled={isLoading}
+              startIcon={isLoading ? <CircularProgress size={20} /> : null}
+            >
+              {isLoading ? 'Saving...' : 'Save Changes'}
+            </SaveButton>
+          </Box>
+        </CardContent>
+      </ProfileCard>
+    </Box>
+  );
 
   const TabPanel = ({ children, value, index }) => (
-    <div hidden={value !== index}>
+    <Box hidden={value !== index}>
       {value === index && children}
-    </div>
+    </Box>
   );
 
   const tabs = [
@@ -283,306 +363,68 @@ const Settings = () => {
     <SettingsContainer>
       <SettingsHeader>
         <SettingsTitle>Settings</SettingsTitle>
-        <SettingsSubtitle>
+        <Typography variant="subtitle1" color="text.secondary">
           Manage your account settings and preferences
-        </SettingsSubtitle>
+        </Typography>
       </SettingsHeader>
 
-      <StyledTabs value={currentTab} onChange={handleTabChange}>
-        {tabs.map((tab, index) => (
-          <Tab
-            key={index}
-            icon={tab.icon}
-            label={tab.label}
-            iconPosition="start"
-          />
-        ))}
-      </StyledTabs>
-
-      {/* Profile Tab */}
-      <TabPanel value={currentTab} index={0}>
-        <ProfileCard>
-          <CardContent>
-            <ProfileHeader>
-              <AvatarUpload>
-                <LargeAvatar>
-                  {settings.profile.name.charAt(0)}
-                </LargeAvatar>
-                <AvatarButton size="small">
-                  <PhotoCameraIcon sx={{ fontSize: 16 }} />
-                </AvatarButton>
-              </AvatarUpload>
-              <Box>
-                <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', mb: 1 }}>
-                  {settings.profile.name}
-                </Typography>
-                <StatusChip label="Active" size="small" />
-                <Typography variant="body2" sx={{ color: '#666', mt: 1 }}>
-                  Member since January 2024
-                </Typography>
-              </Box>
-            </ProfileHeader>
-
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <StyledTextField
-                  fullWidth
-                  label="Full Name"
-                  value={settings.profile.name}
-                  onChange={(e) => handleProfileChange('name', e.target.value)}
-                  InputProps={{
-                    startAdornment: <AccountIcon sx={{ mr: 1, color: '#666' }} />,
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <StyledTextField
-                  fullWidth
-                  label="Email"
-                  value={settings.profile.email}
-                  onChange={(e) => handleProfileChange('email', e.target.value)}
-                  type="email"
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <StyledTextField
-                  fullWidth
-                  label="Phone"
-                  value={settings.profile.phone}
-                  onChange={(e) => handleProfileChange('phone', e.target.value)}
-                  InputProps={{
-                    startAdornment: <PhoneIcon sx={{ mr: 1, color: '#666' }} />,
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <StyledTextField
-                  fullWidth
-                  label="Department"
-                  value={settings.profile.department}
-                  onChange={(e) => handleProfileChange('department', e.target.value)}
-                />
-              </Grid>
-            </Grid>
-          </CardContent>
-        </ProfileCard>
-      </TabPanel>
-
-      {/* Notifications Tab */}
-      <TabPanel value={currentTab} index={1}>
-        <SettingsSection>
-          <SectionTitle>
-            <NotificationsIcon />
-            Email Notifications
-          </SectionTitle>
-          
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>Task Updates</SettingTitle>
-              <SettingDescription>
-                Get notified when tasks are updated or commented on
-              </SettingDescription>
-            </SettingLabel>
-            <StyledSwitch
-              checked={settings.notifications.taskUpdates}
-              onChange={(e) => handleSettingChange('notifications', 'taskUpdates', e.target.checked)}
+      <Paper sx={{ borderRadius: '16px', overflow: 'hidden' }}>
+        <Tabs 
+          value={currentTab} 
+          onChange={handleTabChange}
+          variant="fullWidth"
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            '& .MuiTab-root': {
+              minHeight: '64px',
+            }
+          }}
+        >
+          {tabs.map((tab, index) => (
+            <Tab
+              key={index}
+              icon={tab.icon}
+              label={tab.label}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 500,
+              }}
             />
-          </SettingItem>
+          ))}
+        </Tabs>
 
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>Mentions</SettingTitle>
-              <SettingDescription>
-                Get notified when someone mentions you in a comment
-              </SettingDescription>
-            </SettingLabel>
-            <StyledSwitch
-              checked={settings.notifications.mentions}
-              onChange={(e) => handleSettingChange('notifications', 'mentions', e.target.checked)}
-            />
-          </SettingItem>
+        <Box sx={{ p: 3 }}>
+          <TabPanel value={currentTab} index={0}>
+            {renderProfileTab()}
+          </TabPanel>
+          <TabPanel value={currentTab} index={1}>
+            <Typography>Notification settings coming soon...</Typography>
+          </TabPanel>
+          <TabPanel value={currentTab} index={2}>
+            <Typography>Appearance settings coming soon...</Typography>
+          </TabPanel>
+          <TabPanel value={currentTab} index={3}>
+            <Typography>Privacy settings coming soon...</Typography>
+          </TabPanel>
+        </Box>
+      </Paper>
 
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>Project News</SettingTitle>
-              <SettingDescription>
-                Get updates about project milestones and announcements
-              </SettingDescription>
-            </SettingLabel>
-            <StyledSwitch
-              checked={settings.notifications.projectNews}
-              onChange={(e) => handleSettingChange('notifications', 'projectNews', e.target.checked)}
-            />
-          </SettingItem>
-        </SettingsSection>
-
-        <SettingsSection>
-          <SectionTitle>
-            Push Notifications
-          </SectionTitle>
-          
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>Browser Notifications</SettingTitle>
-              <SettingDescription>
-                Show notifications in your browser
-              </SettingDescription>
-            </SettingLabel>
-            <StyledSwitch
-              checked={settings.notifications.push}
-              onChange={(e) => handleSettingChange('notifications', 'push', e.target.checked)}
-            />
-          </SettingItem>
-
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>Desktop Notifications</SettingTitle>
-              <SettingDescription>
-                Show system notifications on your desktop
-              </SettingDescription>
-            </SettingLabel>
-            <StyledSwitch
-              checked={settings.notifications.desktop}
-              onChange={(e) => handleSettingChange('notifications', 'desktop', e.target.checked)}
-            />
-          </SettingItem>
-        </SettingsSection>
-      </TabPanel>
-
-      {/* Appearance Tab */}
-      <TabPanel value={currentTab} index={2}>
-        <SettingsSection>
-          <SectionTitle>
-            <PaletteIcon />
-            Display
-          </SectionTitle>
-          
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>Dark Mode</SettingTitle>
-              <SettingDescription>
-                Use dark theme for better viewing in low light
-              </SettingDescription>
-            </SettingLabel>
-            <StyledSwitch
-              checked={settings.appearance.darkMode}
-              onChange={(e) => handleSettingChange('appearance', 'darkMode', e.target.checked)}
-            />
-          </SettingItem>
-
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>Compact View</SettingTitle>
-              <SettingDescription>
-                Show more content in less space
-              </SettingDescription>
-            </SettingLabel>
-            <StyledSwitch
-              checked={settings.appearance.compactView}
-              onChange={(e) => handleSettingChange('appearance', 'compactView', e.target.checked)}
-            />
-          </SettingItem>
-
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>Show Avatars</SettingTitle>
-              <SettingDescription>
-                Display user avatars in task lists and comments
-              </SettingDescription>
-            </SettingLabel>
-            <StyledSwitch
-              checked={settings.appearance.showAvatars}
-              onChange={(e) => handleSettingChange('appearance', 'showAvatars', e.target.checked)}
-            />
-          </SettingItem>
-        </SettingsSection>
-      </TabPanel>
-
-      {/* Privacy Tab */}
-      <TabPanel value={currentTab} index={3}>
-        <SettingsSection>
-          <SectionTitle>
-            <ShieldIcon />
-            Privacy & Security
-          </SectionTitle>
-          
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>Profile Visibility</SettingTitle>
-              <SettingDescription>
-                Allow other team members to view your profile
-              </SettingDescription>
-            </SettingLabel>
-            <StyledSwitch
-              checked={settings.privacy.profileVisible}
-              onChange={(e) => handleSettingChange('privacy', 'profileVisible', e.target.checked)}
-            />
-          </SettingItem>
-
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>Activity Status</SettingTitle>
-              <SettingDescription>
-                Show your activity status to other team members
-              </SettingDescription>
-            </SettingLabel>
-            <StyledSwitch
-              checked={settings.privacy.activityVisible}
-              onChange={(e) => handleSettingChange('privacy', 'activityVisible', e.target.checked)}
-            />
-          </SettingItem>
-
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>Online Status</SettingTitle>
-              <SettingDescription>
-                Show when you're online and available
-              </SettingDescription>
-            </SettingLabel>
-            <StyledSwitch
-              checked={settings.privacy.onlineStatus}
-              onChange={(e) => handleSettingChange('privacy', 'onlineStatus', e.target.checked)}
-            />
-          </SettingItem>
-        </SettingsSection>
-
-        <SettingsSection>
-          <SectionTitle>
-            <KeyIcon />
-            Data & Security
-          </SectionTitle>
-          
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>Data Export</SettingTitle>
-              <SettingDescription>
-                Download a copy of your data
-              </SettingDescription>
-            </SettingLabel>
-            <Button variant="outlined" size="small">
-              Export Data
-            </Button>
-          </SettingItem>
-
-          <SettingItem>
-            <SettingLabel>
-              <SettingTitle>Account Backup</SettingTitle>
-              <SettingDescription>
-                Create a backup of your account settings
-              </SettingDescription>
-            </SettingLabel>
-            <Button variant="outlined" size="small">
-              Create Backup
-            </Button>
-          </SettingItem>
-        </SettingsSection>
-      </TabPanel>
-
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
-        <SaveButton onClick={handleSave}>
-          Save Changes
-        </SaveButton>
-      </Box>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </SettingsContainer>
   );
 };

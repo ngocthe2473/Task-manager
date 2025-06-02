@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorize, authorizeTeamRole } = require('../middlewares/auth');
 const {
   validateTeamCreation,
   validateTeamUpdate,
@@ -15,23 +15,30 @@ const {
   deleteTeam,
   addTeamMember,
   removeTeamMember,
-  getTeamStats
+  getTeamStats,
+  changeTeamRole
 } = require('../controllers/teamController');
 const router = express.Router();
 
 router.route('/')
   .get(authenticate, validatePagination, getTeams)
-  .post(authenticate, authorize(['admin', 'manager']), createRateLimit, validateTeamCreation, createTeam);
+  .post(authenticate, authorize(['admin', 'user']), createRateLimit, validateTeamCreation, createTeam);
 
 router.route('/:id')
   .get(authenticate, validateMongoId, getTeamById)
-  .put(authenticate, authorize(['admin', 'manager']), validateMongoId, validateTeamUpdate, updateTeam)
+  .put(authenticate, authorizeTeamRole('id', 'leader'), validateMongoId, validateTeamUpdate, updateTeam)
   .delete(authenticate, authorize(['admin']), validateMongoId, deleteTeam);
 
 router.route('/:id/members')
-  .post(authenticate, authorize(['admin', 'manager']), validateMongoId, addTeamMember)
-  .delete(authenticate, authorize(['admin', 'manager']), validateMongoId, removeTeamMember);
+  .post(authenticate, authorizeTeamRole('id', 'leader'), validateMongoId, addTeamMember)
+  .delete(authenticate, authorizeTeamRole('id', 'leader'), validateMongoId, removeTeamMember);
 
 router.get('/:id/stats', authenticate, validateMongoId, getTeamStats);
+router.put('/:id/members/:userId/role', 
+  authenticate, 
+  authorizeTeamRole('id', 'leader'), 
+  validateMongoId, 
+  changeTeamRole
+);
 
 module.exports = router;

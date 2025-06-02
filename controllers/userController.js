@@ -11,11 +11,6 @@ const mongoose = require('mongoose');
 // @access  Private/Admin
 exports.getUsers = async (req, res) => {
   try {
-    // Only admin can access all users
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
-    }
-
     const {
       page = 1,
       limit = 10,
@@ -56,15 +51,35 @@ exports.getUsers = async (req, res) => {
 
     // Build sort object
     const sortObj = {};
-    sortObj[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-    // Execute query with pagination
+    sortObj[sortBy] = sortOrder === 'desc' ? -1 : 1;    // Execute query with pagination
     const users = await User.find(query)
-      .populate('team', 'name')
       .select('-password')
       .sort(sortObj)
       .limit(limit * 1)
       .skip((page - 1) * limit);
+
+    // Get team information for each user
+    const usersWithTeams = await Promise.all(users.map(async (user) => {
+      const teams = await Team.find({
+        'members.user': user._id
+      }).select('name members');
+
+      const userTeams = teams.map(team => {
+        const memberData = team.members.find(
+          member => member.user.toString() === user._id.toString()
+        );
+        return {
+          _id: team._id,
+          name: team.name,
+          role: memberData ? memberData.team_role : null
+        };
+      });
+
+      return {
+        ...user.toObject(),
+        teams: userTeams
+      };
+    }));
 
     const total = await User.countDocuments(query);
 
@@ -113,11 +128,25 @@ exports.getUser = async (req, res) => {
     // Check permissions
     if (req.user.role !== 'admin' && req.user.id !== userId) {
       return res.status(403).json({ message: 'Access denied' });
-    }
+    }    // Get user info
+    const user = await User.findById(userId).select('-password');
+    
+    // Get user's teams
+    const teams = await Team.find({
+      'members.user': userId
+    }).select('name description members');
 
-    const user = await User.findById(userId)
-      .populate('team', 'name description')
-      .select('-password');
+    const userTeams = teams.map(team => {
+      const memberData = team.members.find(
+        member => member.user.toString() === userId
+      );
+      return {
+        _id: team._id,
+        name: team.name,
+        description: team.description,
+        role: memberData ? memberData.team_role : null
+      };
+    });
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -140,11 +169,12 @@ exports.getUser = async (req, res) => {
         .sort({ deadline: 1 })
     ]);
 
-    const [totalTasks, completedTasks, projectCount, upcomingTasks] = userStats;
-
-    res.json({
+    const [totalTasks, completedTasks, projectCount, upcomingTasks] = userStats;    res.json({
       success: true,
-      user,
+      user: {
+        ...user.toObject(),
+        teams: userTeams
+      },
       statistics: {
         tasks: {
           total: totalTasks,
@@ -579,42 +609,184 @@ exports.changeUserRole = async (req, res) => {
   }
 };
 
+// @desc    Get user profile
+// @route   GET /api/users/profile
+// @access  Private
+exports.getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Get teams where user is a member
+    const teams = await Team.find({
+      'members.user': user._id
+    }).select('name members');
+
+    // Get user's role in each team
+    const userTeams = teams.map(team => {
+      const memberData = team.members.find(
+        member => member.user.toString() === user._id.toString()
+      );
+      return {
+        _id: team._id,
+        name: team.name,
+        role: memberData ? memberData.team_role : null
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ...user.toObject(),
+        teams: userTeams
+      }
+    });
+  } catch (error) {
+    console.error('Error getting user profile:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Update user profile
+// @route   PUT /api/users/profile
+// @access  Private
+exports.updateUserProfile = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (password) user.password = password;
+
+    const updatedUser = await user.save();
+
+    res.json({
+      success: true,
+      data: {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        avatar: updatedUser.avatar
+      }
+    });
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Email already exists' });
+    }
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 exports.addTeamMember = async (req, res) => {
-  // ... existing code ...
-  team.members.push({ user: userId, role: 'member' }); // Thêm vai trò mặc định
-  // ... existing code ...
+  try {
+    const { userId } = req.body;
+    const teamId = req.params.id;
+
+    // Validate input
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    // Find team
+    const team = await Team.findById(teamId);
+    if (!team) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
+
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if user is already a member
+    if (team.members.some(member => member.user.toString() === userId)) {
+      return res.status(400).json({ message: 'User is already a member of this team' });
+    }
+
+    // Add member with default role 'member'
+    team.members.push({
+      user: userId,
+      team_role: 'member'
+    });
+
+    await team.save();
+
+    // Populate team data
+    await team.populate('members.user', 'name email avatar');
+
+    // Log activity
+    await ActivityLog.create({
+      user: req.user.id,
+      action: 'update',
+      entityType: 'Team',
+      entityId: team._id,
+      metadata: {
+        action: 'add_member',
+        memberId: userId
+      }
+    });
+
+    res.json({
+      success: true,
+      data: team
+    });
+  } catch (error) {
+    console.error('Add team member error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 };
 
 exports.createTeam = async (req, res) => {
   try {
-    const { name, description, managerId } = req.body;
+    const { name, description } = req.body;
 
-    // Kiểm tra nếu manager tồn tại
-    const manager = await User.findById(managerId);
-    if (!manager) {
-      return res.status(400).json({ message: 'Invalid manager ID' });
+    if (!name) {
+      return res.status(400).json({ message: 'Team name is required' });
     }
 
+    // Create team with the current user as leader
     const team = await Team.create({
       name,
       description,
-      manager: managerId,
-      members: [managerId]
+      members: [{
+        user: req.user.id,
+        team_role: 'leader'
+      }]
     });
-
-    // Thêm team vào hồ sơ của manager
-    await User.findByIdAndUpdate(managerId, { team: team._id });
 
     // Ghi lại hoạt động
     await ActivityLog.create({
       user: req.user.id,
       action: 'create',
       entityType: 'Team',
-      entityId: team._id
+      entityId: team._id,
+      metadata: {
+        teamName: name,
+        creator: req.user.id,
+        role: 'leader'
+      }
     });
 
-    res.status(201).json(team);
+    // Populate the team data before sending response
+    await team.populate('members.user', 'name email avatar');
+
+    res.status(201).json({
+      success: true,
+      data: team
+    });
   } catch (error) {
+    console.error('Create team error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

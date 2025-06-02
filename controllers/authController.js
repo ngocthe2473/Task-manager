@@ -7,13 +7,15 @@ const bcrypt = require('bcryptjs');
 // @route   POST /api/auth/register
 // @access  Public
 exports.register = async (req, res) => {
-  try {
-    const { username, email, password, name, role = 'member' } = req.body;
+  try {    const { username, email, password, name } = req.body;
 
     // Validation
     if (!username || !email || !password || !name) {
       return res.status(400).json({ message: 'Please provide all required fields' });
     }
+    
+    // Default role is 'user' unless explicitly set to 'admin' by another admin
+    const role = 'user';
 
     // Check if user exists
     const userExists = await User.findOne({ 

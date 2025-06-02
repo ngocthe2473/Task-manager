@@ -48,18 +48,32 @@ app.use(fileUpload({
   responseOnLimit: "File size limit exceeded"
 }));
 
-// Enable CORS
+// Enable CORS and Handle Host Headers
+const cors = require('cors');
+app.use(cors());
+
+// Set trusted proxy
+app.set('trust proxy', 1);
+
+// Allow specific domains including your custom domain
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header(
-    'Access-Control-Allow-Headers',
-    'Origin, X-Requested-With, Content-Type, Accept, Authorization'
-  );
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-    return res.status(200).json({});
+  const allowedDomains = ['localhost:3000', 'localhost:3001', 'task.nongthivdct.vn'];
+  const host = req.headers.host;
+  
+  // Check if the host is in our allowed domains
+  if (allowedDomains.includes(host) || host.includes('localhost')) {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Headers',
+      'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    if (req.method === 'OPTIONS') {
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+      return res.status(200).json({});
+    }
+    next();
+  } else {
+    console.log(`Rejected host: ${host}`);
+    next();
   }
-  next();
 });
 
 // Mount routers

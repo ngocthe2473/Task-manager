@@ -25,28 +25,19 @@ exports.getTeams = async (req, res) => {
         { name: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } }
       ];
+    }    // Role-based filtering
+    if (req.user.role === 'user') {
+      // Regular users can only see teams they are members of
+      filter['members.user'] = req.user.id;
     }
-
-    // Role-based filtering
-    if (req.user.role === 'manager') {
-      // Managers can only see their own team
-      filter.manager = req.user.id;
-    } else if (req.user.role === 'member') {
-      // Members can only see their team
-      if (req.user.team) {
-        filter._id = req.user.team;
-      } else {
-        filter._id = null; // No team assigned
-      }
-    }
+    // Admins can see all teams
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const sort = {};
     sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
     const teams = await Team.find(filter)
-      .populate('manager', 'name email avatar')
-      .populate('members', 'name email avatar role')
+      .populate('members.user', 'name email avatar role')
       .sort(sort)
       .skip(skip)
       .limit(parseInt(limit));
@@ -83,18 +74,14 @@ exports.getTeams = async (req, res) => {
 // @route   GET /api/teams/:id
 // @access  Private
 exports.getTeamById = async (req, res) => {
-  try {
-    const team = await Team.findById(req.params.id)
-      .populate('manager', 'name email avatar')
-      .populate('members', 'name email avatar role isActive');
+  try {    const team = await Team.findById(req.params.id)
+      .populate('members.user', 'name email avatar role isActive');
 
     if (!team) {
       return res.status(404).json({ message: 'Team not found' });
-    }
-
-    // Check permissions
-    if (req.user.role === 'member' && 
-        !team.members.some(member => member._id.toString() === req.user.id)) {
+    }    // Check permissions
+    if (req.user.role === 'user' && 
+        !team.members.some(member => member.user._id.toString() === req.user.id)) {
       return res.status(403).json({ message: 'Not authorized to view this team' });
     }
 
@@ -122,52 +109,26 @@ exports.getTeamById = async (req, res) => {
   }
 };
 
-// @desc    Create a team
+// @desc    Create a new team
 // @route   POST /api/teams
-// @access  Private (Admin only)
+// @access  Private (User/Admin)
 exports.createTeam = async (req, res) => {
   try {
-    const { name, description, managerId } = req.body;
+    const { name, description } = req.body;
 
-    // Validate required fields
-    if (!name || !managerId) {
-      return res.status(400).json({ message: 'Name and manager are required' });
+    if (!name) {
+      return res.status(400).json({ message: 'Team name is required' });
     }
 
-    // Check permissions
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Not authorized to create teams' });
-    }
-
-    // Check if manager exists and is valid
-    const manager = await User.findById(managerId);
-    if (!manager) {
-      return res.status(404).json({ message: 'Manager not found' });
-    }
-
-    if (!['admin', 'manager'].includes(manager.role)) {
-      return res.status(400).json({ message: 'User must have manager or admin role' });
-    }
-
-    // Check if manager already manages a team
-    const existingTeam = await Team.findOne({ manager: managerId });
-    if (existingTeam) {
-      return res.status(400).json({ message: 'Manager already manages a team' });
-    }
-
+    // Create the team with the current user as leader
     const team = await Team.create({
       name,
       description,
-      manager: managerId,
-      members: [managerId] // Manager is automatically a member
+      members: [{
+        user: req.user.id,
+        team_role: 'leader'
+      }]
     });
-
-    // Update manager's team reference
-    await User.findByIdAndUpdate(managerId, { team: team._id });
-
-    const populatedTeam = await Team.findById(team._id)
-      .populate('manager', 'name email avatar')
-      .populate('members', 'name email avatar role');
 
     // Log activity
     await ActivityLog.create({
@@ -176,28 +137,20 @@ exports.createTeam = async (req, res) => {
       entityType: 'Team',
       entityId: team._id,
       metadata: {
-        name: name,
-        manager: managerId
+        teamName: name,
+        creatorRole: 'leader'
       }
     });
 
-    // Notify the manager
-    if (managerId !== req.user.id) {
-      await Notification.create({
-        user: managerId,
-        content: `You have been assigned as manager of team "${name}"`,
-        type: 'task_assigned',
-        relatedEntity: team._id,
-        onModel: 'Team'
-      });
-    }
+    // Populate the team members
+    await team.populate('members.user', 'name email avatar role');
 
     res.status(201).json({
       success: true,
-      data: populatedTeam
+      data: team
     });
   } catch (error) {
-    console.error('Error creating team:', error);
+    console.error('Create team error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -550,28 +503,29 @@ exports.addTeamMember = async (req, res) => {
       return res.status(404).json({ message: 'Team not found' });
     }
 
-    // Check if user is team manager
-    if (team.manager.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
+    // Authorization is now handled by authorizeTeamRole middleware
+    // Only team leaders or admins can add members
 
-    const { userId } = req.body;
+    const { userId, teamRole = 'member' } = req.body;
+    
+    // Validate role
+    if (!['leader', 'member'].includes(teamRole)) {
+      return res.status(400).json({ message: 'Invalid team role. Must be leader or member' });
+    }
+    
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
     // Check if user is already in team
-    if (team.members.includes(userId)) {
+    if (team.isMember(userId)) {
       return res.status(400).json({ message: 'User already in team' });
     }
 
-    team.members.push(userId);
+    // Add member with specified role
+    team.addMember(userId, teamRole);
     await team.save();
-
-    // Update user's team reference
-    user.team = team._id;
-    await user.save();
 
     // Log activity
     await ActivityLog.create({
@@ -605,13 +559,8 @@ exports.removeTeamMember = async (req, res) => {
       return res.status(404).json({ message: 'Team not found' });
     }
 
-    // Check if user is manager of this team or admin
-    const isManager = team.manager.toString() === req.user.id;
-    const isAdmin = req.user.role === 'admin';
-    
-    if (!isAdmin && !isManager) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
+    // Authorization is now handled by authorizeTeamRole middleware
+    // Only team leaders or admins can remove members
 
     // Check if user is member of the team
     const memberIndex = team.members.findIndex(
@@ -622,9 +571,14 @@ exports.removeTeamMember = async (req, res) => {
       return res.status(404).json({ message: 'User is not a member of this team' });
     }
 
-    // Cannot remove team manager
-    if (team.manager.toString() === userId) {
-      return res.status(400).json({ message: 'Cannot remove team manager. Transfer management first.' });
+    // Cannot remove the last leader of the team
+    const isLeader = team.members[memberIndex].team_role === 'leader';
+    const leaderCount = team.members.filter(m => m.team_role === 'leader').length;
+    
+    if (isLeader && leaderCount <= 1) {
+      return res.status(400).json({ 
+        message: 'Cannot remove the last leader. Transfer leadership to another member first.' 
+      });
     }
 
     // Remove member from team
@@ -759,6 +713,60 @@ exports.getTeamStats = async (req, res) => {
 
   } catch (error) {
     console.error('Get team stats error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Change team member role
+// @route   PUT /api/teams/:id/members/:userId/role
+// @access  Private (Team Leader or Admin)
+exports.changeTeamRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.params;
+    const { role } = req.body;
+
+    if (!role || !['leader', 'member'].includes(role)) {
+      return res.status(400).json({ message: 'Valid role (leader or member) is required' });
+    }
+
+    const team = await Team.findById(id);
+    if (!team) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
+
+    // Check if user is member of the team
+    const memberIndex = team.members.findIndex(
+      member => member.user.toString() === userId
+    );
+
+    if (memberIndex === -1) {
+      return res.status(404).json({ message: 'User is not a member of this team' });
+    }
+
+    // Change the role
+    team.changeRole(userId, role);
+    await team.save();
+
+    // Populate the updated team
+    await team.populate('members.user', 'name email avatar');
+
+    // Log activity
+    await ActivityLog.create({
+      user: req.user.id,
+      action: 'update',
+      entityType: 'Team',
+      entityId: team._id,
+      metadata: { 
+        action: 'change_role', 
+        memberId: userId,
+        newRole: role 
+      }
+    });
+
+    res.json(team);
+  } catch (error) {
+    console.error('Error changing team member role:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

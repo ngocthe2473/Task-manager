@@ -1,8 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const UserSchema = new mongoose.Schema({
-  name: {
+const UserSchema = new mongoose.Schema({  name: {
     type: String,
     required: [true, 'Vui lòng nhập tên'],
     trim: true
@@ -13,11 +12,6 @@ const UserSchema = new mongoose.Schema({
     unique: true,
     trim: true,
     match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Vui lòng nhập email hợp lệ']
-  },
-  name: {
-    type: String,
-    required: true,
-    trim: true
   },
   password: {
     type: String,
@@ -30,8 +24,8 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'manager', 'member'],
-    default: 'member'
+    enum: ['admin', 'user'],
+    default: 'user'
   },
   createdAt: {
     type: Date,
