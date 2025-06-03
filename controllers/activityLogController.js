@@ -196,20 +196,19 @@ exports.getMyActivityLogs = async (req, res) => {
   }
 };
 
-// @desc    Get team activity logs (Manager only)
+// @desc    Get team activity logs (Team Leader only)
 // @route   GET /api/activitylogs/team
-// @access  Private/Manager
+// @access  Private/Leader
 exports.getTeamActivityLogs = async (req, res) => {
   try {
-    // Only managers can view team activity logs
-    if (req.user.role !== 'manager') {
-      return res.status(403).json({ message: 'Access denied. Manager privileges required.' });
-    }
-
-    // Get manager's team
-    const team = await Team.findOne({ manager: req.user.id });
+    // Check if user is a team leader
+    const team = await Team.findOne({ 
+      'members.user': req.user.id,
+      'members.team_role': 'leader'
+    });
+    
     if (!team) {
-      return res.status(404).json({ message: 'No team found for this manager' });
+      return res.status(403).json({ message: 'Access denied. Team leader privileges required.' });
     }
 
     const teamMemberIds = team.members.map(member => member.user);
@@ -324,12 +323,10 @@ exports.getActivityLog = async (req, res) => {
 
     if (!log) {
       return res.status(404).json({ message: 'Activity log not found' });
-    }
-
-    // Check permissions
+    }    // Check permissions
     const canView = req.user.role === 'admin' ||
       log.user._id.toString() === req.user.id ||
-      (req.user.role === 'manager' && await isUserInManagerTeam(req.user.id, log.user._id));
+      (await isUserInTeamWithLeader(req.user.id, log.user._id));
 
     if (!canView) {
       return res.status(403).json({ message: 'Access denied' });
@@ -549,14 +546,20 @@ exports.exportActivityLogs = async (req, res) => {
   }
 };
 
-// Helper function to check if user is in manager's team
-async function isUserInManagerTeam(managerId, userId) {
+// Helper function to check if user is a team leader and the target user is in their team
+async function isUserInTeamWithLeader(leaderId, userId) {
   try {
     const team = await Team.findOne({ 
-      manager: managerId,
-      'members.user': userId
+      'members.user': leaderId,
+      'members.team_role': 'leader'
     });
-    return !!team;
+    
+    if (!team) {
+      return false;
+    }
+    
+    // Check if the target user is also in the same team
+    return team.members.some(member => member.user.toString() === userId.toString());
   } catch (error) {
     return false;
   }

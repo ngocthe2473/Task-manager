@@ -81,11 +81,9 @@ exports.getUsers = async (req, res) => {
 
     const total = await User.countDocuments(query);
 
-    // Calculate statistics
-    const totalUsers = await User.countDocuments();
+    // Calculate statistics    const totalUsers = await User.countDocuments();
     const activeUsers = await User.countDocuments({ isActive: true });
     const adminCount = await User.countDocuments({ role: 'admin' });
-    const managerCount = await User.countDocuments({ role: 'manager' });
     const memberCount = await User.countDocuments({ role: 'member' });
 
     res.json({
@@ -101,10 +99,8 @@ exports.getUsers = async (req, res) => {
       statistics: {
         totalUsers,
         activeUsers,
-        inactiveUsers: totalUsers - activeUsers,
-        roleDistribution: {
+        inactiveUsers: totalUsers - activeUsers,        roleDistribution: {
           admin: adminCount,
-          manager: managerCount,
           member: memberCount
         }
       }
@@ -148,17 +144,19 @@ exports.getUser = async (req, res) => {
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Get user statistics
+    }    // Get user statistics
+    // First find teams where user is a leader to get their project count
+    const leaderTeams = await Team.find({
+      'members.user': userId,
+      'members.team_role': 'leader'
+    });
+    const leaderTeamIds = leaderTeams.map(team => team._id);
+    
     const userStats = await Promise.all([
       Task.countDocuments({ assignee: userId }),
       Task.countDocuments({ assignee: userId, status: 'completed' }),
       Project.countDocuments({ 
-        $or: [
-          { manager: userId },
-          { 'team.members': userId }
-        ]
+        team: { $in: leaderTeamIds }
       }),
       Task.find({ assignee: userId, status: { $in: ['pending', 'in-progress'] } })
         .populate('project', 'name')
@@ -232,12 +230,10 @@ exports.createUser = async (req, res) => {
       team,
       isActive,
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
-    });
-
-    // Add user to team if specified
+    });    // Add user to team if specified
     if (team) {
       await Team.findByIdAndUpdate(team, {
-        $push: { members: { user: user._id, role: role === 'manager' ? 'manager' : 'member' } }
+        $push: { members: { user: user._id, team_role: 'member' } }
       });
     }
 
@@ -334,12 +330,10 @@ exports.updateUser = async (req, res) => {
         await Team.findByIdAndUpdate(oldUser.team, {
           $pull: { members: { user: userId } }
         });
-      }
-
-      // Add to new team
+      }      // Add to new team
       if (team && oldUser.team?.toString() !== team) {
         await Team.findByIdAndUpdate(team, {
-          $push: { members: { user: userId, role: role === 'manager' ? 'manager' : 'member' } }
+          $push: { members: { user: userId, team_role: 'member' } }
         });
       }
     }
@@ -408,17 +402,23 @@ exports.deleteUser = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
-    }
+    }    // Check if user has active tasks or is leading teams
+    const leaderTeams = await Team.find({
+      'members.user': userId,
+      'members.team_role': 'leader'
+    });
+    const leaderProjectsCount = await Project.countDocuments({ 
+      team: { $in: leaderTeams.map(team => team._id) } 
+    });
+    
+    const activeTasks = await Task.countDocuments({ 
+      assignee: userId, 
+      status: { $in: ['pending', 'in-progress'] } 
+    });
 
-    // Check if user has active tasks or is managing projects
-    const [activeTasks, managingProjects] = await Promise.all([
-      Task.countDocuments({ assignee: userId, status: { $in: ['pending', 'in-progress'] } }),
-      Project.countDocuments({ manager: userId })
-    ]);
-
-    if (activeTasks > 0 || managingProjects > 0) {
+    if (activeTasks > 0 || leaderProjectsCount > 0) {
       return res.status(400).json({
-        message: `Cannot delete user. User has ${activeTasks} active tasks and is managing ${managingProjects} projects. Please reassign these first.`,
+        message: `Cannot delete user. User has ${activeTasks} active tasks and is leading teams with ${leaderProjectsCount} projects. Please reassign these first.`,
         details: { activeTasks, managingProjects }
       });
     }
@@ -541,10 +541,8 @@ exports.changeUserRole = async (req, res) => {
     }
 
     const { role } = req.body;
-    const userId = req.params.id;
-
-    if (!role || !['admin', 'manager', 'member'].includes(role)) {
-      return res.status(400).json({ message: 'Invalid role. Must be admin, manager, or member.' });
+    const userId = req.params.id;    if (!role || !['admin', 'member'].includes(role)) {
+      return res.status(400).json({ message: 'Invalid role. Must be admin or member.' });
     }
 
     // Prevent admin from demoting themselves
@@ -563,10 +561,9 @@ exports.changeUserRole = async (req, res) => {
     }
 
     // Update team role if user is in a team
-    if (user.team) {
-      await Team.findOneAndUpdate(
+    if (user.team) {      await Team.findOneAndUpdate(
         { _id: user.team._id, 'members.user': userId },
-        { $set: { 'members.$.role': role === 'manager' ? 'manager' : 'member' } }
+        { $set: { 'members.$.team_role': 'member' } }
       );
     }
 

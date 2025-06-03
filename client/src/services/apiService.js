@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Tạo instance axios với cấu hình mặc định
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:5000/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -121,6 +121,11 @@ export const getCalendarTasks = async (params = {}) => {
 // Teams API
 export const getTeams = async () => {
   const response = await api.get('/teams');
+  return response.data;
+};
+
+export const getMyTeams = async () => {
+  const response = await api.get('/teams/my');
   return response.data;
 };
 

@@ -21,14 +21,14 @@ const router = express.Router();
 // Project routes
 router.route('/')
   .get(authenticate, validatePagination, getProjects)
-  .post(authenticate, authorize(['admin', 'manager']), createRateLimit, validateProjectCreation, createProject);
+  .post(authenticate, createRateLimit, validateProjectCreation, createProject);
 
 router.get('/my', authenticate, getMyProjects);
 
 router.route('/:id')
   .get(authenticate, validateMongoId, getProjectById)
-  .put(authenticate, authorize(['admin', 'manager']), validateMongoId, validateProjectUpdate, updateProject)
-  .delete(authenticate, authorize(['admin', 'manager']), validateMongoId, deleteProject);
+  .put(authenticate, validateMongoId, validateProjectUpdate, updateProject)
+  .delete(authenticate, validateMongoId, deleteProject);
 
 router.get('/:id/stats', authenticate, validateMongoId, getProjectStats);
 

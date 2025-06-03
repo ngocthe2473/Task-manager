@@ -2,6 +2,7 @@ const TimeLog = require('../models/TimeLog');
 const Task = require('../models/Task');
 const Project = require('../models/Project');
 const ActivityLog = require('../models/ActivityLog');
+const { getProjectsWhereUserIsLeader, isTeamLeaderForTask } = require('../utils/roleUtils');
 const mongoose = require('mongoose');
 
 // @desc    Get time logs with advanced filtering and statistics
@@ -22,23 +23,23 @@ exports.getTimeLogs = async (req, res) => {
     } = req.query;
 
     // Build query based on user role
-    let query = {};
-
-    // Role-based filtering
-    if (req.user.role === 'member') {
-      // Members can only see their own time logs
-      query.user = req.user.id;
-    } else if (req.user.role === 'manager') {
-      // Managers can see time logs from their team projects
-      const managerProjects = await Project.find({ manager: req.user.id }).select('_id');
-      const projectIds = managerProjects.map(p => p._id);
+    let query = {};    // Role-based filtering
+    if (req.user.role === 'user') {
+      // Check if user is a team leader for any projects
+      const leaderProjectIds = await getProjectsWhereUserIsLeader(req.user.id);
       
-      if (projectIds.length > 0) {
-        const projectTasks = await Task.find({ project: { $in: projectIds } }).select('_id');
+      if (leaderProjectIds.length > 0) {
+        // User is a team leader - can see time logs from their team projects
+        const projectTasks = await Task.find({ project: { $in: leaderProjectIds } }).select('_id');
         const taskIds = projectTasks.map(t => t._id);
-        query.task = { $in: taskIds };
+        
+        // Can see own logs + team project logs
+        query.$or = [
+          { user: req.user.id },
+          { task: { $in: taskIds } }
+        ];
       } else {
-        // Manager with no projects can only see own logs
+        // Regular member can only see their own time logs
         query.user = req.user.id;
       }
     }
@@ -53,9 +54,7 @@ exports.getTimeLogs = async (req, res) => {
       const projectTasks = await Task.find({ project: mongoose.Types.ObjectId(project) }).select('_id');
       const taskIds = projectTasks.map(t => t._id);
       query.task = { $in: taskIds };
-    }
-
-    if (user && req.user.role !== 'member') {
+    }    if (user && req.user.role !== 'user') {
       query.user = mongoose.Types.ObjectId(user);
     }
 
@@ -134,13 +133,11 @@ exports.getTaskTimeLogs = async (req, res) => {
     const task = await Task.findById(taskId).populate('project');
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
-    }
-
-    // Check access permissions
+    }    // Check access permissions
     const hasAccess = task.assignee.toString() === req.user.id ||
       task.assignedBy.toString() === req.user.id ||
       req.user.role === 'admin' ||
-      (req.user.role === 'manager' && task.project && task.project.manager.toString() === req.user.id);
+      await isTeamLeaderForTask(req.user.id, task);
 
     if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied to task time logs' });
@@ -204,12 +201,10 @@ exports.addTimeLog = async (req, res) => {
     const task = await Task.findById(taskId).populate('project');
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
-    }
-
-    // Check if user can log time for this task
+    }    // Check if user can log time for this task
     const canLogTime = task.assignee.toString() === req.user.id ||
       req.user.role === 'admin' ||
-      (req.user.role === 'manager' && task.project && task.project.manager.toString() === req.user.id);
+      await isTeamLeaderForTask(req.user.id, task);
 
     if (!canLogTime) {
       return res.status(403).json({ message: 'Not authorized to log time for this task' });
@@ -288,12 +283,10 @@ exports.updateTimeLog = async (req, res) => {
     const timeLog = await TimeLog.findById(timeLogId).populate('task');
     if (!timeLog) {
       return res.status(404).json({ message: 'Time log not found' });
-    }
-
-    // Check permissions
+    }    // Check permissions
     const canEdit = timeLog.user.toString() === req.user.id ||
       req.user.role === 'admin' ||
-      (req.user.role === 'manager' && timeLog.task.project);
+      await isTeamLeaderForTask(req.user.id, timeLog.task);
 
     if (!canEdit) {
       return res.status(403).json({ message: 'Not authorized to edit this time log' });
@@ -380,12 +373,10 @@ exports.deleteTimeLog = async (req, res) => {
     const timeLog = await TimeLog.findById(timeLogId).populate('task');
     if (!timeLog) {
       return res.status(404).json({ message: 'Time log not found' });
-    }
-
-    // Check permissions
+    }    // Check permissions
     const canDelete = timeLog.user.toString() === req.user.id ||
       req.user.role === 'admin' ||
-      (req.user.role === 'manager' && timeLog.task.project);
+      (req.user.role === 'admin' && timeLog.task.project);
 
     if (!canDelete) {
       return res.status(403).json({ message: 'Not authorized to delete this time log' });

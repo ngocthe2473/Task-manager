@@ -81,11 +81,7 @@ exports.getTeamById = async (req, res) => {
       return res.status(404).json({ message: 'Team not found' });
     }    // Check permissions
     if (req.user.role === 'user' && 
-        !team.members.some(member => member.user._id.toString() === req.user.id)) {
-      return res.status(403).json({ message: 'Not authorized to view this team' });
-    }
-
-    if (req.user.role === 'manager' && team.manager._id.toString() !== req.user.id) {
+        !team.isMember(req.user.id)) {
       return res.status(403).json({ message: 'Not authorized to view this team' });
     }
 
@@ -157,62 +153,21 @@ exports.createTeam = async (req, res) => {
 
 // @desc    Update team
 // @route   PUT /api/teams/:id
-// @access  Private (Admin/Manager)
+// @access  Private (Admin/Leader)
 exports.updateTeam = async (req, res) => {
   try {
     const team = await Team.findById(req.params.id);
 
     if (!team) {
       return res.status(404).json({ message: 'Team not found' });
-    }
-
-    // Check permissions
-    if (req.user.role === 'member') {
-      return res.status(403).json({ message: 'Not authorized to update teams' });
-    }
-
-    if (req.user.role === 'manager' && team.manager.toString() !== req.user.id) {
+    }    // Check permissions
+    if (req.user.role !== 'admin' && !team.isLeader(req.user.id)) {
       return res.status(403).json({ message: 'Not authorized to update this team' });
-    }
-
-    // If changing manager, validate the new manager
-    if (req.body.manager && req.body.manager !== team.manager.toString()) {
-      if (req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Only admin can change team manager' });
-      }
-
-      const newManager = await User.findById(req.body.manager);
-      if (!newManager || !['admin', 'manager'].includes(newManager.role)) {
-        return res.status(400).json({ message: 'Invalid manager' });
-      }
-
-      // Check if new manager already manages a team
-      const existingTeam = await Team.findOne({ 
-        manager: req.body.manager, 
-        _id: { $ne: req.params.id } 
-      });
-      if (existingTeam) {
-        return res.status(400).json({ message: 'Manager already manages another team' });
-      }
-
-      // Update old manager's team reference
-      await User.findByIdAndUpdate(team.manager, { $unset: { team: 1 } });
-      
-      // Update new manager's team reference
-      await User.findByIdAndUpdate(req.body.manager, { team: req.params.id });
-
-      // Add new manager to members if not already there
-      if (!team.members.includes(req.body.manager)) {
-        team.members.push(req.body.manager);
-      }
-    }
-
-    const updatedTeam = await Team.findByIdAndUpdate(
+    }    const updatedTeam = await Team.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      { name: req.body.name, description: req.body.description },
       { new: true, runValidators: true }
-    ).populate('manager', 'name email avatar')
-      .populate('members', 'name email avatar role');
+    ).populate('members.user', 'name email avatar role');
 
     // Log activity
     await ActivityLog.create({
@@ -291,7 +246,7 @@ exports.deleteTeam = async (req, res) => {
 
 // @desc    Add member to team
 // @route   POST /api/teams/:id/members
-// @access  Private (Admin/Manager)
+// @access  Private (Admin/Leader)
 exports.addMember = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -306,11 +261,10 @@ exports.addMember = async (req, res) => {
     }
 
     // Check permissions
-    if (req.user.role === 'member') {
-      return res.status(403).json({ message: 'Not authorized to add members' });
+    if (req.user.role === 'member') {      return res.status(403).json({ message: 'Not authorized to add members' });
     }
 
-    if (req.user.role === 'manager' && team.manager.toString() !== req.user.id) {
+    if (req.user.role === 'admin' && team.manager.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized to add members to this team' });
     }
 
@@ -387,11 +341,10 @@ exports.removeMember = async (req, res) => {
     }
 
     // Check permissions
-    if (req.user.role === 'member') {
-      return res.status(403).json({ message: 'Not authorized to remove members' });
+    if (req.user.role === 'member') {      return res.status(403).json({ message: 'Not authorized to remove members' });
     }
 
-    if (req.user.role === 'manager' && team.manager.toString() !== req.user.id) {
+    if (req.user.role === 'admin' && team.manager.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized to remove members from this team' });
     }
 
@@ -453,45 +406,6 @@ exports.removeMember = async (req, res) => {
   }
 };
 
-// @desc    Get my team
-// @route   GET /api/teams/my
-// @access  Private
-exports.getMyTeam = async (req, res) => {
-  try {
-    if (!req.user.team) {
-      return res.status(200).json({
-        success: true,
-        data: null,
-        message: 'User is not assigned to any team'
-      });
-    }
-
-    const team = await Team.findById(req.user.team)
-      .populate('manager', 'name email avatar')
-      .populate('members', 'name email avatar role isActive');
-
-    if (!team) {
-      return res.status(404).json({ message: 'Team not found' });
-    }
-
-    // Get team projects
-    const projects = await Project.find({ team: team._id })
-      .select('name status startDate endDate')
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      data: {
-        ...team.toObject(),
-        projects,
-        memberCount: team.members.length,
-        projectCount: projects.length
-      }
-    });
-  } catch (error) {
-    console.error('Error getting my team:', error);    res.status(500).json({ message: 'Server error' });
-  }
-};
 
 // @desc    Add member to team
 // @route   PUT /api/teams/:id/members

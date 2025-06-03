@@ -5,6 +5,34 @@ const User = require('../models/User');
 const ActivityLog = require('../models/ActivityLog');
 const Notification = require('../models/Notification');
 
+// Helper function to check if user is team leader for a project
+const isUserTeamLeaderForProject = async (userId, projectId) => {
+  try {
+    const project = await Project.findById(projectId).populate('team');
+    if (!project || !project.team) return false;
+    
+    return project.team.isLeader(userId);
+  } catch (error) {
+    console.error('Error checking team leader status for project:', error);
+    return false;
+  }
+};
+
+// Helper function to check if user is team leader in any team
+const isUserTeamLeader = async (userId) => {
+  try {
+    const team = await Team.findOne({
+      'members.user': userId,
+      'members.team_role': 'leader'
+    });
+    
+    return !!team;
+  } catch (error) {
+    console.error('Error checking team leader status:', error);
+    return false;
+  }
+};
+
 // @desc    Get all projects with filtering
 // @route   GET /api/projects
 // @access  Private
@@ -155,35 +183,19 @@ exports.createProject = async (req, res) => {
     // Validate required fields
     if (!name || !team) {
       return res.status(400).json({ message: 'Name and team are required' });
-    }
-
-    // Check permissions
-    // User role is already validated by authMiddleware, let's ensure only admin or specific manager can create
-    // For this scenario, we assume an admin can create for any team,
-    // and a user (who would be a project creator) can create a project and by extension a team where they are leader.
-
+    }    // Check permissions
     let teamDoc = await Team.findById(team);
     if (!teamDoc) {
-      // If team doesn't exist, and user is not admin, they might be creating a new team with this project
-      // This part of logic might need adjustment based on how teams are managed (e.g., can users create teams?)
-      // For now, let's assume the team must exist or be created in a separate step if not by an admin.
-      // However, the request implies the project creator becomes leader, suggesting a team might be implicitly formed or assigned.
-      
-      // Simplified: if a team ID is provided, it must exist.
-      // If team management allows users to create teams implicitly with projects, this needs more logic.
       return res.status(404).json({ message: 'Team not found. Please ensure the team exists.' });
-    }    // Add project creator as a leader to the team if not already a member, or update their role to leader
-    if (!teamDoc.isMember(req.user.id)) {
-      teamDoc.addMember(req.user.id, 'leader');
-    } else if (!teamDoc.isLeader(req.user.id)) {
-      teamDoc.changeRole(req.user.id, 'leader');
     }
-    await teamDoc.save();
 
-    const project = await Project.create({
+    // Check if user is admin or team leader for this team
+    if (req.user.role !== 'admin' && !teamDoc.isLeader(req.user.id)) {
+      return res.status(403).json({ message: 'Not authorized. Only team leaders can create projects for their team.' });
+    }    const project = await Project.create({
       name,
       description,
-      team: teamDoc._id, // Ensure we use the ID of the (potentially updated) teamDoc
+      team: teamDoc._id,
       startDate,
       endDate,
       status: status || 'planning',
@@ -247,16 +259,9 @@ exports.updateProject = async (req, res) => {
     const project = await Project.findById(req.params.id).populate('team');
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
-    }
-
-    // Check permissions
-    if (req.user.role === 'member') {
-      return res.status(403).json({ message: 'Not authorized to update projects' });
-    }
-
-    if (req.user.role === 'manager' &&
-        project.team &&
-        project.team.manager.toString() !== req.user.id) {
+    }    // Check permissions
+    const isTeamLeader = await isUserTeamLeaderForProject(req.user.id, req.params.id);
+    if (req.user.role !== 'admin' && !isTeamLeader) {
       return res.status(403).json({ message: 'Not authorized to update this project' });
     }
 
@@ -324,16 +329,9 @@ exports.deleteProject = async (req, res) => {
     const project = await Project.findById(req.params.id).populate('team');
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
-    }
-
-    // Check permissions
-    if (req.user.role === 'member') {
-      return res.status(403).json({ message: 'Not authorized to delete projects' });
-    }
-
-    if (req.user.role === 'manager' &&
-        project.team &&
-        project.team.manager.toString() !== req.user.id) {
+    }    // Check permissions
+    const isTeamLeader = await isUserTeamLeaderForProject(req.user.id, req.params.id);
+    if (req.user.role !== 'admin' && !isTeamLeader) {
       return res.status(403).json({ message: 'Not authorized to delete this project' });
     }
 

@@ -3,6 +3,7 @@ const Task = require('../models/Task');
 const Notification = require('../models/Notification');
 const ActivityLog = require('../models/ActivityLog');
 const Attachment = require('../models/Attachment');
+const { isTeamLeaderForTask } = require('../utils/roleUtils');
 const mongoose = require('mongoose');
 
 // @desc    Get all comments for a task with enhanced features
@@ -16,13 +17,11 @@ exports.getComments = async (req, res) => {
     const task = await Task.findById(req.params.taskId);
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
-    }
-
-    // Check if user has access to task
+    }    // Check if user has access to task
     const hasAccess = task.assignee.toString() === req.user.id ||
       task.assignedBy.toString() === req.user.id ||
       req.user.role === 'admin' ||
-      (req.user.role === 'manager' && task.project);
+      await isTeamLeaderForTask(req.user.id, task);
 
     if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied to task comments' });
@@ -97,13 +96,11 @@ exports.addComment = async (req, res) => {
     const task = await Task.findById(taskId).populate('project', 'team');
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
-    }
-
-    // Check access permissions
+    }    // Check access permissions
     const hasAccess = task.assignee.toString() === req.user.id ||
       task.assignedBy.toString() === req.user.id ||
       req.user.role === 'admin' ||
-      (req.user.role === 'manager' && task.project);
+      await isTeamLeaderForTask(req.user.id, task);
 
     if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied to add comments' });
@@ -253,11 +250,10 @@ exports.updateComment = async (req, res) => {
     if (!comment) {
       return res.status(404).json({ message: 'Comment not found' });
     }
-    
-    // Check edit permissions
+      // Check edit permissions
     const canEdit = comment.user._id.toString() === req.user.id ||
       req.user.role === 'admin' ||
-      (req.user.role === 'manager' && comment.task.assignedBy.toString() === req.user.id);
+      (req.user.role === 'admin' && comment.task.assignedBy.toString() === req.user.id);
 
     if (!canEdit) {
       return res.status(403).json({ message: 'Not authorized to edit this comment' });
@@ -320,11 +316,10 @@ exports.deleteComment = async (req, res) => {
     if (!comment) {
       return res.status(404).json({ message: 'Comment not found' });
     }
-    
-    // Check delete permissions
+      // Check delete permissions
     const canDelete = comment.user._id.toString() === req.user.id ||
       req.user.role === 'admin' ||
-      (req.user.role === 'manager' && comment.task.assignedBy.toString() === req.user.id);
+      (req.user.role === 'admin' && comment.task.assignedBy.toString() === req.user.id);
 
     if (!canDelete) {
       return res.status(403).json({ message: 'Not authorized to delete this comment' });
@@ -581,14 +576,12 @@ exports.getComment = async (req, res) => {
 
     if (!comment) {
       return res.status(404).json({ message: 'Comment not found' });
-    }
-
-    // Check if user has access to the task
+    }    // Check if user has access to the task
     const task = await Task.findById(comment.task._id);
     const hasAccess = task.assignee.toString() === req.user.id ||
       task.assignedBy.toString() === req.user.id ||
       req.user.role === 'admin' ||
-      (req.user.role === 'manager' && task.project);
+      (req.user.role === 'admin' && task.project);
 
     if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });
@@ -637,14 +630,12 @@ exports.addReply = async (req, res) => {
     const parentComment = await Comment.findById(parentCommentId).populate('task');
     if (!parentComment) {
       return res.status(404).json({ message: 'Parent comment not found' });
-    }
-
-    // Check if user has access to the task
+    }    // Check if user has access to the task
     const task = await Task.findById(parentComment.task._id);
     const hasAccess = task.assignee.toString() === req.user.id ||
       task.assignedBy.toString() === req.user.id ||
       req.user.role === 'admin' ||
-      (req.user.role === 'manager' && task.project);
+      (req.user.role === 'admin' && task.project);
 
     if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });
@@ -716,14 +707,12 @@ exports.getReplies = async (req, res) => {
     const parentComment = await Comment.findById(parentCommentId).populate('task');
     if (!parentComment) {
       return res.status(404).json({ message: 'Parent comment not found' });
-    }
-
-    // Check if user has access to the task
+    }    // Check if user has access to the task
     const task = await Task.findById(parentComment.task._id);
     const hasAccess = task.assignee.toString() === req.user.id ||
       task.assignedBy.toString() === req.user.id ||
       req.user.role === 'admin' ||
-      (req.user.role === 'manager' && task.project);
+      (req.user.role === 'admin' && task.project);
 
     if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });

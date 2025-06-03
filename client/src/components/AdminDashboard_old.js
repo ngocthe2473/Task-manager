@@ -763,7 +763,7 @@ const AdminDashboard = () => {
                       <Chip
                         label={user.role.toUpperCase()}
                         size="small"
-                        color={user.role === 'admin' ? 'error' : user.role === 'manager' ? 'warning' : 'primary'}
+                        color={user.role === 'admin' ? 'error' : user.role === 'admin' ? 'warning' : 'primary'}
                         variant="filled"
                         sx={{ fontWeight: 'bold' }}
                       />

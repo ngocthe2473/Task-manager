@@ -16,13 +16,14 @@ const {
   addTeamMember,
   removeTeamMember,
   getTeamStats,
-  changeTeamRole
+  changeTeamRole,
+  getMyTeam
 } = require('../controllers/teamController');
 const router = express.Router();
 
 router.route('/')
   .get(authenticate, validatePagination, getTeams)
-  .post(authenticate, authorize(['admin', 'user']), createRateLimit, validateTeamCreation, createTeam);
+  .post(authenticate, createRateLimit, validateTeamCreation, createTeam);
 
 router.route('/:id')
   .get(authenticate, validateMongoId, getTeamById)

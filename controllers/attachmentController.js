@@ -131,13 +131,11 @@ exports.uploadTaskAttachment = async (req, res) => {
         success: false,
         message: 'Task not found' 
       });
-    }
-
-    // Check permissions
+    }    // Check permissions
     const canUpload = req.user.role === 'admin' ||
                      task.assignee?._id.toString() === req.user.id ||
                      task.createdBy.toString() === req.user.id ||
-                     (req.user.role === 'manager' && task.project?.team?.toString() === req.user.team?.toString());
+                     (req.user.role === 'admin' && task.project?.team?.toString() === req.user.team?.toString());
 
     if (!canUpload) {
       return res.status(403).json({ 

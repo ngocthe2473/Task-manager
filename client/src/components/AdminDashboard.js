@@ -207,7 +207,7 @@ const teamPerformance = [
 
 const recentUsers = [
   { id: 1, name: 'John Doe', email: 'john@example.com', role: 'Admin', status: 'active', joined: '2024-05-15' },
-  { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'Manager', status: 'active', joined: '2024-05-12' },
+  { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'Admin', status: 'active', joined: '2024-05-12' },
   { id: 3, name: 'Mike Johnson', email: 'mike@example.com', role: 'Developer', status: 'pending', joined: '2024-05-10' },
   { id: 4, name: 'Sarah Wilson', email: 'sarah@example.com', role: 'Designer', status: 'inactive', joined: '2024-05-05' },
   { id: 5, name: 'Alex Brown', email: 'alex@example.com', role: 'Developer', status: 'active', joined: '2024-04-28' }
@@ -761,7 +761,7 @@ const AdminDashboard = () => {
                     label="Role"
                   >
                     <MenuItem value="Admin">Admin</MenuItem>
-                    <MenuItem value="Manager">Manager</MenuItem>
+                    <MenuItem value="Admin">Admin</MenuItem>
                     <MenuItem value="Developer">Developer</MenuItem>
                     <MenuItem value="Designer">Designer</MenuItem>
                     <MenuItem value="Tester">Tester</MenuItem>
