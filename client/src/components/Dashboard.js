@@ -258,64 +258,28 @@ const Dashboard = () => {
     upcomingTasks: 0,
     overdueTasks: 0,
     productivity: 0
-  });
-  const [recentTasks, setRecentTasks] = useState([]);
+  });  const [recentTasks, setRecentTasks] = useState([]);  const [projects, setProjects] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
   
-  // Mock user data
-  const user = {
-    name: 'John Doe',
-    role: 'Project Manager'
-  };
-  
-  // Mock team data
-  const teamMembers = [
-    { id: 1, name: 'Jane Smith', role: 'UI/UX Designer', avatar: null },
-    { id: 2, name: 'Michael Brown', role: 'Frontend Developer', avatar: null },
-    { id: 3, name: 'Sarah Johnson', role: 'Backend Developer', avatar: null },
-    { id: 4, name: 'Alex Wilson', role: 'QA Engineer', avatar: null }
-  ];
-  
-  // Mock project data
-  const projects = [
-    {
-      id: 1,
-      name: 'Website Redesign',
-      progress: 65,
-      taskCount: 24,
-      completedTasks: 16,
-      color: '#2196f3',
-      dueDate: '2024-06-15'
-    },
-    {
-      id: 2,
-      name: 'Mobile App Development',
-      progress: 40,
-      taskCount: 32,
-      completedTasks: 12,
-      color: '#4caf50',
-      dueDate: '2024-07-20'
-    },
-    {
-      id: 3,
-      name: 'Marketing Campaign',
-      progress: 80,
-      taskCount: 18,
-      completedTasks: 14,
-      color: '#ff9800',
-      dueDate: '2024-06-05'
+  // Get user info from localStorage 
+  const getUserInfo = () => {
+    try {
+      const userInfo = localStorage.getItem('userInfo');
+      if (userInfo) {
+        const userData = JSON.parse(userInfo);
+        return userData.user || { name: 'User', role: 'User' };
+      }
+    } catch (error) {
+      console.error('Error parsing user info:', error);
     }
-  ];
-  
-  // Mock upcoming events
-  const upcomingEvents = [
-    { id: 1, title: 'Team Meeting', date: '2024-06-01', time: '10:00 AM' },
-    { id: 2, title: 'Client Presentation', date: '2024-06-03', time: '2:00 PM' },
-    { id: 3, title: 'Sprint Review', date: '2024-06-05', time: '11:00 AM' }
-  ];
-
+    return { name: 'User', role: 'User' };
+  };
+  const user = getUserInfo();
   useEffect(() => {
-    const fetchTasks = async () => {
+    const fetchData = async () => {
       try {
+        // Fetch tasks
         const allTasks = await getAllTasks();
         
         const completed = allTasks.filter(task => task.status === 'done').length;
@@ -324,8 +288,7 @@ const Dashboard = () => {
         const overdue = allTasks.filter(task => 
           task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done'
         ).length;
-        
-        // Calculate productivity (just a mock calculation)
+          // Calculate productivity percentage
         const productivity = Math.round((completed / (completed + inProgress + upcoming)) * 100) || 0;
         
         setStats({
@@ -344,15 +307,81 @@ const Dashboard = () => {
             .slice(0, 5)
         );
         
+        // Fetch projects
+        const allProjects = await getProjects();
+        console.log('Fetched projects:', allProjects); // Debug log
+        
+        // Process projects data to include task counts and progress
+        const processedProjects = allProjects.map(project => {
+          // Filter tasks by project
+          const projectTasks = allTasks.filter(task => task.project && task.project._id === project._id);
+          const completedProjectTasks = projectTasks.filter(task => task.status === 'done').length;
+          const progress = projectTasks.length > 0 ? Math.round((completedProjectTasks / projectTasks.length) * 100) : 0;
+          
+          return {
+            ...project,
+            id: project._id,
+            taskCount: projectTasks.length,
+            completedTasks: completedProjectTasks,
+            progress: progress,
+            color: getProjectColor(project._id) // Generate a color based on project ID
+          };        });
+        
+        setProjects(processedProjects);
+        
+        // Fetch team members (users)
+        const allUsers = await getUsers();
+        console.log('Fetched team members:', allUsers); // Debug log
+        
+        // Process users to create team members list (exclude current user)
+        const members = allUsers
+          .filter(user => user._id !== getUserInfo()._id) // Exclude current user
+          .slice(0, 4) // Limit to 4 members for display
+          .map(user => ({
+            id: user._id,
+            name: user.name,
+            role: user.role === 'admin' ? 'Admin' : 'Team Member',
+            avatar: null
+          }));
+          setTeamMembers(members);
+        
+        // Create upcoming events from tasks with due dates in the next 7 days
+        const today = new Date();
+        const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+        
+        const upcomingTaskEvents = allTasks
+          .filter(task => {
+            if (!task.dueDate) return false;
+            const dueDate = new Date(task.dueDate);
+            return dueDate >= today && dueDate <= nextWeek && task.status !== 'done';
+          })
+          .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+          .slice(0, 3) // Limit to 3 upcoming events
+          .map(task => ({
+            id: task._id,
+            title: `Task: ${task.title}`,
+            date: formatDate(task.dueDate),
+            time: task.priority === 'high' ? 'High Priority' : task.priority === 'urgent' ? 'Urgent' : 'Normal',
+            type: 'task'
+          }));
+          
+        setUpcomingEvents(upcomingTaskEvents);
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching tasks:', error);
+        console.error('Error fetching data:', error);
         setLoading(false);
       }
     };
     
-    fetchTasks();
+    fetchData();
   }, []);
+
+  // Helper function to generate project colors
+  const getProjectColor = (projectId) => {
+    const colors = ['#2196f3', '#4caf50', '#ff9800', '#f44336', '#9c27b0', '#00bcd4', '#795548'];
+    const index = projectId ? projectId.length % colors.length : 0;
+    return colors[index];
+  };
 
   // Helper function to format date
   const formatDate = (dateString) => {
@@ -624,8 +653,7 @@ const Dashboard = () => {
               </StyledPaper>
             </Grid>
             
-            <Grid item xs={12} lg={4}>
-              {/* Team */}
+            <Grid item xs={12} lg={4}>              {/* Team */}
               <StyledPaper>
                 <SectionTitle>
                   <PeopleIcon sx={{ color: '#2196f3' }} />
@@ -633,23 +661,36 @@ const Dashboard = () => {
                 </SectionTitle>
                 
                 <Box>
-                  {teamMembers.map((member) => (
-                    <TeamMember key={member.id}>                      <MemberAvatar sx={{ bgcolor: `hsl(${member.id * 60}, 70%, 60%)` }}>
-                        {member.name ? member.name.charAt(0) : 'U'}
-                      </MemberAvatar>
-                      <MemberInfo>
-                        <MemberName>{member.name}</MemberName>
-                        <MemberRole>{member.role}</MemberRole>
-                      </MemberInfo>
-                      <IconButton size="small" sx={{ ml: 'auto' }}>
-                        <ArrowForwardIcon fontSize="small" />
-                      </IconButton>
-                    </TeamMember>
-                  ))}
+                  {teamMembers.length > 0 ? (
+                    teamMembers.map((member) => (
+                      <TeamMember key={member.id}>
+                        <MemberAvatar sx={{ bgcolor: `hsl(${member.id.length * 60}, 70%, 60%)` }}>
+                          {member.name ? member.name.charAt(0) : 'U'}
+                        </MemberAvatar>
+                        <MemberInfo>
+                          <MemberName>{member.name}</MemberName>
+                          <MemberRole>{member.role}</MemberRole>
+                        </MemberInfo>
+                        <IconButton size="small" sx={{ ml: 'auto' }}>
+                          <ArrowForwardIcon fontSize="small" />
+                        </IconButton>
+                      </TeamMember>
+                    ))
+                  ) : (
+                    <Box sx={{ 
+                      textAlign: 'center', 
+                      py: 3,
+                      color: '#999'
+                    }}>
+                      <PeopleIcon sx={{ fontSize: 36, mb: 1 }} />
+                      <Typography variant="body2">
+                        No team members found
+                      </Typography>
+                    </Box>
+                  )}
                 </Box>
               </StyledPaper>
-              
-              {/* Upcoming Events */}
+                {/* Upcoming Events */}
               <StyledPaper sx={{ mt: 3 }}>
                 <SectionTitle>
                   <CalendarIcon sx={{ color: '#2196f3' }} />
@@ -657,30 +698,42 @@ const Dashboard = () => {
                 </SectionTitle>
                 
                 <Box>
-                  {upcomingEvents.map((event) => (
-                    <Box 
-                      key={event.id} 
-                      sx={{
-                        p: 2,
-                        mb: 2,
-                        border: '1px solid #e0e0e0',
-                        borderRadius: '12px',
-                        backgroundColor: '#ffffff'
-                      }}
-                    >
-                      <Typography variant="body2" sx={{ color: '#2196f3', fontWeight: 500, mb: 1 }}>
-                        {event.date} • {event.time}
-                      </Typography>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#333' }}>
-                        {event.title}
+                  {upcomingEvents.length > 0 ? (
+                    upcomingEvents.map((event) => (
+                      <Box 
+                        key={event.id} 
+                        sx={{
+                          p: 2,
+                          mb: 2,
+                          border: '1px solid #e0e0e0',
+                          borderRadius: '12px',
+                          backgroundColor: '#ffffff'
+                        }}
+                      >
+                        <Typography variant="body2" sx={{ color: '#2196f3', fontWeight: 500, mb: 1 }}>
+                          {event.date} • {event.time}
+                        </Typography>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#333' }}>
+                          {event.title}
+                        </Typography>
+                      </Box>
+                    ))
+                  ) : (
+                    <Box sx={{ 
+                      textAlign: 'center', 
+                      py: 3,
+                      color: '#999'
+                    }}>
+                      <CalendarIcon sx={{ fontSize: 36, mb: 1 }} />
+                      <Typography variant="body2">
+                        No upcoming deadlines
                       </Typography>
                     </Box>
-                  ))}
+                  )}
                 </Box>
               </StyledPaper>
             </Grid>
-            
-            {/* Projects */}
+              {/* Projects */}
             <Grid item xs={12}>
               <Box sx={{ mt: 3 }}>
                 <SectionTitle>
@@ -688,78 +741,97 @@ const Dashboard = () => {
                   Active Projects
                 </SectionTitle>
                 
-                <Grid container spacing={3}>
-                  {projects.map((project) => (
-                    <Grid item xs={12} md={4} key={project.id}>
-                      <ProjectCard>
-                        <CardContent>
-                          <ProjectHeader>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>                              <Avatar 
+                {projects.length > 0 ? (
+                  <Grid container spacing={3}>
+                    {projects.map((project) => (
+                      <Grid item xs={12} md={4} key={project.id}>
+                        <ProjectCard>
+                          <CardContent>
+                            <ProjectHeader>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Avatar 
+                                  sx={{
+                                    width: 32,
+                                    height: 32,
+                                    bgcolor: project.color
+                                  }}
+                                >
+                                  {project.name ? project.name.charAt(0) : 'P'}
+                                </Avatar>
+                                <ProjectTitle>{project.name}</ProjectTitle>
+                              </Box>
+                              <Chip
+                                label={`${project.completedTasks}/${project.taskCount} tasks`}
+                                size="small"
                                 sx={{
-                                  width: 32,
-                                  height: 32,
-                                  bgcolor: project.color
+                                  backgroundColor: project.color + '20',
+                                  color: project.color,
+                                  fontWeight: 600,
+                                  fontSize: '11px',
                                 }}
-                              >
-                                {project.name ? project.name.charAt(0) : 'P'}
-                              </Avatar>
-                              <ProjectTitle>{project.name}</ProjectTitle>
-                            </Box>
-                            <Chip
-                              label={`${project.completedTasks}/${project.taskCount} tasks`}
-                              size="small"
-                              sx={{
-                                backgroundColor: project.color + '20',
-                                color: project.color,
-                                fontWeight: 600,
-                                fontSize: '11px',
-                              }}
-                            />
-                          </ProjectHeader>
-                          
-                          <Box sx={{ mb: 2 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                              <Typography variant="body2" sx={{ color: '#666' }}>
-                                Progress
-                              </Typography>
-                              <Typography variant="body2" sx={{ color: '#666', fontWeight: 600 }}>
-                                {project.progress}%
-                              </Typography>
-                            </Box>
-                            <LinearProgress
-                              variant="determinate"
-                              value={project.progress}
-                              sx={{
-                                height: 8,
-                                borderRadius: 4,
-                                backgroundColor: '#f0f0f0',
-                                '& .MuiLinearProgress-bar': {
+                              />
+                            </ProjectHeader>
+                            
+                            <Box sx={{ mb: 2 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="body2" sx={{ color: '#666' }}>
+                                  Progress
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: '#666', fontWeight: 600 }}>
+                                  {project.progress}%
+                                </Typography>
+                              </Box>
+                              <LinearProgress
+                                variant="determinate"
+                                value={project.progress}
+                                sx={{
+                                  height: 8,
                                   borderRadius: 4,
-                                  backgroundColor: project.color,
-                                }
-                              }}
-                            />
-                          </Box>
-                          
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="caption" sx={{ color: '#666' }}>
-                              Due: {formatDate(project.dueDate)}
-                            </Typography>
-                            <Button 
-                              variant="text" 
-                              color="primary" 
-                              endIcon={<ArrowForwardIcon />}
-                              size="small"
-                              sx={{ textTransform: 'none', fontWeight: 600 }}
-                            >
-                              View Details
-                            </Button>
-                          </Box>
-                        </CardContent>
-                      </ProjectCard>
-                    </Grid>
-                  ))}
-                </Grid>
+                                  backgroundColor: '#f0f0f0',
+                                  '& .MuiLinearProgress-bar': {
+                                    borderRadius: 4,
+                                    backgroundColor: project.color,
+                                  }
+                                }}
+                              />
+                            </Box>
+                            
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="caption" sx={{ color: '#666' }}>
+                                {project.description || 'No description'}
+                              </Typography>
+                              <Button 
+                                variant="text" 
+                                color="primary" 
+                                endIcon={<ArrowForwardIcon />}
+                                size="small"
+                                sx={{ textTransform: 'none', fontWeight: 600 }}
+                              >
+                                View Details
+                              </Button>
+                            </Box>
+                          </CardContent>
+                        </ProjectCard>
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <Box sx={{ 
+                    textAlign: 'center', 
+                    py: 4,
+                    border: '2px dashed #e0e0e0',
+                    borderRadius: '16px',
+                    backgroundColor: '#fafafa'
+                  }}>
+                    <TimelineIcon sx={{ fontSize: 48, color: '#ccc', mb: 2 }} />
+                    <Typography variant="h6" sx={{ color: '#999', mb: 1 }}>
+                      No Active Projects
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#666' }}>
+                      Create your first project to get started
+                    </Typography>
+                  </Box>
+                )}
               </Box>
             </Grid>
           </Grid>

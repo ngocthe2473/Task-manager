@@ -15,13 +15,19 @@ api.interceptors.request.use(
     const userInfo = localStorage.getItem('userInfo');
     if (userInfo) {
       try {
-        const user = JSON.parse(userInfo);
-        if (user.token) {
-          config.headers.Authorization = `Bearer ${user.token}`;
+        const userData = JSON.parse(userInfo);
+        console.log('UserData from localStorage:', userData); // Debug log
+        if (userData.token) {
+          config.headers.Authorization = `Bearer ${userData.token}`;
+          console.log('Token being sent:', userData.token); // Debug log
+        } else {
+          console.log('No token found in userData'); // Debug log
         }
       } catch (error) {
         console.error('Error parsing userInfo:', error);
       }
+    } else {
+      console.log('No userInfo found in localStorage'); // Debug log
     }
     return config;
   },
@@ -47,7 +53,8 @@ export const getUserProfile = async () => {
 // Tasks API
 export const getAllTasks = async () => {
   const response = await api.get('/tasks');
-  return response.data;
+  // Handle API response format { success: true, data: tasks }
+  return response.data.data || response.data || [];
 };
 
 export const getTaskById = async (id) => {
@@ -73,7 +80,8 @@ export const deleteTask = async (id) => {
 // Projects API
 export const getProjects = async () => {
   const response = await api.get('/projects');
-  return response.data;
+  // Handle API response format { success: true, data: projects }
+  return response.data.data || response.data || [];
 };
 
 export const getProjectById = async (id) => {

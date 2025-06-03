@@ -25,6 +25,9 @@ router.route('/')
   .get(authenticate, validatePagination, getTeams)
   .post(authenticate, createRateLimit, validateTeamCreation, createTeam);
 
+// Get user's teams
+router.get('/my', authenticate, getMyTeam);
+
 router.route('/:id')
   .get(authenticate, validateMongoId, getTeamById)
   .put(authenticate, authorizeTeamRole('id', 'leader'), validateMongoId, validateTeamUpdate, updateTeam)

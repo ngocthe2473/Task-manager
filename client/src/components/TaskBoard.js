@@ -282,15 +282,27 @@ const TaskBoard = ({ onTaskClick }) => {
     { id: 'in-progress', title: 'In Progress', color: '#2196f3' },
     { id: 'review', title: 'In Review', color: '#ff9800' },
     { id: 'done', title: 'Done', color: '#4caf50' }
-  ];
-  useEffect(() => {
+  ];  useEffect(() => {
     // Fetch tasks from API
     const fetchTasks = async () => {
       try {
-        const data = await getAllTasks();
-        setTasks(data);
+        const response = await getAllTasks();
+        console.log('TaskBoard - API response:', response); // Debug log
+        
+        // Handle different API response formats
+        const tasksData = response?.data || response || [];
+        console.log('TaskBoard - Processed tasks:', tasksData); // Debug log
+        
+        // Ensure we have an array
+        if (Array.isArray(tasksData)) {
+          setTasks(tasksData);
+        } else {
+          console.error('Tasks data is not an array:', tasksData);
+          setTasks([]);
+        }
       } catch (error) {
         console.error('Error fetching tasks:', error);
+        setTasks([]); // Set empty array on error
         setSnackbar({
           open: true,
           message: 'Error loading tasks. Please try again.',

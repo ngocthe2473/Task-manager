@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Drawer,
   List,
@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { getAllTasks, getProjects } from '../services/apiService';
 
 const drawerWidth = 280;
 
@@ -171,20 +172,83 @@ const Sidebar = ({ open = true, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [projectsExpanded, setProjectsExpanded] = useState(true);
+  const [stats, setStats] = useState({
+    total: 0,
+    completed: 0,
+    pending: 0,
+    overdue: 0
+  });
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  // Fetch data from API
+  useEffect(() => {
+    const fetchSidebarData = async () => {
+      try {
+        // Fetch tasks
+        const tasksResponse = await getAllTasks();
+        console.log('Sidebar - Fetched tasks response:', tasksResponse); // Debug log
+        
+        // Handle API response format {success: true, data: array}
+        const allTasks = tasksResponse?.data || tasksResponse || [];
+        console.log('Sidebar - Processed tasks:', allTasks); // Debug log
+        
+        // Ensure allTasks is an array
+        const tasksArray = Array.isArray(allTasks) ? allTasks : [];
+        
+        const completed = tasksArray.filter(task => task.status === 'done').length;
+        const pending = tasksArray.filter(task => task.status === 'todo').length;
+        const overdue = tasksArray.filter(task => 
+          task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done'
+        ).length;        
+        setStats({
+          total: tasksArray.length,
+          completed,
+          pending,
+          overdue
+        });
+        
+        // Fetch projects
+        const projectsResponse = await getProjects();
+        console.log('Sidebar - Fetched projects response:', projectsResponse); // Debug log
+        
+        // Handle API response format {success: true, data: array}
+        const allProjects = projectsResponse?.data || projectsResponse || [];
+        console.log('Sidebar - Processed projects:', allProjects); // Debug log
+        
+        // Ensure allProjects is an array
+        const projectsArray = Array.isArray(allProjects) ? allProjects : [];
+        
+        // Process projects to include task counts
+        const processedProjects = projectsArray.map(project => {
+          const projectTasks = tasksArray.filter(task => task.project && task.project._id === project._id);
+          return {
+            id: project._id,
+            name: project.name,
+            color: getProjectColor(project._id),
+            taskCount: projectTasks.length
+          };
+        });
+        
+        setProjects(processedProjects);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching sidebar data:', error);
+        // Set default empty state on error
+        setStats({ total: 0, completed: 0, pending: 0, overdue: 0 });
+        setProjects([]);
+        setLoading(false);
+      }
+    };
+    
+    fetchSidebarData();
+  }, []);
 
-  // Mock data
-  const stats = {
-    total: 24,
-    completed: 18,
-    pending: 4,
-    overdue: 2
+  // Helper function to generate project colors
+  const getProjectColor = (projectId) => {
+    const colors = ['#2196f3', '#4caf50', '#ff9800', '#f44336', '#9c27b0', '#00bcd4'];
+    const index = projectId ? projectId.length % colors.length : 0;
+    return colors[index];
   };
-
-  const projects = [
-    { id: 1, name: 'Web Redesign', color: '#2196f3', taskCount: 8 },
-    { id: 2, name: 'Mobile App', color: '#4caf50', taskCount: 12 },
-    { id: 3, name: 'Marketing Campaign', color: '#ff9800', taskCount: 4 }
-  ];
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
@@ -234,13 +298,12 @@ const Sidebar = ({ open = true, onClose }) => {
           <QuickStats>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, color: '#333' }}>
               Task Summary
-            </Typography>
-              <StatItem>
+            </Typography>            <StatItem>
               <StatLabel>
                 <CompletedIcon sx={{ fontSize: 16, color: '#4caf50' }} />
                 Completed
               </StatLabel>
-              <StatValue>{stats.completed}</StatValue>
+              <StatValue>{loading ? '-' : stats.completed}</StatValue>
             </StatItem>
             
             <StatItem>
@@ -248,7 +311,7 @@ const Sidebar = ({ open = true, onClose }) => {
                 <PendingIcon sx={{ fontSize: 16, color: '#ff9800' }} />
                 Pending
               </StatLabel>
-              <StatValue>{stats.pending}</StatValue>
+              <StatValue>{loading ? '-' : stats.pending}</StatValue>
             </StatItem>
             
             <StatItem>
@@ -256,7 +319,7 @@ const Sidebar = ({ open = true, onClose }) => {
                 <OverdueIcon sx={{ fontSize: 16, color: '#f44336' }} />
                 Overdue
               </StatLabel>
-              <StatValue>{stats.overdue}</StatValue>
+              <StatValue>{loading ? '-' : stats.overdue}</StatValue>
             </StatItem>
           </QuickStats>
         </Box>
@@ -273,36 +336,45 @@ const Sidebar = ({ open = true, onClose }) => {
               {projectsExpanded ? <ExpandLess /> : <ExpandMore />}
             </IconButton>
           </Box>
-          
-          <Collapse in={projectsExpanded}>
+            <Collapse in={projectsExpanded}>
             <ProjectSection>
-              {projects.map((project) => (
-                <ProjectItem key={project.id}>
-                  <ProjectInfo>
-                    <ProjectAvatar sx={{ backgroundColor: project.color }}>
-                      {project.name.charAt(0)}
-                    </ProjectAvatar>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 500, color: '#333' }}>
-                        {project.name}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#666' }}>
-                        {project.taskCount} tasks
-                      </Typography>
-                    </Box>
-                  </ProjectInfo>
-                  <Chip
-                    label={project.taskCount}
-                    size="small"
-                    sx={{
-                      backgroundColor: project.color + '20',
-                      color: project.color,
-                      fontWeight: 600,
-                      fontSize: '11px'
-                    }}
-                  />
-                </ProjectItem>
-              ))}
+              {loading ? (
+                <Typography variant="body2" sx={{ color: '#666', textAlign: 'center', py: 2 }}>
+                  Loading projects...
+                </Typography>
+              ) : projects.length > 0 ? (
+                projects.map((project) => (
+                  <ProjectItem key={project.id}>
+                    <ProjectInfo>
+                      <ProjectAvatar sx={{ backgroundColor: project.color }}>
+                        {project.name.charAt(0)}
+                      </ProjectAvatar>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 500, color: '#333' }}>
+                          {project.name}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#666' }}>
+                          {project.taskCount} tasks
+                        </Typography>
+                      </Box>
+                    </ProjectInfo>
+                    <Chip
+                      label={project.taskCount}
+                      size="small"
+                      sx={{
+                        backgroundColor: project.color + '20',
+                        color: project.color,
+                        fontWeight: 600,
+                        fontSize: '11px'
+                      }}
+                    />
+                  </ProjectItem>
+                ))
+              ) : (
+                <Typography variant="body2" sx={{ color: '#666', textAlign: 'center', py: 2 }}>
+                  No projects found
+                </Typography>
+              )}
               
               <AddProjectButton onClick={() => navigate('/projects/new')}>
                 <AddIcon sx={{ fontSize: 18, color: '#666' }} />
