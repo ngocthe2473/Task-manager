@@ -43,9 +43,13 @@ const Teams = () => {
         setLoading(true);
         console.log('Fetching teams data for tab:', tabValue); // Debug log
         
-        const userData = await getUsers();
-        setUsers(userData);
-        console.log('Users data:', userData); // Debug log
+        // Check if user is logged in
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        console.log('Current user data:', userData); // Debug log
+        
+        const usersData = await getUsers();
+        setUsers(usersData);
+        console.log('Users data:', usersData); // Debug log
           // Fetch teams based on current tab
         let teamsData;
         if (tabValue === 0) {
@@ -60,13 +64,14 @@ const Teams = () => {
           const response = await getTeams();
           console.log('getTeams response:', response); // Debug log
           teamsData = response.data || response; // Handle both formats
-        }
-        
-        setTeams(teamsData || []);
-        console.log('Final teams set:', teamsData || []); // Debug log
-        setLoading(false);
-      } catch (error) {
+        }        
+        setTeams(Array.isArray(teamsData) ? teamsData : []);
+        console.log('Final teams set:', Array.isArray(teamsData) ? teamsData : []); // Debug log
+        console.log('Teams count:', (Array.isArray(teamsData) ? teamsData : []).length); // Debug log
+        setLoading(false);      } catch (error) {
         console.error('Error loading data:', error);
+        setTeams([]); // Set empty array on error
+        setUsers([]); // Set empty array on error
         setLoading(false);
       }
     };
