@@ -264,7 +264,7 @@ exports.addMember = async (req, res) => {
     if (req.user.role === 'member') {      return res.status(403).json({ message: 'Not authorized to add members' });
     }
 
-    if (req.user.role === 'user' && !team.isLeader(req.user.id)) {
+    if (req.user.role === 'admin' && team.manager.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized to add members to this team' });
     }
 
@@ -292,7 +292,8 @@ exports.addMember = async (req, res) => {
     await User.findByIdAndUpdate(userId, { team: req.params.id });
 
     const updatedTeam = await Team.findById(req.params.id)
-      .populate('members.user', 'name email avatar role');
+      .populate('manager', 'name email avatar')
+      .populate('members', 'name email avatar role');
 
     // Log activity
     await ActivityLog.create({
@@ -343,17 +344,13 @@ exports.removeMember = async (req, res) => {
     if (req.user.role === 'member') {      return res.status(403).json({ message: 'Not authorized to remove members' });
     }
 
-    if (req.user.role === 'user' && !team.isLeader(req.user.id)) {
+    if (req.user.role === 'admin' && team.manager.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized to remove members from this team' });
     }
 
-    // Cannot remove a team leader unless you're admin or there are other leaders
-    const memberToRemove = team.members.find(m => m.user.toString() === userId);
-    if (memberToRemove && memberToRemove.team_role === 'leader') {
-      const leaderCount = team.members.filter(m => m.team_role === 'leader').length;
-      if (leaderCount <= 1 && req.user.role !== 'admin') {
-        return res.status(400).json({ message: 'Cannot remove the last team leader. Assign another leader first.' });
-      }
+    // Cannot remove the manager
+    if (team.manager.toString() === userId) {
+      return res.status(400).json({ message: 'Cannot remove team manager. Change manager first.' });
     }
 
     // Check if user is a member
@@ -371,7 +368,8 @@ exports.removeMember = async (req, res) => {
     await User.findByIdAndUpdate(userId, { $unset: { team: 1 } });
 
     const updatedTeam = await Team.findById(req.params.id)
-      .populate('members.user', 'name email avatar role');
+      .populate('manager', 'name email avatar')
+      .populate('members', 'name email avatar role');
 
     // Log activity
     await ActivityLog.create({
@@ -506,6 +504,7 @@ exports.removeTeamMember = async (req, res) => {
 
     // Populate the updated team
     await team.populate([
+      { path: 'manager', select: 'name email' },
       { path: 'members.user', select: 'name email' }
     ]);
 
@@ -532,6 +531,7 @@ exports.getTeamStats = async (req, res) => {
     const { id } = req.params;
 
     const team = await Team.findById(id)
+      .populate('manager', 'name email')
       .populate('members.user', 'name email');
 
     if (!team) {
@@ -539,11 +539,11 @@ exports.getTeamStats = async (req, res) => {
     }
 
     // Check if user has access to team stats
-    const isLeader = team.isLeader(req.user.id);
-    const isMember = team.isMember(req.user.id);
+    const isManager = team.manager._id.toString() === req.user.id;
+    const isMember = team.members.some(member => member.user._id.toString() === req.user.id);
     const isAdmin = req.user.role === 'admin';
 
-    if (!isAdmin && !isLeader && !isMember) {
+    if (!isAdmin && !isManager && !isMember) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -604,7 +604,7 @@ exports.getTeamStats = async (req, res) => {
         _id: team._id,
         name: team.name,
         description: team.description,
-        leaders: team.getLeaders(),
+        manager: team.manager,
         memberCount: team.members.length
       },
       statistics: {

@@ -59,8 +59,8 @@ const validateUserUpdate = [
     .normalizeEmail(),
   body('role')
     .optional()
-    .isIn(['admin', 'manager', 'member'])
-    .withMessage('Role must be admin, manager, or member'),
+    .isIn(['admin', 'member'])
+    .withMessage('Role must be admin or member'),
   handleValidationErrors
 ];
 
@@ -206,16 +206,11 @@ const validateTeamUpdate = [
     .optional()
     .trim()
     .isLength({ min: 1, max: 100 })
-    .withMessage('Team name must be at most 100 characters'),
-  body('description')
+    .withMessage('Team name must be at most 100 characters'),  body('description')
     .optional()
     .trim()
     .isLength({ max: 500 })
     .withMessage('Description must be at most 500 characters'),
-  body('manager')
-    .optional()
-    .isMongoId()
-    .withMessage('Manager must be a valid user ID'),
   handleValidationErrors
 ];
 

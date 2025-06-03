@@ -22,13 +22,10 @@ import {
   InputLabel,
   Select,
   FormHelperText,
-  Fab,
   useTheme,
   alpha,
   Badge,
   Tooltip,
-  Fade,
-  Zoom,
   AvatarGroup,
   Snackbar,
   Alert,
@@ -44,17 +41,11 @@ import {
   TrendingUp as TrendingUpIcon,
   CalendarToday as CalendarTodayIcon,
   Star as StarIcon,
-  Timeline as TimelineIcon,
-  Speed as SpeedIcon,
   Rocket as RocketIcon,
-  Analytics as AnalyticsIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Visibility as ViewIcon,
-  AddBox as AddBoxIcon,
   FolderSpecial as FolderSpecialIcon,
   Search as SearchIcon,
-  FilterList as FilterListIcon,
   Clear as ClearIcon
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
@@ -64,19 +55,13 @@ import {
   addProject, 
   updateProject, 
   deleteProject,
-  getProjectStats,
   getUsers 
 } from '../services/apiService';
 
-// Pro Animations
+// Animations
 const floatAnimation = keyframes`
   0%, 100% { transform: translateY(0px) rotate(0deg); }
   50% { transform: translateY(-10px) rotate(1deg); }
-`;
-
-const glowPulse = keyframes`
-  0%, 100% { box-shadow: 0 0 20px rgba(0, 123, 255, 0.3); }
-  50% { box-shadow: 0 0 40px rgba(0, 123, 255, 0.6); }
 `;
 
 // Styled Components
@@ -103,20 +88,26 @@ const ProjectCard = styled(Card)(({ theme, priority }) => {
     overflow: 'hidden',
     transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
     cursor: 'pointer',
+    '&:hover': {
+      transform: 'translateY(-8px) scale(1.02)',
+      boxShadow: `0 20px 40px ${alpha(theme.palette.primary.main, 0.15)}`,
+      animation: `${floatAnimation} 3s ease-in-out infinite`,
+      '&::before': {
+        opacity: 1,
+      }
+    },
     '&::before': {
       content: '""',
       position: 'absolute',
       top: 0,
       left: 0,
       right: 0,
-      height: '6px',
+      height: '4px',
       background: getGradient(priority),
-    },
-    '&:hover': {
-      transform: 'translateY(-12px) scale(1.02)',
-      boxShadow: '0 25px 50px rgba(0, 0, 0, 0.15)',
-      animation: `${glowPulse} 2s ease-in-out infinite`,
-    },
+      opacity: 0.7,
+      transition: 'opacity 0.3s ease',
+      borderRadius: '24px 24px 0 0',
+    }
   };
 });
 
@@ -124,19 +115,24 @@ const StatsCard = styled(Card)(({ theme, gradient }) => ({
   background: gradient || `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
   color: 'white',
   borderRadius: '20px',
+  transition: 'all 0.3s ease',
   position: 'relative',
   overflow: 'hidden',
-  animation: `${floatAnimation} 6s ease-in-out infinite`,
+  '&:hover': {
+    transform: 'translateY(-4px)',
+    boxShadow: `0 10px 30px ${alpha(theme.palette.primary.main, 0.3)}`,
+  },
   '&::before': {
     content: '""',
     position: 'absolute',
-    top: '-50%',
-    left: '-50%',
-    width: '200%',
-    height: '200%',
-    background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)',
-    animation: `${floatAnimation} 8s ease-in-out infinite reverse`,
-  },
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.1) 75%, rgba(255,255,255,0.1))',
+    backgroundSize: '20px 20px',
+    opacity: 0.1,
+  }
 }));
 
 const ProjectManagement = () => {
@@ -172,6 +168,7 @@ const ProjectManagement = () => {
     completedProjects: 0,
     teamMembers: 0,
   });
+
   useEffect(() => {
     fetchProjects();
     fetchTeams();
@@ -201,6 +198,7 @@ const ProjectManagement = () => {
 
     setFilteredProjects(filtered);
   }, [projects, searchTerm, statusFilter, priorityFilter]);
+
   const fetchProjects = async () => {
     try {
       setLoading(true);
@@ -241,6 +239,7 @@ const ProjectManagement = () => {
       setLoading(false);
     }
   };
+
   const fetchTeams = async () => {
     try {
       const response = await getUsers();
@@ -258,6 +257,7 @@ const ProjectManagement = () => {
       setTeams([]); // Set empty array on error
     }
   };
+
   const validateForm = () => {
     const errors = {};
     if (!formData.name.trim()) errors.name = 'Project name is required';
@@ -270,6 +270,7 @@ const ProjectManagement = () => {
     }
     return errors;
   };
+
   const handleCreateProject = async () => {
     setIsSubmitting(true);
     const errors = validateForm();
@@ -305,6 +306,7 @@ const ProjectManagement = () => {
     }
     setIsSubmitting(false);
   };
+
   const handleUpdateProject = async () => {
     setIsSubmitting(true);
     const errors = validateForm();
@@ -391,6 +393,7 @@ const ProjectManagement = () => {
       endDate: ''
     });
     setFormErrors({});
+    setSelectedProject(null);
   };
 
   const handleEditProject = (project) => {
@@ -454,12 +457,6 @@ const ProjectManagement = () => {
     ));
   };
 
-  const getProgressColor = (progress) => {
-    if (progress >= 80) return `${theme.palette.success.main}, ${theme.palette.success.light}`;
-    if (progress >= 50) return `${theme.palette.info.main}, ${theme.palette.info.light}`;
-    if (progress >= 20) return `${theme.palette.warning.main}, ${theme.palette.warning.light}`;
-    return `${theme.palette.error.main}, ${theme.palette.error.light}`;
-  };
   const calculateProgress = (project) => {
     if (!project.tasks || project.tasks.length === 0) return 0;
     const completed = project.tasks.filter(task => task.status === 'completed').length;
@@ -485,6 +482,81 @@ const ProjectManagement = () => {
     setPriorityFilter('all');
   };
 
+  const renderProjectCard = (project) => (
+    <Grid xs={12} sm={6} md={4} key={project._id}>
+      <ProjectCard priority={project.priority}>
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+              {project.name}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex' }}>
+                {getPriorityIcon(project.priority)}
+              </Box>
+              <IconButton 
+                size="small" 
+                onClick={(e) => handleMenuClick(e, project)}
+                sx={{ ml: 1 }}
+              >
+                <MoreVertIcon />
+              </IconButton>
+            </Box>
+          </Box>
+
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.6 }}>
+            {project.description}
+          </Typography>
+
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Chip
+              label={getStatusText(project.status)}
+              color={getStatusColor(project.status)}
+              size="small"
+              sx={{ fontWeight: 500 }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              {project.endDate ? format(new Date(project.endDate), 'MMM dd, yyyy') : 'No deadline'}
+            </Typography>
+          </Box>
+
+          {project.team && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <PeopleIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <Typography variant="caption" color="text.secondary">
+                {project.team.name || 'Team'}
+              </Typography>
+            </Box>
+          )}
+
+          <Box sx={{ mt: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Progress
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {calculateProgress(project)}%
+              </Typography>
+            </Box>
+            <LinearProgress 
+              variant="determinate" 
+              value={calculateProgress(project)}
+              sx={{ 
+                height: 6, 
+                borderRadius: 3,
+                backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 3,
+                  background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`
+                }
+              }}
+            />
+          </Box>
+        </CardContent>
+      </ProjectCard>
+    </Grid>
+  );
+
   const renderDialog = () => (
     <Dialog
       open={openDialog}
@@ -509,9 +581,11 @@ const ProjectManagement = () => {
         alignItems: 'center',
         gap: 1
       }}>
-        {selectedProject ? <EditIcon color="primary" /> : <AddBoxIcon color="primary" />}
+        {selectedProject ? <EditIcon color="primary" /> : <AddIcon color="primary" />}
         {selectedProject ? 'Edit Project' : 'Create New Project'}
-      </DialogTitle>      <DialogContent sx={{ mt: 2, p: 3 }}>
+      </DialogTitle>
+
+      <DialogContent sx={{ mt: 2, p: 3 }}>
         <Grid container spacing={3}>
           <Grid xs={12}>
             <TextField
@@ -555,16 +629,14 @@ const ProjectManagement = () => {
 
           <Grid xs={12} sm={6}>
             <FormControl fullWidth error={!!formErrors.team}>
-              <InputLabel>Team (Optional)</InputLabel>              <Select
+              <InputLabel>Team (Optional)</InputLabel>
+              <Select
                 name="team"
                 value={formData.team}
                 onChange={handleInputChange}
                 label="Team (Optional)"
                 sx={{ 
                   borderRadius: '12px',
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '12px',
-                  }
                 }}
               >
                 <MenuItem value="">
@@ -592,9 +664,6 @@ const ProjectManagement = () => {
                 label="Status"
                 sx={{ 
                   borderRadius: '12px',
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '12px',
-                  }
                 }}
               >
                 <MenuItem value="planning">Planning</MenuItem>
@@ -615,9 +684,6 @@ const ProjectManagement = () => {
                 label="Priority"
                 sx={{ 
                   borderRadius: '12px',
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '12px',
-                  }
                 }}
               >
                 <MenuItem value="High">High Priority</MenuItem>
@@ -625,7 +691,9 @@ const ProjectManagement = () => {
                 <MenuItem value="Low">Low Priority</MenuItem>
               </Select>
             </FormControl>
-          </Grid>          <Grid xs={12} sm={6}>
+          </Grid>
+
+          <Grid xs={12} sm={6}>
             <TextField
               name="startDate"
               label="Start Date"
@@ -699,193 +767,24 @@ const ProjectManagement = () => {
       </DialogActions>
     </Dialog>
   );
-              value={formData.endDate}
-              onChange={handleInputChange}
-              error={!!formErrors.endDate}
-              helperText={formErrors.endDate}
-              InputLabelProps={{ shrink: true }}
-              required
-            />
-          </Grid>
-        </Grid>
-      </DialogContent>
-
-      <DialogActions sx={{ p: 3 }}>
-        <Button 
-          onClick={() => {
-            setOpenDialog(false);
-            resetForm();
-          }}
-          variant="outlined"
-          color="inherit"
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={selectedProject ? handleUpdateProject : handleCreateProject}
-          variant="contained"
-          color="primary"
-          disabled={isSubmitting}
-          startIcon={isSubmitting ? <CircularProgress size={20} /> : (selectedProject ? <EditIcon /> : <AddIcon />)}
-        >
-          {isSubmitting ? 'Processing...' : (selectedProject ? 'Update Project' : 'Create Project')}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-
-  const renderProjectCard = (project, index) => (
-    <Grid xs={12} md={6} lg={4} key={project._id || index}>
-      <Zoom in timeout={400 + index * 100}>
-        <ProjectCard priority={project.priority}>
-          <CardContent sx={{ p: 3 }}>
-            {/* Project Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
-                  {project.name}
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  {getPriorityIcon(project.priority)}
-                  <Typography variant="body2" color="text.secondary">
-                    {project.priority} Priority
-                  </Typography>
-                </Box>
-              </Box>
-              <IconButton
-                size="small"
-                onClick={(e) => handleMenuClick(e, project)}
-              >
-                <MoreVertIcon />
-              </IconButton>
-            </Box>
-
-            {/* Status & Progress */}
-            <Box sx={{ mb: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Chip
-                  label={getStatusText(project.status)}
-                  color={getStatusColor(project.status)}
-                  size="small"
-                  variant="filled"
-                />
-                <Typography variant="body2" fontWeight="bold">
-                  {calculateProgress(project)}%
-                </Typography>
-              </Box>
-              <LinearProgress
-                variant="determinate"
-                value={calculateProgress(project)}
-                sx={{
-                  height: 8,
-                  borderRadius: 4,
-                  background: alpha(theme.palette.grey[300], 0.3),
-                  '& .MuiLinearProgress-bar': {
-                    background: `linear-gradient(90deg, ${getProgressColor(calculateProgress(project))})`,
-                    borderRadius: 4,
-                  },
-                }}
-              />
-            </Box>
-
-            {/* Description */}
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3, minHeight: 40 }}>
-              {project.description ? (
-                project.description.length > 100 
-                  ? `${project.description.substring(0, 100)}...`
-                  : project.description
-              ) : 'No description available'}
-            </Typography>
-
-            {/* Team Members */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
-                Team Members
-              </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                {project.teamMembers && project.teamMembers.length > 0 ? (
-                  <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 32, height: 32, fontSize: '0.875rem' } }}>
-                    {project.teamMembers.map((member, idx) => (                      <Tooltip key={idx} title={member.name}>
-                        <Avatar
-                          sx={{
-                            background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                            fontWeight: 'bold'
-                          }}
-                        >
-                          {member.name?.charAt(0)?.toUpperCase()}
-                        </Avatar>
-                      </Tooltip>
-                    ))}
-                  </AvatarGroup>
-                ) : (
-                  <Typography variant="caption" color="text.secondary">
-                    No team members assigned
-                  </Typography>
-                )}
-                <Typography variant="caption" color="text.secondary">
-                  {project.teamMembers ? project.teamMembers.length : 0} members
-                </Typography>
-              </Box>
-            </Box>
-
-            {/* Timeline */}
-            {(project.startDate || project.endDate) && (
-              <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CalendarTodayIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                <Typography variant="caption" color="text.secondary">
-                  {project.startDate && format(new Date(project.startDate), 'MMM dd')}
-                  {project.startDate && project.endDate && ' - '}
-                  {project.endDate && format(new Date(project.endDate), 'MMM dd, yyyy')}
-                </Typography>
-              </Box>
-            )}
-          </CardContent>
-
-          <CardActions sx={{ px: 3, pb: 3 }}>
-            <Button
-              variant="contained"
-              fullWidth
-              sx={{
-                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                borderRadius: 3,
-                fontWeight: 'bold',
-                textTransform: 'none',
-              }}
-              onClick={() => handleEditProject(project)}
-            >
-              View Details
-            </Button>
-          </CardActions>
-        </ProjectCard>
-      </Zoom>
-    </Grid>
-  );
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Header Section */}
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" sx={{ 
-          fontWeight: 'bold',
-          background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent'
-        }}>
-          Project Management
-        </Typography>
-        
+    <Box sx={{ p: 4 }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Box>
+          <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+            Project Management
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Manage and track your projects efficiently
+          </Typography>
+        </Box>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => {
+            resetForm();
             setSelectedProject(null);
             setOpenDialog(true);
           }}
@@ -897,7 +796,8 @@ const ProjectManagement = () => {
             }
           }}
         >
-          Create Project        </Button>
+          Create Project
+        </Button>
       </Box>
 
       {/* Search and Filter Section */}
@@ -1036,7 +936,9 @@ const ProjectManagement = () => {
             <Typography variant="h4">{stats.teamMembers}</Typography>
           </StatsCard>
         </Grid>
-      </Grid>      {/* Project Cards Grid */}
+      </Grid>
+
+      {/* Project Cards Grid */}
       <Grid container spacing={3}>
         {loading ? (
           <Grid xs={12} sx={{ textAlign: 'center', py: 5 }}>
