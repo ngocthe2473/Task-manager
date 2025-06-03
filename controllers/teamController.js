@@ -792,3 +792,110 @@ exports.checkUserIsTeamLeader = async (req, res) => {
     });
   }
 };
+
+// Tìm kiếm team theo tên (ai đăng nhập cũng dùng được)
+exports.searchTeams = async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 3) return res.json({ data: [] });
+    const teams = await Team.find({
+      name: { $regex: q, $options: 'i' }
+    }).select('_id name members');
+    res.json({ data: teams });
+  } catch (error) {
+    console.error('Search teams error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Advanced search for teams (multi-filter, sort, pagination)
+// @route   GET /api/teams/advanced-search
+// @access  Private
+exports.advancedSearchTeams = async (req, res) => {
+  try {
+    const {
+      q = '',
+      member,
+      sortBy = 'name',
+      sortOrder = 'asc',
+      page = 1,
+      limit = 20
+    } = req.query;
+    const filter = {};
+    if (q) {
+      const regex = new RegExp(q, 'i');
+      filter.name = regex;
+    }
+    if (member) filter['members.user'] = member;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sort = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+    const [teams, total] = await Promise.all([
+      Team.find(filter)
+        .populate('members.user', 'name email')
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Team.countDocuments(filter)
+    ]);
+    res.json({ success: true, data: teams, total });
+  } catch (error) {
+    console.error('Advanced search teams error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Advanced analytics for teams
+// @route   GET /api/teams/advanced-analytics
+// @access  Private
+exports.advancedTeamAnalytics = async (req, res) => {
+  try {
+    const teams = await Team.find({});
+    const bySize = {};
+    teams.forEach(team => {
+      const size = team.members.length;
+      bySize[size] = (bySize[size] || 0) + 1;
+    });
+    res.json({ success: true, stats: { bySize, total: teams.length } });
+  } catch (error) {
+    console.error('Advanced team analytics error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Autocomplete for team name
+// @route   GET /api/teams/autocomplete
+// @access  Private
+exports.autocompleteTeam = async (req, res) => {
+  try {
+    const { q = '', limit = 10 } = req.query;
+    if (!q) return res.json({ data: [] });
+    const regex = new RegExp(q, 'i');
+    const teams = await Team.find({ name: regex }).select('name').limit(parseInt(limit));
+    res.json({ data: teams });
+  } catch (error) {
+    console.error('Autocomplete team error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Export teams to CSV (filtered)
+// @route   GET /api/teams/export
+// @access  Private
+exports.exportTeamsCSV = async (req, res) => {
+  try {
+    const { member } = req.query;
+    const filter = {};
+    if (member) filter['members.user'] = member;
+    const teams = await Team.find(filter).populate('members.user', 'name email');
+    let csv = 'Name,Description,Size,Members\n';
+    teams.forEach(t => {
+      csv += `"${t.name}","${t.description}",${t.members.length},"${t.members.map(m => m.user.name).join('; ')}"\n`;
+    });
+    res.header('Content-Type', 'text/csv');
+    res.attachment('teams.csv');
+    return res.send(csv);
+  } catch (error) {
+    console.error('Export teams CSV error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

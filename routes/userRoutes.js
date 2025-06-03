@@ -6,7 +6,12 @@ const {
   updateUser,
   deleteUser,
   getUserProfile,
-  updateUserProfile
+  updateUserProfile,
+  searchUsers,
+  advancedSearchUsers,
+  advancedUserAnalytics,
+  autocompleteUser,
+  exportUsersCSV
 } = require('../controllers/userController');
 const { authenticate, authorize } = require('../middlewares/auth');
 const { 
@@ -28,5 +33,14 @@ router.route('/:id')
   .get(authenticate, validateMongoId, getUser)
   .put(authenticate, authorize(['admin']), validateMongoId, validateUserUpdate, updateUser)
   .delete(authenticate, authorize(['admin']), validateMongoId, deleteUser);
+
+// Route search user by email/name cho mọi user đăng nhập
+router.get('/search', authenticate, searchUsers);
+
+// Advanced APIs
+router.get('/advanced-search', authenticate, authorize(['admin']), advancedSearchUsers);
+router.get('/advanced-analytics', authenticate, authorize(['admin']), advancedUserAnalytics);
+router.get('/autocomplete', authenticate, autocompleteUser);
+router.get('/export', authenticate, authorize(['admin']), exportUsersCSV);
 
 module.exports = router;

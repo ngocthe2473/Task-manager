@@ -12,4 +12,8 @@ router.route('/')
 router.route('/me')
   .get(protect, getMyActivityLogs);
 
+// Advanced APIs
+router.get('/advanced-search', protect, require('../controllers/activityLogController').advancedSearchActivityLogs);
+router.get('/export', protect, require('../controllers/activityLogController').exportActivityLogsCSV);
+
 module.exports = router;

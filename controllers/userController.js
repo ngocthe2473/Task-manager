@@ -775,3 +775,124 @@ exports.createTeam = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// Search users by email or name (for invite)
+exports.searchUsers = async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 3) return res.json({ data: [] });
+    const users = await User.find({
+      $or: [
+        { email: { $regex: q, $options: 'i' } },
+        { name: { $regex: q, $options: 'i' } }
+      ]
+    }).select('_id name email avatar');
+    res.json({ data: users });
+  } catch (error) {
+    console.error('Search users error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Advanced search for users (multi-filter, sort, pagination)
+// @route   GET /api/users/advanced-search
+// @access  Private/Admin
+exports.advancedSearchUsers = async (req, res) => {
+  try {
+    const {
+      q = '',
+      role,
+      team,
+      isActive,
+      sortBy = 'name',
+      sortOrder = 'asc',
+      page = 1,
+      limit = 20
+    } = req.query;
+    const filter = {};
+    if (q) {
+      const regex = new RegExp(q, 'i');
+      filter.$or = [
+        { name: regex },
+        { email: regex }
+      ];
+    }
+    if (role) filter.role = role;
+    if (isActive !== undefined && isActive !== '') filter.isActive = isActive === 'true';
+    if (team) filter.teams = team;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sort = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+    const [users, total] = await Promise.all([
+      User.find(filter)
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit)),
+      User.countDocuments(filter)
+    ]);
+    res.json({ success: true, data: users, total });
+  } catch (error) {
+    console.error('Advanced search users error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Advanced analytics for users
+// @route   GET /api/users/advanced-analytics
+// @access  Private/Admin
+exports.advancedUserAnalytics = async (req, res) => {
+  try {
+    const { team } = req.query;
+    const filter = {};
+    if (team) filter.teams = team;
+    const users = await User.find(filter);
+    const byRole = {};
+    const byActive = { active: 0, inactive: 0 };
+    users.forEach(user => {
+      byRole[user.role] = (byRole[user.role] || 0) + 1;
+      if (user.isActive) byActive.active++; else byActive.inactive++;
+    });
+    res.json({ success: true, stats: { byRole, byActive, total: users.length } });
+  } catch (error) {
+    console.error('Advanced user analytics error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Autocomplete for user name/email
+// @route   GET /api/users/autocomplete
+// @access  Private
+exports.autocompleteUser = async (req, res) => {
+  try {
+    const { q = '', limit = 10 } = req.query;
+    if (!q) return res.json({ data: [] });
+    const regex = new RegExp(q, 'i');
+    const users = await User.find({ $or: [ { name: regex }, { email: regex } ] }).select('name email').limit(parseInt(limit));
+    res.json({ data: users });
+  } catch (error) {
+    console.error('Autocomplete user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Export users to CSV (filtered)
+// @route   GET /api/users/export
+// @access  Private/Admin
+exports.exportUsersCSV = async (req, res) => {
+  try {
+    const { role, isActive } = req.query;
+    const filter = {};
+    if (role) filter.role = role;
+    if (isActive !== undefined && isActive !== '') filter.isActive = isActive === 'true';
+    const users = await User.find(filter);
+    let csv = 'Name,Email,Role,Active\n';
+    users.forEach(u => {
+      csv += `"${u.name}",${u.email},${u.role},${u.isActive ? 'Yes' : 'No'}\n`;
+    });
+    res.header('Content-Type', 'text/csv');
+    res.attachment('users.csv');
+    return res.send(csv);
+  } catch (error) {
+    console.error('Export users CSV error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

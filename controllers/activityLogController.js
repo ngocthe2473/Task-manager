@@ -544,6 +544,73 @@ exports.exportActivityLogs = async (req, res) => {
   }
 };
 
+// @desc    Advanced search for activity logs (multi-filter, sort, pagination)
+// @route   GET /api/activity-logs/advanced-search
+// @access  Private
+exports.advancedSearchActivityLogs = async (req, res) => {
+  try {
+    const {
+      user,
+      action,
+      task,
+      fromDate,
+      toDate,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 20
+    } = req.query;
+    const filter = {};
+    if (user) filter.user = user;
+    if (action) filter.action = action;
+    if (task) filter.task = task;
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+      if (toDate) filter.createdAt.$lte = new Date(toDate);
+    }
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sort = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+    const [logs, total] = await Promise.all([
+      ActivityLog.find(filter)
+        .populate('user', 'name email')
+        .populate('task', 'title')
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit)),
+      ActivityLog.countDocuments(filter)
+    ]);
+    res.json({ success: true, data: logs, total });
+  } catch (error) {
+    console.error('Advanced search activity logs error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Export activity logs to CSV (filtered)
+// @route   GET /api/activity-logs/export
+// @access  Private
+exports.exportActivityLogsCSV = async (req, res) => {
+  try {
+    const { user, action, task } = req.query;
+    const filter = {};
+    if (user) filter.user = user;
+    if (action) filter.action = action;
+    if (task) filter.task = task;
+    const logs = await ActivityLog.find(filter).populate('user', 'name email').populate('task', 'title');
+    let csv = 'User,Action,Task,CreatedAt\n';
+    logs.forEach(l => {
+      csv += `${l.user?.name || ''},${l.action},${l.task?.title || ''},${l.createdAt ? l.createdAt.toISOString() : ''}\n`;
+    });
+    res.header('Content-Type', 'text/csv');
+    res.attachment('activity_logs.csv');
+    return res.send(csv);
+  } catch (error) {
+    console.error('Export activity logs CSV error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 // Helper function to check if user is a team leader and the target user is in their team
 async function isUserInTeamWithLeader(leaderId, userId) {
   try {

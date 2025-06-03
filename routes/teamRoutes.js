@@ -19,7 +19,12 @@ const {
   changeTeamRole,
   getMyTeam,
   getMyTeamMembers,
-  checkUserIsTeamLeader
+  checkUserIsTeamLeader,
+  searchTeams,
+  advancedSearchTeams,
+  advancedTeamAnalytics,
+  autocompleteTeam,
+  exportTeamsCSV
 } = require('../controllers/teamController');
 const router = express.Router();
 
@@ -52,5 +57,13 @@ router.put('/:id/members/:userId/role',
   validateMongoId, 
   changeTeamRole
 );
+
+router.get('/search', authenticate, searchTeams);
+
+// Advanced APIs
+router.get('/advanced-search', authenticate, advancedSearchTeams);
+router.get('/advanced-analytics', authenticate, advancedTeamAnalytics);
+router.get('/autocomplete', authenticate, autocompleteTeam);
+router.get('/export', authenticate, exportTeamsCSV);
 
 module.exports = router;

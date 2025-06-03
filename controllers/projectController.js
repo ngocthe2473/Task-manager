@@ -372,67 +372,13 @@ exports.deleteProject = async (req, res) => {
 // @access  Private
 exports.getProjectStats = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
-    if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
-    }
-
-    const stats = await Task.aggregate([
-      { $match: { project: project._id } },
-      {
-        $group: {
-          _id: null,
-          totalTasks: { $sum: 1 },
-          todoTasks: {
-            $sum: { $cond: [{ $eq: ['$status', 'todo'] }, 1, 0] }
-          },
-          inProgressTasks: {
-            $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] }
-          },
-          completedTasks: {
-            $sum: { $cond: [{ $eq: ['$status', 'done'] }, 1, 0] }
-          },
-          highPriorityTasks: {
-            $sum: { $cond: [{ $eq: ['$priority', 'high'] }, 1, 0] }
-          },
-          overdueTasks: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $lt: ['$dueDate', new Date()] },
-                    { $ne: ['$status', 'done'] }
-                  ]
-                },
-                1,
-                0
-              ]
-            }
-          }
-        }
-      }
-    ]);
-
-    const result = stats[0] || {
-      totalTasks: 0,
-      todoTasks: 0,
-      inProgressTasks: 0,
-      completedTasks: 0,
-      highPriorityTasks: 0,
-      overdueTasks: 0
-    };
-
-    // Calculate progress percentage
-    result.progress = result.totalTasks > 0 
-      ? Math.round((result.completedTasks / result.totalTasks) * 100)
-      : 0;
-
-    res.status(200).json({
-      success: true,
-      data: result
-    });
+    const { teamId } = req.query;
+    const filter = teamId ? { team: teamId } : {};
+    const total = await Project.countDocuments(filter);
+    const completed = await Project.countDocuments({ ...filter, status: 'completed' });
+    res.json({ data: { total, completed } });
   } catch (error) {
-    console.error('Error getting project stats:', error);
+    console.error('Project stats error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -505,6 +451,365 @@ exports.getMyProjects = async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting my projects:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Tìm kiếm project theo tên (ai đăng nhập cũng dùng được)
+exports.searchProjects = async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 3) return res.json({ data: [] });
+    const projects = await Project.find({
+      name: { $regex: q, $options: 'i' }
+    }).select('_id name description status');
+    res.json({ data: projects });
+  } catch (error) {
+    console.error('Search projects error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get project analytics and statistics
+// @route   GET /api/projects/analytics
+// @access  Private
+exports.getProjectAnalytics = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Find teams where user is a member
+    const teams = await Team.find({
+      'members.user': userId
+    });
+    
+    const teamIds = teams.map(team => team._id);
+    
+    // Get projects for user's teams
+    const projects = await Project.find({
+      team: { $in: teamIds }
+    }).populate('team', 'name').populate('createdBy', 'name email');
+
+    const analytics = [];
+
+    for (const project of projects) {
+      // Get tasks for this project
+      const projectTasks = await Task.find({
+        project: project._id
+      }).populate('assignee', 'name email avatar');
+
+      // Calculate project statistics
+      const totalTasks = projectTasks.length;
+      const completedTasks = projectTasks.filter(task => task.status === 'done').length;
+      const inProgressTasks = projectTasks.filter(task => task.status === 'in-progress').length;
+      const todoTasks = projectTasks.filter(task => task.status === 'todo').length;
+      const reviewTasks = projectTasks.filter(task => task.status === 'review').length;
+      
+      const overdueTasks = projectTasks.filter(task => 
+        task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done'
+      ).length;
+
+      // Calculate priority distribution
+      const priorityStats = {
+        low: projectTasks.filter(task => task.priority === 'low').length,
+        medium: projectTasks.filter(task => task.priority === 'medium').length,
+        high: projectTasks.filter(task => task.priority === 'high').length,
+        urgent: projectTasks.filter(task => task.priority === 'urgent').length
+      };
+
+      // Calculate completion rate
+      const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+      // Get team members working on this project
+      const teamMembers = await Team.findById(project.team).populate('members.user', 'name email avatar');
+      const memberStats = teamMembers ? teamMembers.members.map(member => {
+        const memberTasks = projectTasks.filter(task => 
+          task.assignee && task.assignee._id.toString() === member.user._id.toString()
+        );
+        
+        return {
+          userId: member.user._id,
+          name: member.user.name,
+          email: member.user.email,
+          avatar: member.user.avatar,
+          role: member.team_role,
+          assignedTasks: memberTasks.length,
+          completedTasks: memberTasks.filter(task => task.status === 'done').length,
+          completionRate: memberTasks.length > 0 ? 
+            Math.round((memberTasks.filter(task => task.status === 'done').length / memberTasks.length) * 100) : 0
+        };
+      }) : [];
+
+      analytics.push({
+        projectId: project._id,
+        projectName: project.name,
+        description: project.description,
+        status: project.status,
+        teamName: project.team?.name,
+        createdBy: project.createdBy?.name,
+        createdAt: project.createdAt,
+        totalTasks,
+        completedTasks,
+        inProgressTasks,
+        todoTasks,
+        reviewTasks,
+        overdueTasks,
+        completionRate,
+        priorityStats,
+        memberStats,
+        progress: project.progress || 0
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        projects: analytics,
+        summary: {
+          totalProjects: analytics.length,
+          activeProjects: analytics.filter(p => p.status === 'active').length,
+          completedProjects: analytics.filter(p => p.status === 'completed').length,
+          averageCompletion: analytics.length > 0 ? 
+            Math.round(analytics.reduce((sum, p) => sum + p.completionRate, 0) / analytics.length) : 0
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error getting project analytics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error'
+    });
+  }
+};
+
+// @desc    Search projects with detailed results
+// @route   GET /api/projects/detailed-search
+// @access  Private
+exports.detailedSearchProjects = async (req, res) => {
+  try {
+    const { q, limit = 10, status, team } = req.query;
+    const userId = req.user.id;
+    
+    if (!q || q.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+
+    // Build search criteria
+    let searchCriteria = {};
+    
+    // Text search
+    const searchRegex = new RegExp(q.trim(), 'i');
+    searchCriteria.$or = [
+      { name: searchRegex },
+      { description: searchRegex }
+    ];
+
+    // Status filter
+    if (status) {
+      searchCriteria.status = status;
+    }
+
+    // Team filter
+    if (team) {
+      searchCriteria.team = team;
+    }
+
+    // Find user's teams for access control
+    const userTeams = await Team.find({
+      'members.user': userId
+    });
+    const teamIds = userTeams.map(team => team._id);
+    
+    // Only show projects from user's teams
+    searchCriteria.team = { $in: teamIds };
+
+    const projects = await Project.find(searchCriteria)
+      .populate('team', 'name description')
+      .populate('createdBy', 'name email avatar')
+      .limit(parseInt(limit))
+      .sort({ updatedAt: -1 });
+
+    // Add task statistics for each project
+    const projectsWithStats = await Promise.all(
+      projects.map(async (project) => {
+        const tasks = await Task.find({ project: project._id });
+        const totalTasks = tasks.length;
+        const completedTasks = tasks.filter(task => task.status === 'done').length;
+        
+        return {
+          ...project.toObject(),
+          taskStats: {
+            total: totalTasks,
+            completed: completedTasks,
+            completionRate: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+          }
+        };
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      data: projectsWithStats
+    });
+  } catch (error) {
+    console.error('Error in detailed search projects:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error'
+    });
+  }
+};
+
+// @desc    Advanced search for projects (multi-filter, sort, pagination)
+// @route   GET /api/projects/advanced-search
+// @access  Private
+exports.advancedSearchProjects = async (req, res) => {
+  try {
+    const {
+      q = '',
+      status,
+      team,
+      createdBy,
+      fromDate,
+      toDate,
+      sortBy = 'updatedAt',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 20
+    } = req.query;
+    const filter = {};
+    if (q) {
+      const regex = new RegExp(q, 'i');
+      filter.$or = [
+        { name: regex },
+        { description: regex }
+      ];
+    }
+    if (status) filter.status = status;
+    if (team) filter.team = team;
+    if (createdBy) filter.createdBy = createdBy;
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+      if (toDate) filter.createdAt.$lte = new Date(toDate);
+    }
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sort = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+    const [projects, total] = await Promise.all([
+      Project.find(filter)
+        .populate('team', 'name')
+        .populate('createdBy', 'name email')
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit)),
+      Project.countDocuments(filter)
+    ]);
+    res.json({ success: true, data: projects, total });
+  } catch (error) {
+    console.error('Advanced search projects error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Advanced analytics for projects
+// @route   GET /api/projects/advanced-analytics
+// @access  Private
+exports.advancedProjectAnalytics = async (req, res) => {
+  try {
+    const { fromDate, toDate, team } = req.query;
+    const filter = {};
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+      if (toDate) filter.createdAt.$lte = new Date(toDate);
+    }
+    if (team) filter.team = team;
+    const projects = await Project.find(filter);
+    const byStatus = {};
+    const byTeam = {};
+    projects.forEach(project => {
+      byStatus[project.status] = (byStatus[project.status] || 0) + 1;
+      if (project.team) {
+        byTeam[project.team] = (byTeam[project.team] || 0) + 1;
+      }
+    });
+    res.json({ success: true, stats: { byStatus, byTeam, total: projects.length } });
+  } catch (error) {
+    console.error('Advanced project analytics error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Autocomplete for project name
+// @route   GET /api/projects/autocomplete
+// @access  Private
+exports.autocompleteProjectName = async (req, res) => {
+  try {
+    const { q = '', limit = 10 } = req.query;
+    if (!q) return res.json({ data: [] });
+    const regex = new RegExp(q, 'i');
+    const projects = await Project.find({ name: regex }).select('name').limit(parseInt(limit));
+    res.json({ data: projects });
+  } catch (error) {
+    console.error('Autocomplete project name error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Export projects to CSV (filtered)
+// @route   GET /api/projects/export
+// @access  Private
+exports.exportProjectsCSV = async (req, res) => {
+  try {
+    const { status, team } = req.query;
+    const filter = {};
+    if (status) filter.status = status;
+    if (team) filter.team = team;
+    const projects = await Project.find(filter)
+      .populate('team', 'name')
+      .populate('createdBy', 'name email');
+    let csv = 'Name,Description,Status,Team,CreatedBy,CreatedAt\n';
+    projects.forEach(p => {
+      csv += `"${p.name}","${p.description}",${p.status},${p.team?.name || ''},${p.createdBy?.name || ''},${p.createdAt ? p.createdAt.toISOString().split('T')[0] : ''}\n`;
+    });
+    res.header('Content-Type', 'text/csv');
+    res.attachment('projects.csv');
+    return res.send(csv);
+  } catch (error) {
+    console.error('Export projects CSV error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Dashboard summary for projects
+// @route   GET /api/projects/dashboard-summary
+// @access  Private
+exports.projectDashboardSummary = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    // Tổng số project, số project theo trạng thái, số team, số project tạo trong tuần
+    const [projects, teams] = await Promise.all([
+      Project.find({ $or: [{ createdBy: userId }, { team: { $in: await Team.find({ 'members.user': userId }).distinct('_id') } }] }),
+      Team.find({ 'members.user': userId })
+    ]);
+    const now = new Date();
+    const weekAgo = new Date();
+    weekAgo.setDate(now.getDate() - 7);
+    const summary = {
+      totalProjects: projects.length,
+      byStatus: {},
+      createdThisWeek: projects.filter(p => p.createdAt > weekAgo).length,
+      totalTeams: teams.length
+    };
+    projects.forEach(p => {
+      summary.byStatus[p.status] = (summary.byStatus[p.status] || 0) + 1;
+    });
+    res.json({ success: true, data: summary });
+  } catch (error) {
+    console.error('Project dashboard summary error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

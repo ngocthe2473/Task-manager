@@ -31,8 +31,9 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import EditIcon from '@mui/icons-material/Edit';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EmailIcon from '@mui/icons-material/Email';
-import { getUsers, getTeams, getMyTeams } from '../services/apiService';
+import { getUsers, getTeams, getMyTeams, addTeam, searchUsersByEmail } from '../services/apiService';
 import PeopleIcon from '@mui/icons-material/People';
+import Autocomplete from '@mui/material/Autocomplete';
 
 const Teams = () => {
   const [tabValue, setTabValue] = useState(0);
@@ -40,6 +41,14 @@ const Teams = () => {
   const [teams, setTeams] = useState([]);
   const [openInviteDialog, setOpenInviteDialog] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [openCreateDialog, setOpenCreateDialog] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: '', description: '', members: [] });
+  const [createError, setCreateError] = useState('');
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [inputValue, setInputValue] = useState('');
+  const [options, setOptions] = useState([]);
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -78,8 +87,72 @@ const Teams = () => {
     fetchData();
   }, [tabValue]); // Add tabValue as dependency to refetch when tab changes
 
+  useEffect(() => {
+    if (openCreateDialog) {
+      getUsers().then(users => setAllUsers(users)).catch(() => setAllUsers([]));
+    }
+  }, [openCreateDialog]);
+
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
+  };
+
+  const handleOpenCreateDialog = () => {
+    setCreateForm({ name: '', description: '', members: [] });
+    setCreateError('');
+    setSelectedUsers([]);
+    setInputValue('');
+    setOptions([]);
+    setOpenCreateDialog(true);
+  };
+
+  const handleCloseCreateDialog = () => {
+    setOpenCreateDialog(false);
+    setCreateError('');
+  };
+
+  const handleCreateTeam = async () => {
+    if (!createForm.name.trim()) {
+      setCreateError('Team name is required');
+      return;
+    }
+    try {
+      await addTeam({ name: createForm.name, description: createForm.description, members: selectedUsers.map(u => u._id) });
+      setOpenCreateDialog(false);
+      setCreateError('');
+      setLoading(true);
+      setTimeout(() => window.location.reload(), 500);
+    } catch (err) {
+      setCreateError(err?.response?.data?.message || 'Failed to create team');
+    }
+  };
+
+  const handleInviteInputChange = async (event, newInputValue, reason) => {
+    setInputValue(newInputValue);
+    if (reason === 'input' && newInputValue.length >= 3) {
+      setInviteLoading(true);
+      try {
+        const users = await searchUsersByEmail(newInputValue);
+        const merged = [
+          ...selectedUsers,
+          ...users.filter(u => !selectedUsers.some(su => su._id === u._id))
+        ];
+        setOptions(merged);
+      } catch {
+        setOptions(selectedUsers);
+      }
+      setInviteLoading(false);
+    } else if (!newInputValue) {
+      setOptions(selectedUsers);
+    }
+  };
+
+  const handleInviteChange = (event, newValue) => {
+    setSelectedUsers(newValue);
+    setOptions([
+      ...newValue,
+      ...options.filter(u => !newValue.some(su => su._id === u._id))
+    ]);
   };
 
   return (
@@ -91,7 +164,7 @@ const Teams = () => {
           variant="contained" 
           color="primary" 
           startIcon={<AddIcon />}
-          onClick={() => alert('Team creation dialog would open here. Full implementation available in AdminDashboard.')}
+          onClick={handleOpenCreateDialog}
         >
           Create Team
         </Button>
@@ -123,9 +196,18 @@ const Teams = () => {
             <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
               No teams found
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               You are not a member of any team yet.
             </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleOpenCreateDialog}
+              sx={{ mt: 2, borderRadius: '12px', fontWeight: 600 }}
+            >
+              Create Team
+            </Button>
           </Box>
         ) : (
           <Grid container spacing={3}>
@@ -294,6 +376,55 @@ const Teams = () => {
           <Button onClick={() => setOpenInviteDialog(false)} color="primary" variant="contained">
             Send Invitation
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog tạo team */}
+      <Dialog open={openCreateDialog} onClose={handleCloseCreateDialog}>
+        <DialogTitle>Create New Team</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Team Name"
+            type="text"
+            fullWidth
+            value={createForm.name}
+            onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))}
+            required
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            label="Description"
+            type="text"
+            fullWidth
+            multiline
+            minRows={2}
+            value={createForm.description}
+            onChange={e => setCreateForm(f => ({ ...f, description: e.target.value }))}
+            sx={{ mb: 2 }}
+          />
+          <Autocomplete
+            multiple
+            options={options}
+            value={selectedUsers}
+            inputValue={inputValue}
+            onInputChange={handleInviteInputChange}
+            onChange={handleInviteChange}
+            getOptionLabel={option => option.name + (option.email ? ` (${option.email})` : '')}
+            filterSelectedOptions
+            loading={inviteLoading}
+            renderInput={params => (
+              <TextField {...params} label="Invite Members by Email" placeholder="Type email..." sx={{ mb: 2 }} />
+            )}
+            isOptionEqualToValue={(option, value) => option._id === value._id}
+            sx={{ mb: 2 }}
+          />
+          {createError && <Typography color="error" sx={{ mb: 1 }}>{createError}</Typography>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseCreateDialog}>Cancel</Button>
+          <Button onClick={handleCreateTeam} variant="contained">Create</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -48,7 +48,7 @@ import {
   Search as SearchIcon,
   Clear as ClearIcon
 } from '@mui/icons-material';
-import { getProjects, addProject, updateProject, deleteProject, getTeams, getAllTasks, getUsers } from '../services/apiService';
+import { getMyProjects, addProject, updateProject, deleteProject, getTeams, getAllTasks, getUsers } from '../services/apiService';
 import { styled, keyframes } from '@mui/material/styles';
 import { format } from 'date-fns';
 
@@ -196,7 +196,7 @@ const ProjectManagement = () => {
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const response = await getProjects();
+      const response = await getMyProjects();
       
       // Handle both array response and object response with data property
       const projectsData = Array.isArray(response) ? response : (response.data || []);
@@ -697,7 +697,7 @@ const ProjectManagement = () => {
   );
 
   return (
-    <Box sx={{ p: 4 }}>
+    <Box sx={{ p: 4, mt: { xs: 8, sm: 10 } }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box>

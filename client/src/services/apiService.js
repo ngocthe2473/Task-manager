@@ -196,10 +196,10 @@ export const deleteTeam = async (id) => {
   return response.data;
 };
 
-// Search API
-export const searchTasks = async (query) => {
-  const response = await api.get(`/search?q=${encodeURIComponent(query)}`);
-  return response.data;
+// Search API - Advanced search for tasks
+export const searchTasksAdvanced = async (query, limit = 10) => {
+  const response = await api.get(`/tasks/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  return response.data.data || response.data || [];
 };
 
 // Notifications API
@@ -340,6 +340,69 @@ export const getMyTeamMembers = async () => {
 export const checkUserIsTeamLeader = async () => {
   const response = await api.get('/teams/check-leader');
   return response.data.isLeader || false;
+};
+
+// Search user by email
+export const searchUsersByEmail = async (email) => {
+  const response = await api.get(`/users?search=${encodeURIComponent(email)}`);
+  // Trả về mảng user phù hợp
+  return response.data.data || response.data || [];
+};
+
+// === NEW SEARCH AND ANALYTICS APIs ===
+
+// Search tasks by title/description
+export const searchTasks = async (query, limit = 10) => {
+  const response = await api.get(`/tasks/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  return response.data.data || response.data || [];
+};
+
+// Search users by name/email from team members
+export const searchTeamUsers = async (query, limit = 10) => {
+  const response = await api.get(`/tasks/search-users?q=${encodeURIComponent(query)}&limit=${limit}`);
+  return response.data.data || response.data || [];
+};
+
+// Search projects by name
+export const searchProjectsByName = async (query, limit = 10) => {
+  const response = await api.get(`/tasks/search-projects?q=${encodeURIComponent(query)}&limit=${limit}`);
+  return response.data.data || response.data || [];
+};
+
+// Get comprehensive statistics for current user
+export const getComprehensiveStats = async () => {
+  const response = await api.get('/tasks/stats');
+  return response.data.data || response.data || {};
+};
+
+// Get team analytics and productivity data
+export const getTeamAnalytics = async () => {
+  const response = await api.get('/tasks/team-analytics');
+  return response.data.data || response.data || [];
+};
+
+// Get task timeline/activity for current user
+export const getTaskTimeline = async (limit = 20, days = 30) => {
+  const response = await api.get(`/tasks/timeline?limit=${limit}&days=${days}`);
+  return response.data.data || response.data || {};
+};
+
+// Get project analytics
+export const getProjectAnalytics = async () => {
+  const response = await api.get('/projects/analytics');
+  return response.data.data || response.data || {};
+};
+
+// Detailed search for projects
+export const detailedSearchProjects = async (query, options = {}) => {
+  const { limit = 10, status, team } = options;
+  let url = `/projects/detailed-search?q=${encodeURIComponent(query)}&limit=${limit}`;
+  
+  if (status) url += `&status=${status}`;
+  if (team) url += `&team=${team}`;
+  
+  const response = await api.get(url);
+  return response.data.data || response.data || [];
 };
 
 export default api;

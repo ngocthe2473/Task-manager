@@ -7,7 +7,13 @@ const {
   updateTask, 
   deleteTask,
   getMyTasks,
-  getDashboardStats
+  getTaskStats,
+  searchTasks,
+  searchUsers,
+  searchProjects,
+  getComprehensiveStats,
+  getTeamAnalytics,
+  getTaskTimeline
 } = require('../controllers/taskController');
 const { 
   getSubTasks, 
@@ -29,7 +35,17 @@ router.route('/')
 
 // User-specific routes
 router.get('/my-tasks', authenticate, getMyTasks);
-router.get('/dashboard-stats', authenticate, getDashboardStats);
+router.get('/dashboard-stats', authenticate, getTaskStats);
+
+// Search routes
+router.get('/search', authenticate, searchTasks);
+router.get('/search-users', authenticate, searchUsers);
+router.get('/search-projects', authenticate, searchProjects);
+
+// Analytics routes
+router.get('/stats', authenticate, getComprehensiveStats);
+router.get('/team-analytics', authenticate, getTeamAnalytics);
+router.get('/timeline', authenticate, getTaskTimeline);
 
 router.route('/:id')
   .get(authenticate, validateMongoId, getTaskById)
