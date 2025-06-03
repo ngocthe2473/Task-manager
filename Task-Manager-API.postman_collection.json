@@ -39,11 +39,42 @@
       "key": "commentId",
       "value": "",
       "type": "string"
-    },
-    {
+    },    {
       "key": "subtaskId",
       "value": "",
       "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// This script runs before each request",
+          "// The token will be automatically set after login"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// This script runs after each request",
+          "// You can add global test assertions here"
+        ]
+      }
     }
   ],
   "item": [
