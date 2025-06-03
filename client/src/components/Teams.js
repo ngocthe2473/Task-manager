@@ -30,7 +30,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import EditIcon from '@mui/icons-material/Edit';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EmailIcon from '@mui/icons-material/Email';
-import { getUsers, getTeams, getMyTeams } from '../services/apiService';
+import { getUsers, getTeams } from '../services/apiService';
 
 const Teams = () => {
   const [tabValue, setTabValue] = useState(0);
@@ -38,23 +38,15 @@ const Teams = () => {
   const [teams, setTeams] = useState([]);
   const [openInviteDialog, setOpenInviteDialog] = useState(false);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true);
-        const userData = await getUsers();
+        const [userData, teamsData] = await Promise.all([
+          getUsers(),
+          getTeams()
+        ]);
         setUsers(userData);
-        
-        // Fetch teams based on current tab
-        let teamsData;
-        if (tabValue === 0) {
-          // My Teams tab - get user's teams only
-          teamsData = await getMyTeams();
-        } else {
-          // Other tabs - get all teams
-          teamsData = await getTeams();
-        }
-        
         setTeams(teamsData || []);
         setLoading(false);
       } catch (error) {
@@ -64,7 +56,7 @@ const Teams = () => {
     };
 
     fetchData();
-  }, [tabValue]); // Add tabValue as dependency to refetch when tab changes
+  }, []);
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
@@ -240,7 +232,7 @@ const Teams = () => {
             }}
           >
             <option value="admin">Admin</option>
-            <option value="admin">Admin</option>
+            <option value="manager">Manager</option>
             <option value="member">Member</option>
           </TextField>
         </DialogContent>

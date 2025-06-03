@@ -15,11 +15,6 @@ const handleValidationErrors = (req, res, next) => {
 
 // User validation rules
 const validateUserRegistration = [
-  body('username')
-    .isLength({ min: 3, max: 30 })
-    .withMessage('Username must be between 3 and 30 characters')
-    .matches(/^[a-zA-Z0-9_]+$/)
-    .withMessage('Username can only contain letters, numbers, and underscores'),
   body('email')
     .isEmail()
     .withMessage('Please enter a valid email address')
@@ -35,8 +30,8 @@ const validateUserRegistration = [
     .withMessage('Name must be between 2 and 50 characters'),
   body('role')
     .optional()
-    .isIn(['admin', 'manager', 'member'])
-    .withMessage('Role must be admin, manager, or member'),
+    .isIn(['admin', 'user'])
+    .withMessage('Role must be admin or user'),
   handleValidationErrors
 ];
 

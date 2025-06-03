@@ -2,42 +2,9 @@ const Task = require('../models/Task');
 const SubTask = require('../models/SubTask');
 const Project = require('../models/Project');
 const User = require('../models/User');
-const Team = require('../models/Team');
 const ActivityLog = require('../models/ActivityLog');
 const Notification = require('../models/Notification');
 const mongoose = require('mongoose');
-
-// Helper function to check if user is team leader for a task
-const isUserTeamLeaderForTask = async (userId, task) => {
-  try {
-    if (!task.project) return false;
-    
-    const project = await Project.findById(task.project).populate('team');
-    if (!project || !project.team) return false;
-    
-    return project.team.isLeader(userId);
-  } catch (error) {
-    console.error('Error checking team leader status:', error);
-    return false;
-  }
-};
-
-// Helper function to check if user is team leader for assignee
-const isUserTeamLeaderForUser = async (leaderId, targetUserId) => {
-  try {
-    const team = await Team.findOne({
-      'members.user': leaderId,
-      'members.team_role': 'leader'
-    });
-    
-    if (!team) return false;
-    
-    return team.isMember(targetUserId);
-  } catch (error) {
-    console.error('Error checking team leader for user:', error);
-    return false;
-  }
-};
 
 // @desc    Get all tasks with filtering and searching
 // @route   GET /api/tasks
@@ -239,10 +206,11 @@ exports.updateTask = async (req, res) => {
 
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
-    }    // Check permissions
-    const isTeamLeader = await isUserTeamLeaderForTask(req.user.id, task);
+    }
+
+    // Check permissions
     if (req.user.role !== 'admin' && 
-        !isTeamLeader && 
+        req.user.role !== 'manager' && 
         task.creator.toString() !== req.user.id &&
         task.assignee?.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized to update this task' });
@@ -320,10 +288,11 @@ exports.deleteTask = async (req, res) => {
 
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
-    }    // Check permissions
-    const isTeamLeader = await isUserTeamLeaderForTask(req.user.id, task);
+    }
+
+    // Check permissions
     if (req.user.role !== 'admin' && 
-        !isTeamLeader && 
+        req.user.role !== 'manager' && 
         task.creator.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized to delete this task' });
     }
@@ -431,13 +400,14 @@ exports.assignTask = async (req, res) => {
     const assigneeUser = await User.findById(assignee);
     if (!assigneeUser) {
       return res.status(404).json({ message: 'Assignee not found' });
-    }    // Check permissions
-    const isTeamLeader = await isUserTeamLeaderForTask(req.user.id, task);
+    }
+
+    // Check permissions
     if (req.user.role !== 'admin' && 
-        !isTeamLeader && 
+        req.user.role !== 'manager' && 
         task.creator.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized to assign this task' });
-    }task.assignee = assignee;
+    }    task.assignee = assignee;
     task.updatedAt = new Date();
     await task.save();
 
@@ -496,10 +466,11 @@ exports.updateTaskStatus = async (req, res) => {
     const task = await Task.findById(req.params.id);
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
-    }    // Check permissions
-    const isTeamLeader = await isUserTeamLeaderForTask(req.user.id, task);
+    }
+
+    // Check permissions
     if (req.user.role !== 'admin' && 
-        !isTeamLeader && 
+        req.user.role !== 'manager' && 
         task.creator.toString() !== req.user.id &&
         task.assignee?.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized to update this task status' });
