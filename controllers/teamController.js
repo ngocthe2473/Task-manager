@@ -684,3 +684,38 @@ exports.changeTeamRole = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// @desc    Get teams for current user
+// @route   GET /api/teams/my
+// @access  Private
+exports.getMyTeam = async (req, res) => {
+  try {
+    const teams = await Team.find({ 'members.user': req.user.id })
+      .populate('members.user', 'name email avatar role')
+      .sort({ createdAt: -1 });
+
+    // Add member count and project count for each team
+    const teamsWithStats = await Promise.all(
+      teams.map(async (team) => {
+        const projectCount = await Project.countDocuments({ team: team._id });
+        return {
+          ...team.toObject(),
+          projectCount,
+          memberCount: team.members.length
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      count: teamsWithStats.length,
+      data: teamsWithStats
+    });
+  } catch (error) {
+    console.error('Error fetching user teams:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching teams' 
+    });
+  }
+};

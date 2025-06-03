@@ -37,25 +37,33 @@ const Teams = () => {
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [openInviteDialog, setOpenInviteDialog] = useState(false);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
+  const [loading, setLoading] = useState(true);  useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        console.log('Fetching teams data for tab:', tabValue); // Debug log
+        
         const userData = await getUsers();
         setUsers(userData);
-        
-        // Fetch teams based on current tab
+        console.log('Users data:', userData); // Debug log
+          // Fetch teams based on current tab
         let teamsData;
         if (tabValue === 0) {
           // My Teams tab - get user's teams only
-          teamsData = await getMyTeams();
+          console.log('Calling getMyTeams API...'); // Debug log
+          const response = await getMyTeams();
+          console.log('getMyTeams response:', response); // Debug log
+          teamsData = response.data || response; // Handle both formats
         } else {
           // Other tabs - get all teams
-          teamsData = await getTeams();
+          console.log('Calling getTeams API...'); // Debug log
+          const response = await getTeams();
+          console.log('getTeams response:', response); // Debug log
+          teamsData = response.data || response; // Handle both formats
         }
         
         setTeams(teamsData || []);
+        console.log('Final teams set:', teamsData || []); // Debug log
         setLoading(false);
       } catch (error) {
         console.error('Error loading data:', error);

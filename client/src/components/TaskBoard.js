@@ -11,17 +11,25 @@ import {
   Snackbar,
   Alert,
   LinearProgress,
+  IconButton,
+  Tooltip,
   Paper,
   Button
 } from '@mui/material';
 import {
   Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
   CalendarToday as CalendarIcon,
+  Person as PersonIcon,
+  Flag as FlagIcon,
+  MoreVert as MoreIcon
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { format } from 'date-fns';
 import EditTaskDialog from './EditTaskDialog';
-import { getAllTasks, addTask, updateTask } from '../services/apiService';
+import { getAllTasks, addTask, updateTask, deleteTask } from '../services/apiService';
+import { getSubTasksByTaskId } from '../services/subtaskService';
 
 // Modern minimalist styled components
 const BoardContainer = styled(Box)(({ theme }) => ({
@@ -218,21 +226,83 @@ const TaskBoard = ({ onTaskClick }) => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   // Mock data
+  const mockTasks = [
+    {
+      id: 1,
+      title: 'Design System Update',
+      description: 'Update the design system components to match new brand guidelines',
+      status: 'todo',
+      priority: 'high',
+      assignee: { id: 1, name: 'John Doe', avatar: null },
+      project: { id: 1, name: 'Web Redesign', color: '#2196f3' },
+      dueDate: new Date('2024-01-20'),
+      progress: 0,
+      createdAt: '2024-01-15T10:00:00Z'
+    },
+    {
+      id: 2,
+      title: 'API Integration',
+      description: 'Integrate payment gateway API with the checkout process',
+      status: 'in-progress',
+      priority: 'urgent',
+      assignee: { id: 2, name: 'Jane Smith', avatar: null },
+      project: { id: 2, name: 'Mobile App', color: '#4caf50' },
+      dueDate: new Date('2024-01-18'),
+      progress: 65,
+      createdAt: '2024-01-14T14:30:00Z'
+    },
+    {
+      id: 3,
+      title: 'User Testing',
+      description: 'Conduct user testing sessions for the new dashboard interface',
+      status: 'review',
+      priority: 'medium',
+      assignee: { id: 3, name: 'Mike Johnson', avatar: null },
+      project: { id: 1, name: 'Web Redesign', color: '#2196f3' },
+      dueDate: new Date('2024-01-25'),
+      progress: 90,
+      createdAt: '2024-01-12T09:15:00Z'
+    },
+    {
+      id: 4,
+      title: 'Documentation',
+      description: 'Complete API documentation for the new endpoints',
+      status: 'done',
+      priority: 'low',
+      assignee: { id: 4, name: 'Sarah Wilson', avatar: null },
+      project: { id: 3, name: 'Marketing Campaign', color: '#ff9800' },
+      dueDate: new Date('2024-01-16'),
+      progress: 100,
+      createdAt: '2024-01-10T16:45:00Z'
+    }
+  ];
+
   const columns = [
     { id: 'todo', title: 'To Do', color: '#666' },
     { id: 'in-progress', title: 'In Progress', color: '#2196f3' },
     { id: 'review', title: 'In Review', color: '#ff9800' },
     { id: 'done', title: 'Done', color: '#4caf50' }
-  ];
-
-  useEffect(() => {
+  ];  useEffect(() => {
     // Fetch tasks from API
     const fetchTasks = async () => {
       try {
-        const data = await getAllTasks();
-        setTasks(data);
+        const response = await getAllTasks();
+        console.log('TaskBoard - API response:', response); // Debug log
+        
+        // Handle different API response formats
+        const tasksData = response?.data || response || [];
+        console.log('TaskBoard - Processed tasks:', tasksData); // Debug log
+        
+        // Ensure we have an array
+        if (Array.isArray(tasksData)) {
+          setTasks(tasksData);
+        } else {
+          console.error('Tasks data is not an array:', tasksData);
+          setTasks([]);
+        }
       } catch (error) {
         console.error('Error fetching tasks:', error);
+        setTasks([]); // Set empty array on error
         setSnackbar({
           open: true,
           message: 'Error loading tasks. Please try again.',
@@ -289,6 +359,26 @@ const TaskBoard = ({ onTaskClick }) => {
     // Also call the parent onTaskClick if provided
     if (onTaskClick) {
       onTaskClick(task);
+    }
+  };
+  const handleTaskDelete = async (taskId) => {
+    try {
+      await deleteTask(taskId);
+      setTasks(prevTasks => prevTasks.filter(task => task._id !== taskId));
+      
+      setSnackbar({
+        open: true,
+        message: 'Task deleted successfully!',
+        severity: 'info'
+      });
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      
+      setSnackbar({
+        open: true,
+        message: `Error: ${error.response?.data?.message || 'Failed to delete task'}`,
+        severity: 'error'
+      });
     }
   };
 

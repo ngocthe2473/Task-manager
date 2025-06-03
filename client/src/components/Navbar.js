@@ -216,16 +216,14 @@ const Navbar = ({ onMenuToggle }) => {
                 width: 36,
                 height: 36,
                 background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
-              }}
-            >
-              {userInfo?.name?.charAt(0) || 'U'}
-            </Avatar>
-            <UserInfo>
+              }}            >
+              {(userInfo?.user?.name || userInfo?.name || 'U').charAt(0).toUpperCase()}
+            </Avatar><UserInfo>
               <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
-                {userInfo?.name || 'User'}
+                {userInfo?.user?.name || userInfo?.name || 'User'}
               </Typography>
-              <Typography variant="caption" sx={{ color: '#666' }}>
-                {userInfo?.role || 'Member'}
+              <Typography variant="caption" sx={{ color: '#666', textTransform: 'capitalize' }}>
+                {userInfo?.user?.role || userInfo?.role || 'user'}
               </Typography>
             </UserInfo>
           </UserSection>
