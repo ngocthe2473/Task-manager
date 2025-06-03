@@ -32,7 +32,9 @@ import {
   AvatarGroup,
   Snackbar,
   Alert,
-  CircularProgress
+  CircularProgress,
+  InputAdornment,
+  Stack
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -50,7 +52,10 @@ import {
   Delete as DeleteIcon,
   Visibility as ViewIcon,
   AddBox as AddBoxIcon,
-  FolderSpecial as FolderSpecialIcon
+  FolderSpecial as FolderSpecialIcon,
+  Search as SearchIcon,
+  FilterList as FilterListIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
 import { format } from 'date-fns';
@@ -143,6 +148,13 @@ const ProjectManagement = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [teams, setTeams] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  
+  // Search and Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [filteredProjects, setFilteredProjects] = useState([]);
+  
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -160,55 +172,97 @@ const ProjectManagement = () => {
     completedProjects: 0,
     teamMembers: 0,
   });
-
   useEffect(() => {
     fetchProjects();
     fetchTeams();
   }, []);
 
+  // Filter projects based on search term and filters
+  useEffect(() => {
+    let filtered = projects;
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(project =>
+        project.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        project.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(project => project.status === statusFilter);
+    }
+
+    // Apply priority filter
+    if (priorityFilter !== 'all') {
+      filtered = filtered.filter(project => project.priority === priorityFilter);
+    }
+
+    setFilteredProjects(filtered);
+  }, [projects, searchTerm, statusFilter, priorityFilter]);
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const data = await getProjects();
-      setProjects(data);
+      const response = await getProjects();
+      
+      // Handle both array response and object response with data property
+      const projectsData = Array.isArray(response) ? response : (response.data || []);
+      setProjects(projectsData);
       
       // Calculate stats
-      const totalProjects = data.length;
-      const activeProjects = data.filter(p => p.status === 'in_progress').length;
-      const completedProjects = data.filter(p => p.status === 'completed').length;
+      const totalProjects = projectsData.length;
+      const activeProjects = projectsData.filter(p => p.status === 'in_progress').length;
+      const completedProjects = projectsData.filter(p => p.status === 'completed').length;
+      
+      // Calculate unique team members from all projects
+      const allMembers = new Set();
+      projectsData.forEach(project => {
+        if (project.team?.members) {
+          project.team.members.forEach(member => allMembers.add(member._id || member));
+        }
+      });
       
       setStats({
         totalProjects,
         activeProjects,
         completedProjects,
-        teamMembers: 0 // Will be calculated from teams
+        teamMembers: allMembers.size
       });
     } catch (error) {
       console.error('Error fetching projects:', error);
+      setProjects([]); // Set empty array on error
       setSnackbar({
         open: true,
-        message: 'Error loading projects',
+        message: error.response?.data?.message || 'Error loading projects',
         severity: 'error'
       });
     } finally {
       setLoading(false);
     }
   };
-
   const fetchTeams = async () => {
     try {
-      const users = await getUsers();
-      setTeams(users);
+      const response = await getUsers();
+      // Handle response properly - could be array or object with data property
+      const usersData = Array.isArray(response) ? response : (response.data || []);
+      setTeams(usersData);
+      
+      // Update team members stat based on users
+      setStats(prev => ({
+        ...prev,
+        teamMembers: usersData.length
+      }));
     } catch (error) {
       console.error('Error fetching teams:', error);
+      setTeams([]); // Set empty array on error
     }
   };
-
   const validateForm = () => {
     const errors = {};
     if (!formData.name.trim()) errors.name = 'Project name is required';
     if (!formData.description.trim()) errors.description = 'Description is required';
-    if (!formData.team) errors.team = 'Team is required';
+    // Team is optional
     if (!formData.startDate) errors.startDate = 'Start date is required';
     if (!formData.endDate) errors.endDate = 'End date is required';
     if (formData.startDate && formData.endDate && new Date(formData.startDate) > new Date(formData.endDate)) {
@@ -216,7 +270,6 @@ const ProjectManagement = () => {
     }
     return errors;
   };
-
   const handleCreateProject = async () => {
     setIsSubmitting(true);
     const errors = validateForm();
@@ -224,7 +277,14 @@ const ProjectManagement = () => {
 
     if (Object.keys(errors).length === 0) {
       try {
-        const newProject = await addProject(formData);
+        const projectData = {
+          ...formData,
+          team: formData.team || undefined // Send undefined if no team selected
+        };
+        
+        const response = await addProject(projectData);
+        const newProject = response.data || response; // Handle different response structures
+        
         setProjects(prev => [newProject, ...prev]);
         setOpenDialog(false);
         resetForm();
@@ -233,7 +293,7 @@ const ProjectManagement = () => {
           message: 'Project created successfully!',
           severity: 'success'
         });
-        fetchProjects();
+        await fetchProjects(); // Refresh to get updated data and stats
       } catch (error) {
         console.error('Error creating project:', error);
         setSnackbar({
@@ -245,29 +305,42 @@ const ProjectManagement = () => {
     }
     setIsSubmitting(false);
   };
-
   const handleUpdateProject = async () => {
-    try {
-      const updatedProject = await updateProject(selectedProject._id, formData);
-      setProjects(prev => 
-        prev.map(p => p._id === selectedProject._id ? updatedProject : p)
-      );
-      setOpenDialog(false);
-      resetForm();
-      setSnackbar({
-        open: true,
-        message: 'Project updated successfully!',
-        severity: 'success'
-      });
-      fetchProjects(); // Refresh to get updated stats
-    } catch (error) {
-      console.error('Error updating project:', error);
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || 'Error updating project',
-        severity: 'error'
-      });
+    setIsSubmitting(true);
+    const errors = validateForm();
+    setFormErrors(errors);
+
+    if (Object.keys(errors).length === 0) {
+      try {
+        const projectData = {
+          ...formData,
+          team: formData.team || undefined
+        };
+        
+        const response = await updateProject(selectedProject._id, projectData);
+        const updatedProject = response.data || response;
+        
+        setProjects(prev => 
+          prev.map(p => p._id === selectedProject._id ? updatedProject : p)
+        );
+        setOpenDialog(false);
+        resetForm();
+        setSnackbar({
+          open: true,
+          message: 'Project updated successfully!',
+          severity: 'success'
+        });
+        await fetchProjects(); // Refresh to get updated stats
+      } catch (error) {
+        console.error('Error updating project:', error);
+        setSnackbar({
+          open: true,
+          message: error.response?.data?.message || 'Error updating project',
+          severity: 'error'
+        });
+      }
     }
+    setIsSubmitting(false);
   };
 
   const handleDeleteProject = async (projectId) => {
@@ -387,11 +460,29 @@ const ProjectManagement = () => {
     if (progress >= 20) return `${theme.palette.warning.main}, ${theme.palette.warning.light}`;
     return `${theme.palette.error.main}, ${theme.palette.error.light}`;
   };
-
   const calculateProgress = (project) => {
     if (!project.tasks || project.tasks.length === 0) return 0;
     const completed = project.tasks.filter(task => task.status === 'completed').length;
     return Math.round((completed / project.tasks.length) * 100);
+  };
+
+  // Search and Filter handlers
+  const handleSearchChange = (event) => {
+    setSearchTerm(event.target.value);
+  };
+
+  const handleStatusFilterChange = (event) => {
+    setStatusFilter(event.target.value);
+  };
+
+  const handlePriorityFilterChange = (event) => {
+    setPriorityFilter(event.target.value);
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setPriorityFilter('all');
   };
 
   const renderDialog = () => (
@@ -420,9 +511,8 @@ const ProjectManagement = () => {
       }}>
         {selectedProject ? <EditIcon color="primary" /> : <AddBoxIcon color="primary" />}
         {selectedProject ? 'Edit Project' : 'Create New Project'}
-      </DialogTitle>
-
-      <DialogContent sx={{ mt: 2 }}>        <Grid container spacing={3}>
+      </DialogTitle>      <DialogContent sx={{ mt: 2, p: 3 }}>
+        <Grid container spacing={3}>
           <Grid xs={12}>
             <TextField
               name="name"
@@ -433,9 +523,16 @@ const ProjectManagement = () => {
               error={!!formErrors.name}
               helperText={formErrors.name}
               required
-              sx={{ mb: 2 }}
+              variant="outlined"
+              sx={{ 
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                }
+              }}
             />
-          </Grid>          <Grid xs={12}>
+          </Grid>
+          
+          <Grid xs={12}>
             <TextField
               name="description"
               label="Description"
@@ -447,22 +544,35 @@ const ProjectManagement = () => {
               error={!!formErrors.description}
               helperText={formErrors.description}
               required
-              sx={{ mb: 2 }}
+              variant="outlined"
+              sx={{ 
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                }
+              }}
             />
           </Grid>
 
           <Grid xs={12} sm={6}>
             <FormControl fullWidth error={!!formErrors.team}>
-              <InputLabel>Team</InputLabel>
-              <Select
+              <InputLabel>Team (Optional)</InputLabel>              <Select
                 name="team"
                 value={formData.team}
                 onChange={handleInputChange}
-                required
+                label="Team (Optional)"
+                sx={{ 
+                  borderRadius: '12px',
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                  }
+                }}
               >
+                <MenuItem value="">
+                  <em>No team assigned</em>
+                </MenuItem>
                 {teams.map((team) => (
                   <MenuItem key={team._id} value={team._id}>
-                    {team.name}
+                    {team.name || team.email}
                   </MenuItem>
                 ))}
               </Select>
@@ -474,20 +584,48 @@ const ProjectManagement = () => {
 
           <Grid xs={12} sm={6}>
             <FormControl fullWidth>
-              <InputLabel>Priority</InputLabel>
+              <InputLabel>Status</InputLabel>
               <Select
-                name="priority"
-                value={formData.priority}
+                name="status"
+                value={formData.status}
                 onChange={handleInputChange}
+                label="Status"
+                sx={{ 
+                  borderRadius: '12px',
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                  }
+                }}
               >
-                <MenuItem value="High">High</MenuItem>
-                <MenuItem value="Medium">Medium</MenuItem>
-                <MenuItem value="Low">Low</MenuItem>
+                <MenuItem value="planning">Planning</MenuItem>
+                <MenuItem value="in_progress">In Progress</MenuItem>
+                <MenuItem value="completed">Completed</MenuItem>
+                <MenuItem value="on_hold">On Hold</MenuItem>
               </Select>
             </FormControl>
           </Grid>
 
           <Grid xs={12} sm={6}>
+            <FormControl fullWidth>
+              <InputLabel>Priority</InputLabel>
+              <Select
+                name="priority"
+                value={formData.priority}
+                onChange={handleInputChange}
+                label="Priority"
+                sx={{ 
+                  borderRadius: '12px',
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                  }
+                }}
+              >
+                <MenuItem value="High">High Priority</MenuItem>
+                <MenuItem value="Medium">Medium Priority</MenuItem>
+                <MenuItem value="Low">Low Priority</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>          <Grid xs={12} sm={6}>
             <TextField
               name="startDate"
               label="Start Date"
@@ -499,6 +637,11 @@ const ProjectManagement = () => {
               helperText={formErrors.startDate}
               InputLabelProps={{ shrink: true }}
               required
+              sx={{ 
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                }
+              }}
             />
           </Grid>
 
@@ -508,6 +651,54 @@ const ProjectManagement = () => {
               label="End Date"
               type="date"
               fullWidth
+              value={formData.endDate}
+              onChange={handleInputChange}
+              error={!!formErrors.endDate}
+              helperText={formErrors.endDate}
+              InputLabelProps={{ shrink: true }}
+              required
+              sx={{ 
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                }
+              }}
+            />
+          </Grid>
+        </Grid>
+      </DialogContent>
+
+      <DialogActions sx={{ p: 3, borderTop: `1px solid ${theme.palette.divider}` }}>
+        <Button 
+          onClick={() => {
+            setOpenDialog(false);
+            resetForm();
+          }}
+          variant="outlined"
+          sx={{ 
+            borderRadius: '12px',
+            minWidth: 100
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={selectedProject ? handleUpdateProject : handleCreateProject}
+          variant="contained"
+          disabled={isSubmitting}
+          sx={{ 
+            borderRadius: '12px',
+            minWidth: 120,
+            background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+            '&:hover': {
+              background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
+            }
+          }}
+        >
+          {isSubmitting ? 'Processing...' : (selectedProject ? 'Update Project' : 'Create Project')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
               value={formData.endDate}
               onChange={handleInputChange}
               error={!!formErrors.endDate}
@@ -614,15 +805,14 @@ const ProjectManagement = () => {
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 {project.teamMembers && project.teamMembers.length > 0 ? (
                   <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 32, height: 32, fontSize: '0.875rem' } }}>
-                    {project.teamMembers.map((member, idx) => (
-                      <Tooltip key={idx} title={member.name || member.username}>
+                    {project.teamMembers.map((member, idx) => (                      <Tooltip key={idx} title={member.name}>
                         <Avatar
                           sx={{
                             background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                             fontWeight: 'bold'
                           }}
                         >
-                          {(member.name || member.username)?.charAt(0)?.toUpperCase()}
+                          {member.name?.charAt(0)?.toUpperCase()}
                         </Avatar>
                       </Tooltip>
                     ))}
@@ -707,8 +897,90 @@ const ProjectManagement = () => {
             }
           }}
         >
-          Create Project
-        </Button>
+          Create Project        </Button>
+      </Box>
+
+      {/* Search and Filter Section */}
+      <Box sx={{ mb: 4 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+          <TextField
+            placeholder="Search projects..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+            variant="outlined"
+            size="small"
+            sx={{ 
+              flexGrow: 1, 
+              minWidth: 300,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '12px',
+                backgroundColor: alpha(theme.palette.background.paper, 0.8),
+              }
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+              endAdornment: searchTerm && (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => setSearchTerm('')}
+                    edge="end"
+                  >
+                    <ClearIcon />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              onChange={handleStatusFilterChange}
+              label="Status"
+              sx={{ borderRadius: '12px' }}
+            >
+              <MenuItem value="all">All Status</MenuItem>
+              <MenuItem value="planning">Planning</MenuItem>
+              <MenuItem value="in_progress">In Progress</MenuItem>
+              <MenuItem value="completed">Completed</MenuItem>
+              <MenuItem value="on_hold">On Hold</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Priority</InputLabel>
+            <Select
+              value={priorityFilter}
+              onChange={handlePriorityFilterChange}
+              label="Priority"
+              sx={{ borderRadius: '12px' }}
+            >
+              <MenuItem value="all">All Priority</MenuItem>
+              <MenuItem value="High">High</MenuItem>
+              <MenuItem value="Medium">Medium</MenuItem>
+              <MenuItem value="Low">Low</MenuItem>
+            </Select>
+          </FormControl>
+
+          <Button
+            variant="outlined"
+            startIcon={<ClearIcon />}
+            onClick={clearFilters}
+            sx={{ 
+              borderRadius: '12px',
+              minWidth: 'auto',
+              height: '40px'
+            }}
+          >
+            Clear
+          </Button>
+        </Stack>
       </Box>
 
       {/* Stats Cards */}
@@ -764,23 +1036,36 @@ const ProjectManagement = () => {
             <Typography variant="h4">{stats.teamMembers}</Typography>
           </StatsCard>
         </Grid>
-      </Grid>
-
-      {/* Project Cards Grid */}
+      </Grid>      {/* Project Cards Grid */}
       <Grid container spacing={3}>
         {loading ? (
           <Grid xs={12} sx={{ textAlign: 'center', py: 5 }}>
             <CircularProgress size={40} />
-          </Grid>
-        ) : projects.length === 0 ? (
-          <Grid xs={12} sx={{ textAlign: 'center', py: 5 }}>
-            <FolderSpecialIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary">
-              No projects found. Create your first project!
+            <Typography variant="body1" sx={{ mt: 2 }}>
+              Loading projects...
             </Typography>
           </Grid>
+        ) : filteredProjects.length === 0 ? (
+          <Grid xs={12} sx={{ textAlign: 'center', py: 5 }}>
+            <FolderSpecialIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+              {projects.length === 0 ? 'No projects found' : 'No projects match your filters'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {projects.length === 0 ? 'Create your first project!' : 'Try adjusting your search or filters'}
+            </Typography>
+            {projects.length > 0 && (
+              <Button
+                variant="outlined"
+                onClick={clearFilters}
+                sx={{ mt: 2, borderRadius: '12px' }}
+              >
+                Clear Filters
+              </Button>
+            )}
+          </Grid>
         ) : (
-          projects.map(renderProjectCard)
+          filteredProjects.map(renderProjectCard)
         )}
       </Grid>
 

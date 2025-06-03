@@ -49,11 +49,9 @@ exports.getActivityLogs = async (req, res) => {
 
     // Build sort object
     const sortObj = {};
-    sortObj[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-    // Execute query with pagination
+    sortObj[sortBy] = sortOrder === 'desc' ? -1 : 1;    // Execute query with pagination
     const logs = await ActivityLog.find(query)
-      .populate('user', 'name email username')
+      .populate('user', 'name email')
       .sort(sortObj)
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -321,9 +319,8 @@ exports.getTeamActivityLogs = async (req, res) => {
 // @route   GET /api/activitylogs/:id
 // @access  Private
 exports.getActivityLog = async (req, res) => {
-  try {
-    const log = await ActivityLog.findById(req.params.id)
-      .populate('user', 'name email username');
+  try {    const log = await ActivityLog.findById(req.params.id)
+      .populate('user', 'name email');
 
     if (!log) {
       return res.status(404).json({ message: 'Activity log not found' });
@@ -514,10 +511,8 @@ exports.exportActivityLogs = async (req, res) => {
       query.createdAt = {};
       if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
       if (dateTo) query.createdAt.$lte = new Date(dateTo);
-    }
-
-    const logs = await ActivityLog.find(query)
-      .populate('user', 'name email username')
+    }    const logs = await ActivityLog.find(query)
+      .populate('user', 'name email')
       .sort({ createdAt: -1 })
       .lean();
 

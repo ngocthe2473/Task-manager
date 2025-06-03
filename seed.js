@@ -8,12 +8,12 @@ dotenv.config();
 
 // Define models before using them
 const User = mongoose.model('User', new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  name: { type: String },
+  avatar: { type: String, default: '' },
   // Define the role field with proper enum values that match your schema
-  role: { type: String, enum: ['admin', 'manager', 'member'], default: 'member' }
+  role: { type: String, enum: ['admin', 'user'], default: 'user' }
 }));
 
 const Project = mongoose.model('Project', new mongoose.Schema({
@@ -60,32 +60,30 @@ const importData = async () => {
     await Project.deleteMany();
     await Comment.deleteMany();
 
-    console.log('Data cleared...'.red.inverse);
-
-    // Create users (using 'member' instead of 'user' for role)
+    console.log('Data cleared...'.red.inverse);    // Create users
     const hashedPassword = await bcrypt.hash('123456', 10);
     
     const users = [
       {
-        username: 'admin',
+        name: 'Admin User',
         email: 'admin@example.com',
         password: hashedPassword,
-        name: 'Admin User',
-        role: 'admin'
+        role: 'admin',
+        avatar: 'https://ui-avatars.com/api/?name=Admin+User&background=random'
       },
       {
-        username: 'john',
+        name: 'John Doe',
         email: 'john@example.com',
         password: hashedPassword,
-        name: 'John Doe',
-        role: 'member'  // Changed from 'user' to 'member'
+        role: 'user',
+        avatar: 'https://ui-avatars.com/api/?name=John+Doe&background=random'
       },
       {
-        username: 'jane',
+        name: 'Jane Smith',
         email: 'jane@example.com',
         password: hashedPassword,
-        name: 'Jane Smith',
-        role: 'member'  // Changed from 'user' to 'member'
+        role: 'user',
+        avatar: 'https://ui-avatars.com/api/?name=Jane+Smith&background=random'
       }
     ];
 

@@ -30,50 +30,36 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import EditIcon from '@mui/icons-material/Edit';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EmailIcon from '@mui/icons-material/Email';
-import { getUsers } from '../services/apiService';
+import { getUsers, getTeams } from '../services/apiService';
 
 const Teams = () => {
   const [tabValue, setTabValue] = useState(0);
   const [users, setUsers] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [openInviteDialog, setOpenInviteDialog] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       try {
-        const userData = await getUsers();
+        const [userData, teamsData] = await Promise.all([
+          getUsers(),
+          getTeams()
+        ]);
         setUsers(userData);
+        setTeams(teamsData || []);
         setLoading(false);
       } catch (error) {
-        console.error('Error loading users:', error);
+        console.error('Error loading data:', error);
         setLoading(false);
       }
     };
 
-    fetchUsers();
+    fetchData();
   }, []);
-
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
-
-  // Group users into teams for demo purposes
-  const teams = [
-    {
-      id: 1,
-      name: 'Development Team',
-      members: users.filter(user => user.id === '1' || user.id === '3' || user.id === '5'),
-      description: 'Responsible for creating and maintaining software applications',
-      leadId: '1'
-    },
-    {
-      id: 2,
-      name: 'Design Team',
-      members: users.filter(user => user.id === '2' || user.id === '4'),
-      description: 'Focused on user experience and interface design',
-      leadId: '2'
-    }
-  ];
 
   return (
     <Box sx={{ flexGrow: 1, padding: 3 }}>

@@ -45,9 +45,7 @@ exports.getTasks = async (req, res) => {
         { title: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } }
       ];
-    }
-
-    // Role-based filtering
+    }    // Role-based filtering
     if (req.user.role === 'member') {
       filter.$or = [
         { assignee: req.user.id },
@@ -56,8 +54,8 @@ exports.getTasks = async (req, res) => {
     }
 
     const tasks = await Task.find(filter)
-      .populate('assignee', 'name email username')
-      .populate('creator', 'name email username')
+      .populate('assignee', 'name email')
+      .populate('creator', 'name email')
       .populate('project', 'name description')
       .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
       .limit(limit * 1)
@@ -89,8 +87,8 @@ exports.getTasks = async (req, res) => {
 exports.getTaskById = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id)
-      .populate('assignee', 'name email username')
-      .populate('creator', 'name email username')
+      .populate('assignee', 'name email')
+      .populate('creator', 'name email')
       .populate('project', 'name description team');
 
     if (!task) {
@@ -99,7 +97,7 @@ exports.getTaskById = async (req, res) => {
 
     // Get subtasks
     const subtasks = await SubTask.find({ parentTask: task._id })
-      .populate('assignee', 'name email username')
+      .populate('assignee', 'name email')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -158,15 +156,14 @@ exports.createTask = async (req, res) => {
       creator: req.user.id,
       priority,
       dueDate: dueDate ? new Date(dueDate) : undefined,
-      estimatedHours,
-      tags: tags || []
+      estimatedHours,      tags: tags || []
     });
 
     await task.populate([
-      { path: 'assignee', select: 'name email username' },
-      { path: 'creator', select: 'name email username' },
+      { path: 'assignee', select: 'name email' },
+      { path: 'creator', select: 'name email' },
       { path: 'project', select: 'name description' }
-    ]);    // Log activity
+    ]);// Log activity
     await ActivityLog.create({
       user: req.user.id,
       action: 'create',
@@ -224,11 +221,10 @@ exports.updateTask = async (req, res) => {
 
     const updatedTask = await Task.findByIdAndUpdate(
       req.params.id,
-      { ...req.body, updatedAt: new Date() },
-      { new: true, runValidators: true }
+      { ...req.body, updatedAt: new Date() },      { new: true, runValidators: true }
     ).populate([
-      { path: 'assignee', select: 'name email username' },
-      { path: 'creator', select: 'name email username' },
+      { path: 'assignee', select: 'name email' },
+      { path: 'creator', select: 'name email' },
       { path: 'project', select: 'name description' }
     ]);
 
@@ -336,11 +332,9 @@ exports.getTasksByProject = async (req, res) => {
 
     const filter = { project: projectId };
     if (status) filter.status = status;
-    if (assignee) filter.assignee = assignee;
-
-    const tasks = await Task.find(filter)
-      .populate('assignee', 'name email username')
-      .populate('creator', 'name email username')
+    if (assignee) filter.assignee = assignee;    const tasks = await Task.find(filter)
+      .populate('assignee', 'name email')
+      .populate('creator', 'name email')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -369,11 +363,9 @@ exports.getMyTasks = async (req, res) => {
     };
 
     if (status) filter.status = status;
-    if (priority) filter.priority = priority;
-
-    const tasks = await Task.find(filter)
-      .populate('assignee', 'name email username')
-      .populate('creator', 'name email username')
+    if (priority) filter.priority = priority;    const tasks = await Task.find(filter)
+      .populate('assignee', 'name email')
+      .populate('creator', 'name email')
       .populate('project', 'name description')
       .sort({ createdAt: -1 });
 
@@ -415,15 +407,13 @@ exports.assignTask = async (req, res) => {
         req.user.role !== 'manager' && 
         task.creator.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized to assign this task' });
-    }
-
-    task.assignee = assignee;
+    }    task.assignee = assignee;
     task.updatedAt = new Date();
     await task.save();
 
     await task.populate([
-      { path: 'assignee', select: 'name email username' },
-      { path: 'creator', select: 'name email username' },
+      { path: 'assignee', select: 'name email' },
+      { path: 'creator', select: 'name email' },
       { path: 'project', select: 'name description' }
     ]);
 
@@ -492,13 +482,11 @@ exports.updateTaskStatus = async (req, res) => {
     
     if (status === 'done') {
       task.completedAt = new Date();
-    }
-
-    await task.save();
+    }    await task.save();
 
     await task.populate([
-      { path: 'assignee', select: 'name email username' },
-      { path: 'creator', select: 'name email username' },
+      { path: 'assignee', select: 'name email' },
+      { path: 'creator', select: 'name email' },
       { path: 'project', select: 'name description' }
     ]);
 

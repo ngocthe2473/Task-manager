@@ -38,6 +38,7 @@ import {
 import { styled, keyframes } from '@mui/material/styles';
 import { format } from 'date-fns';
 import EditTaskDialog from './EditTaskDialog';
+import { getAllTasks, getUsers } from '../services/apiService';
 
 // Pro Animations
 const slideInFromBottom = keyframes`
@@ -239,20 +240,23 @@ const TaskBoard = () => {
   const theme = useTheme();  const [tasks, setTasks] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [draggedTask, setDraggedTask] = useState(null);
-
-  // Mock users data
-  const mockUsers = [
-    { _id: 'user1', name: 'Trần Ngọc Thế' },
-    { _id: 'user2', name: 'Nguyễn Tấn Long' },
-    { _id: 'user3', name: 'Lê Hoàng Nam' },
-    { _id: 'user4', name: 'Phạm Minh Tuấn' },
-  ];
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });  const [draggedTask, setDraggedTask] = useState(null);
+  const [users, setUsers] = useState([]);
 
   useEffect(() => {
     fetchTasks();
+    fetchUsers();
   }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const usersData = await getUsers();
+      setUsers(usersData || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setUsers([]);
+    }
+  };
 
   const fetchTasks = async () => {
     try {
@@ -307,12 +311,11 @@ const TaskBoard = () => {
   // Handle task operations
   const handleCreateTask = (taskData) => {
     const newTask = {
-      _id: Date.now().toString(),
-      title: taskData.title,
+      _id: Date.now().toString(),      title: taskData.title,
       description: taskData.description,
       priority: taskData.priority,
       status: taskData.status.toLowerCase().replace(' ', ''),
-      assignee: mockUsers.find(u => u._id === taskData.assignee) || null,
+      assignee: users.find(u => u._id === taskData.assignee) || null,
       dueDate: taskData.dueDate,
       progress: 0,
       createdAt: new Date().toISOString(),
@@ -333,10 +336,9 @@ const TaskBoard = () => {
     const updatedTask = {
       ...editingTask,
       title: taskData.title,
-      description: taskData.description,
-      priority: taskData.priority,
+      description: taskData.description,      priority: taskData.priority,
       status: taskData.status.toLowerCase().replace(' ', ''),
-      assignee: mockUsers.find(u => u._id === taskData.assignee) || null,
+      assignee: users.find(u => u._id === taskData.assignee) || null,
       dueDate: taskData.dueDate,
       updatedAt: new Date().toISOString(),
     };
@@ -794,9 +796,8 @@ const TaskBoard = () => {
       <EditTaskDialog
         open={openDialog}
         onClose={handleCloseDialog}
-        onSave={editingTask ? handleEditTask : handleCreateTask}
-        task={editingTask}
-        users={mockUsers}
+        onSave={editingTask ? handleEditTask : handleCreateTask}        task={editingTask}
+        users={users}
         isNewTask={!editingTask}
       />
 

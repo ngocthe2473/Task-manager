@@ -7,10 +7,11 @@ const bcrypt = require('bcryptjs');
 // @route   POST /api/auth/register
 // @access  Public
 exports.register = async (req, res) => {
-  try {    const { username, email, password, name } = req.body;
+  try {
+    const { email, password, name } = req.body;
 
     // Validation
-    if (!username || !email || !password || !name) {
+    if (!email || !password || !name) {
       return res.status(400).json({ message: 'Please provide all required fields' });
     }
     
@@ -18,24 +19,20 @@ exports.register = async (req, res) => {
     const role = 'user';
 
     // Check if user exists
-    const userExists = await User.findOne({ 
-      $or: [{ email }, { username }]
-    });
+    const userExists = await User.findOne({ email });
 
-    if (userExists) {
-      return res.status(400).json({ 
-        message: userExists.email === email ? 'Email already exists' : 'Username already exists'
+    if (userExists) {      return res.status(400).json({ 
+        message: 'Email already exists'
       });
     }
 
     // Create user
     const user = await User.create({
-      username,
       email,
       name,
       password, // Will be hashed by pre-save middleware
       role,
-      isActive: true
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
     });
 
     // Log activity
@@ -45,18 +42,15 @@ exports.register = async (req, res) => {
       entityType: 'User',
       entityId: user._id,
       metadata: { userAgent: req.get('User-Agent'), ip: req.ip }
-    });
-
-    res.status(201).json({
+    });    res.status(201).json({
       success: true,
       message: 'User registered successfully',
       user: {
         _id: user._id,
-        username: user.username,
         email: user.email,
         name: user.name,
         role: user.role,
-        isActive: user.isActive
+        avatar: user.avatar
       },
       token: generateToken(user._id)
     });
@@ -107,16 +101,13 @@ exports.login = async (req, res) => {
     });
 
     res.json({
-      success: true,
-      message: 'Login successful',
+      success: true,      message: 'Login successful',
       user: {
         _id: user._id,
-        username: user.username,
         email: user.email,
         name: user.name,
         role: user.role,
-        team: user.team,
-        isActive: user.isActive
+        avatar: user.avatar
       },
       token: generateToken(user._id)
     });
@@ -177,29 +168,25 @@ exports.getMe = async (req, res) => {
 // @route   PUT /api/auth/profile
 // @access  Private
 exports.updateProfile = async (req, res) => {
-  try {
-    const { name, email, username } = req.body;
+  try {    const { name, email } = req.body;
 
-    // Check if email/username is already taken by another user
-    if (email || username) {
+    // Check if email is already taken by another user
+    if (email) {
       const existingUser = await User.findOne({
         _id: { $ne: req.user.id },
-        $or: [
-          ...(email ? [{ email }] : []),
-          ...(username ? [{ username }] : [])
-        ]
+        email
       });
 
       if (existingUser) {
         return res.status(400).json({ 
-          message: existingUser.email === email ? 'Email already exists' : 'Username already exists'
+          message: 'Email already exists'
         });
       }
     }
 
     const user = await User.findByIdAndUpdate(
       req.user.id,
-      { name, email, username },
+      { name, email },
       { new: true, runValidators: true }
     ).select('-password');
 

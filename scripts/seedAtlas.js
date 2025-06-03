@@ -26,37 +26,36 @@ const seedData = async () => {
     await Task.deleteMany();
 
     // Tạo users mẫu
-    console.log('Creating sample users...'.yellow);
-    const hashedPassword = await bcrypt.hash('123456', 12);
+    console.log('Creating sample users...'.yellow);    const hashedPassword = await bcrypt.hash('123456', 12);
     
     const users = await User.create([
       {
-        username: 'admin',
+        name: 'Admin User',
         email: 'admin@example.com',
         password: hashedPassword,
-        name: 'Admin User',
-        role: 'admin'
+        role: 'admin',
+        avatar: 'https://ui-avatars.com/api/?name=Admin+User&background=random'
       },
       {
-        username: 'the',
+        name: 'Trần Ngọc Thế',
         email: 'the@example.com',
         password: hashedPassword,
-        name: 'Trần Ngọc Thế',
-        role: 'manager'
+        role: 'user',
+        avatar: 'https://ui-avatars.com/api/?name=Trần+Ngọc+Thế&background=random'
       },
       {
-        username: 'long',
+        name: 'Nguyễn Tấn Long',
         email: 'long@example.com',
         password: hashedPassword,
-        name: 'Nguyễn Tấn Long',
-        role: 'member'
+        role: 'user',
+        avatar: 'https://ui-avatars.com/api/?name=Nguyễn+Tấn+Long&background=random'
       },
       {
-        username: 'viet',
+        name: 'Trần Đại Việt',
         email: 'viet@example.com',
         password: hashedPassword,
-        name: 'Trần Đại Việt',
-        role: 'member'
+        role: 'user',
+        avatar: 'https://ui-avatars.com/api/?name=Trần+Đại+Việt&background=random'
       }
     ]);
 

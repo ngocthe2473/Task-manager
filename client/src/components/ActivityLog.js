@@ -22,7 +22,7 @@ import CommentIcon from '@mui/icons-material/Comment';
 import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PersonIcon from '@mui/icons-material/Person';
-import { getAllTasks } from '../services/apiService';
+import { getAllTasks, getUsers } from '../services/apiService';
 
 // Utility function to generate fake activity logs based on tasks
 const generateActivityLogs = (tasks, users) => {
@@ -93,30 +93,27 @@ const getActivityDetails = (type, task) => {
 
 const ActivityLog = () => {
   const [activities, setActivities] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     actionTypes: ['created', 'updated', 'completed', 'commented', 'assigned'],
     users: [],
     projects: []
   });
-
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const taskData = await getAllTasks();
-        const users = [
-          { id: '1', name: 'John Doe', email: 'john@example.com', avatar: 'https://i.pravatar.cc/150?img=1' },
-          { id: '2', name: 'Jane Smith', email: 'jane@example.com', avatar: 'https://i.pravatar.cc/150?img=2' },
-          { id: '3', name: 'Mike Johnson', email: 'mike@example.com', avatar: 'https://i.pravatar.cc/150?img=3' },
-          { id: '4', name: 'Sarah Brown', email: 'sarah@example.com', avatar: 'https://i.pravatar.cc/150?img=4' },
-          { id: '5', name: 'Alex Wilson', email: 'alex@example.com', avatar: 'https://i.pravatar.cc/150?img=5' }
-        ];
+        const [taskData, usersData] = await Promise.all([
+          getAllTasks(),
+          getUsers()
+        ]);
         
-        const activityData = generateActivityLogs(taskData, users);
+        setUsers(usersData);
+        const activityData = generateActivityLogs(taskData, usersData);
         setActivities(activityData);
         setFilters(prev => ({
           ...prev,
-          users: users.map(user => user.id)
+          users: usersData.map(user => user._id)
         }));
         setLoading(false);
       } catch (error) {
@@ -191,16 +188,8 @@ const ActivityLog = () => {
     filters.actionTypes.includes(activity.type) && 
     filters.users.includes(activity.userId)
   );
-
   const getUserName = (userId) => {
-    const users = [
-      { id: '1', name: 'John Doe' },
-      { id: '2', name: 'Jane Smith' },
-      { id: '3', name: 'Mike Johnson' },
-      { id: '4', name: 'Sarah Brown' },
-      { id: '5', name: 'Alex Wilson' }
-    ];
-    return users.find(user => user.id === userId)?.name || 'Unknown User';
+    return users.find(user => user._id === userId)?.name || 'Unknown User';
   };
 
   return (

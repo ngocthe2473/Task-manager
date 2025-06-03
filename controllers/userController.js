@@ -24,13 +24,11 @@ exports.getUsers = async (req, res) => {
 
     // Build query
     const query = {};
-    
-    // Search by name, email, or username
+      // Search by name, email
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { username: { $regex: search, $options: 'i' } }
+        { email: { $regex: search, $options: 'i' } }
       ];
     }
 
@@ -200,23 +198,21 @@ exports.createUser = async (req, res) => {
     // Only admin can create users
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
-    }
-
-    const { name, email, username, password, role = 'member', team, isActive = true } = req.body;
+    }    const { name, email, password, role = 'member', team, isActive = true } = req.body;
 
     // Validation
-    if (!name || !email || !username || !password) {
+    if (!name || !email || !password) {
       return res.status(400).json({ message: 'Please provide all required fields' });
     }
 
     // Check if user exists
     const userExists = await User.findOne({
-      $or: [{ email }, { username }]
+      email
     });
 
     if (userExists) {
       return res.status(400).json({
-        message: userExists.email === email ? 'Email already exists' : 'Username already exists'
+        message: 'Email already exists'
       });
     }
 
@@ -229,10 +225,8 @@ exports.createUser = async (req, res) => {
     }
 
     // Create user
-    const user = await User.create({
-      name,
+    const user = await User.create({      name,
       email,
-      username,
       password,
       role,
       team,
@@ -285,8 +279,7 @@ exports.createUser = async (req, res) => {
 // @access  Private
 exports.updateUser = async (req, res) => {
   try {
-    const userId = req.params.id;
-    const { name, email, username, role, team, isActive, avatar } = req.body;
+    const userId = req.params.id;    const { name, email, role, team, isActive, avatar } = req.body;
 
     // Check permissions
     const isAdmin = req.user.role === 'admin';
@@ -298,22 +291,19 @@ exports.updateUser = async (req, res) => {
 
     // Non-admin users can only update their own basic info
     const allowedFields = isAdmin 
-      ? { name, email, username, role, team, isActive, avatar }
-      : { name, email, username, avatar };
+      ? { name, email, role, team, isActive, avatar }
+      : { name, email, avatar };
 
-    // Check if email/username is already taken by another user
-    if (email || username) {
+    // Check if email is already taken by another user
+    if (email) {
       const existingUser = await User.findOne({
         _id: { $ne: userId },
-        $or: [
-          ...(email ? [{ email }] : []),
-          ...(username ? [{ username }] : [])
-        ]
+        email
       });
 
       if (existingUser) {
         return res.status(400).json({
-          message: existingUser.email === email ? 'Email already exists' : 'Username already exists'
+          message: 'Email already exists'
         });
       }
     }

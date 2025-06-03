@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, Typography, Box, Avatar, Chip, IconButton, Tooltip, Menu, MenuItem } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import AlarmIcon from '@mui/icons-material/Alarm';
-// import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-// import { addTask } from '../services/fakeDatabaseService';
 
 const StyledCard = styled(Card)(({ theme }) => ({
   position: 'relative',

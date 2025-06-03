@@ -73,26 +73,8 @@ const Login = () => {
 
       // Đăng nhập thành công
       login(data);
-      navigate('/');
-
-    } catch (error) {
+      navigate('/');    } catch (error) {
       setError(error.message);
-      
-      // Fallback to mock login for demo purposes
-      if (formData.email && formData.password) {
-        const mockUser = {
-          id: '1',
-          name: 'John Doe',
-          email: formData.email,
-          role: 'Project Manager',
-          token: 'demo-jwt-token-12345'
-        };
-        
-        setTimeout(() => {
-          login(mockUser);
-          navigate('/');
-        }, 500);
-      }
     } finally {
       setLoading(false);
     }

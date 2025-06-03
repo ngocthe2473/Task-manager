@@ -117,27 +117,84 @@ const Reports = () => {
   const theme = useTheme();
   const [reportData, setReportData] = useState({
     productivity: {
-      tasksCompleted: 156,
-      averageTime: 2.4,
-      efficiency: 87,
-      trend: 12,
+      tasksCompleted: 0,
+      averageTime: 0,
+      efficiency: 0,
+      trend: 0,
     },
     team: {
-      totalMembers: 8,
-      activeMembers: 6,
-      topPerformers: [
-        { name: 'Trần Ngọc Thế', tasks: 42, avatar: 'T' },
-        { name: 'Nguyễn Tấn Long', tasks: 38, avatar: 'L' },
-        { name: 'Trần Đại Việt', tasks: 35, avatar: 'V' },
-      ]
+      totalMembers: 0,
+      activeMembers: 0,
+      topPerformers: []
     },
     projects: {
-      total: 12,
-      completed: 8,
-      inProgress: 3,
-      delayed: 1,
+      total: 0,
+      completed: 0,
+      inProgress: 0,
+      delayed: 0,
     }
   });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchReportData = async () => {
+      try {
+        const [tasksData, projectsData, usersData] = await Promise.all([
+          getAllTasks(),
+          getProjects(),
+          getUsers()
+        ]);
+        
+        // Calculate productivity metrics
+        const completedTasks = tasksData.filter(task => task.status === 'done');
+        const efficiency = tasksData.length > 0 ? Math.round((completedTasks.length / tasksData.length) * 100) : 0;
+        
+        // Calculate project stats
+        const completedProjects = projectsData.filter(project => project.status === 'completed');
+        const inProgressProjects = projectsData.filter(project => project.status === 'in-progress');
+        const delayedProjects = projectsData.filter(project => 
+          project.dueDate && new Date(project.dueDate) < new Date() && project.status !== 'completed'
+        );
+        
+        // Calculate top performers
+        const userTaskCounts = usersData.map(user => {
+          const userTasks = tasksData.filter(task => task.assignedTo === user._id && task.status === 'done');
+          return {
+            name: user.name,
+            tasks: userTasks.length,
+            avatar: user.name ? user.name.charAt(0).toUpperCase() : 'U'
+          };
+        }).sort((a, b) => b.tasks - a.tasks).slice(0, 3);
+        
+        setReportData({
+          productivity: {
+            tasksCompleted: completedTasks.length,
+            averageTime: 0, // Would need time tracking data
+            efficiency,
+            trend: 0, // Would need historical data
+          },
+          team: {
+            totalMembers: usersData.length,
+            activeMembers: usersData.filter(user => user.isActive !== false).length,
+            topPerformers: userTaskCounts
+          },
+          projects: {
+            total: projectsData.length,
+            completed: completedProjects.length,
+            inProgress: inProgressProjects.length,
+            delayed: delayedProjects.length,
+          }
+        });
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching report data:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchReportData();
+  }, []);
 
   return (
     <Box sx={{ 
