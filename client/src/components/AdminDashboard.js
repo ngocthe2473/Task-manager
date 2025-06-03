@@ -51,6 +51,7 @@ import {
 import { styled } from '@mui/material/styles';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
 import { PieChart, Pie, Cell, Legend } from 'recharts';
+import { getAllTasks, getUsers, getProjects } from '../services/apiService';
 
 // Modern minimalist styled components
 const DashboardContainer = styled(Box)(({ theme }) => ({
@@ -261,6 +262,47 @@ const AdminDashboard = () => {
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeProjects: 0,
+    totalTasks: 0,
+    completedTasks: 0
+  });
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [usersData, projectsData, tasksData] = await Promise.all([
+        getUsers(),
+        getProjects(),
+        getAllTasks()
+      ]);
+
+      setUsers(usersData);
+      setProjects(projectsData);
+      setTasks(tasksData);
+
+      // Calculate stats
+      setStats({
+        totalUsers: usersData.length,
+        activeProjects: projectsData.filter(p => p.status === 'in_progress').length,
+        totalTasks: tasksData.length,
+        completedTasks: tasksData.filter(t => t.status === 'done' || t.status === 'completed').length
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -321,7 +363,7 @@ const AdminDashboard = () => {
                   <PersonIcon sx={{ color: '#2196f3' }} />
                   Total Users
                 </CardTitle>
-                <StatValue>128</StatValue>
+                <StatValue>{stats.totalUsers}</StatValue>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <TrendingUpIcon sx={{ color: '#4caf50', fontSize: 18 }} />
                   <StatLabel>+12% since last month</StatLabel>
@@ -337,7 +379,7 @@ const AdminDashboard = () => {
                   <EventIcon sx={{ color: '#ff9800' }} />
                   Active Projects
                 </CardTitle>
-                <StatValue>24</StatValue>
+                <StatValue>{stats.activeProjects}</StatValue>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <TrendingUpIcon sx={{ color: '#4caf50', fontSize: 18 }} />
                   <StatLabel>+5 new this month</StatLabel>
@@ -353,7 +395,7 @@ const AdminDashboard = () => {
                   <TasksIcon sx={{ color: '#4caf50' }} />
                   Completed Tasks
                 </CardTitle>
-                <StatValue>392</StatValue>
+                <StatValue>{stats.completedTasks}</StatValue>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <TrendingUpIcon sx={{ color: '#4caf50', fontSize: 18 }} />
                   <StatLabel>+18% this week</StatLabel>

@@ -422,9 +422,8 @@ const ProjectManagement = () => {
         {selectedProject ? 'Edit Project' : 'Create New Project'}
       </DialogTitle>
 
-      <DialogContent sx={{ mt: 2 }}>
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
+      <DialogContent sx={{ mt: 2 }}>        <Grid container spacing={3}>
+          <Grid xs={12}>
             <TextField
               name="name"
               label="Project Name"
@@ -436,9 +435,7 @@ const ProjectManagement = () => {
               required
               sx={{ mb: 2 }}
             />
-          </Grid>
-
-          <Grid item xs={12}>
+          </Grid>          <Grid xs={12}>
             <TextField
               name="description"
               label="Description"
@@ -454,7 +451,7 @@ const ProjectManagement = () => {
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <FormControl fullWidth error={!!formErrors.team}>
               <InputLabel>Team</InputLabel>
               <Select
@@ -475,7 +472,7 @@ const ProjectManagement = () => {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <FormControl fullWidth>
               <InputLabel>Priority</InputLabel>
               <Select
@@ -490,7 +487,7 @@ const ProjectManagement = () => {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <TextField
               name="startDate"
               label="Start Date"
@@ -505,7 +502,7 @@ const ProjectManagement = () => {
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <TextField
               name="endDate"
               label="End Date"
@@ -547,7 +544,7 @@ const ProjectManagement = () => {
   );
 
   const renderProjectCard = (project, index) => (
-    <Grid item xs={12} md={6} lg={4} key={project._id || index}>
+    <Grid xs={12} md={6} lg={4} key={project._id || index}>
       <Zoom in timeout={400 + index * 100}>
         <ProjectCard priority={project.priority}>
           <CardContent sx={{ p: 3 }}>
@@ -716,7 +713,7 @@ const ProjectManagement = () => {
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatsCard
             gradient={`linear-gradient(135deg, #2193b0, #6dd5ed)`}
             sx={{ p: 2 }}
@@ -729,7 +726,7 @@ const ProjectManagement = () => {
           </StatsCard>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatsCard
             gradient={`linear-gradient(135deg, #11998e, #38ef7d)`}
             sx={{ p: 2 }}
@@ -742,7 +739,7 @@ const ProjectManagement = () => {
           </StatsCard>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatsCard
             gradient={`linear-gradient(135deg, #ee0979, #ff6a00)`}
             sx={{ p: 2 }}
@@ -755,7 +752,7 @@ const ProjectManagement = () => {
           </StatsCard>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatsCard
             gradient={`linear-gradient(135deg, #4A00E0, #8E2DE2)`}
             sx={{ p: 2 }}
@@ -772,11 +769,11 @@ const ProjectManagement = () => {
       {/* Project Cards Grid */}
       <Grid container spacing={3}>
         {loading ? (
-          <Grid item xs={12} sx={{ textAlign: 'center', py: 5 }}>
+          <Grid xs={12} sx={{ textAlign: 'center', py: 5 }}>
             <CircularProgress size={40} />
           </Grid>
         ) : projects.length === 0 ? (
-          <Grid item xs={12} sx={{ textAlign: 'center', py: 5 }}>
+          <Grid xs={12} sx={{ textAlign: 'center', py: 5 }}>
             <FolderSpecialIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
             <Typography variant="h6" color="text.secondary">
               No projects found. Create your first project!

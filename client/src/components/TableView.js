@@ -30,7 +30,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { getAllTasks, addTask } from '../services/fakeDatabaseService';
+import { getAllTasks, addTask } from '../services/apiService';
 
 const STATUS_COLORS = {
   'todo': { bg: '#f0f1f5', text: '#42526e', name: 'Việc cần làm' },

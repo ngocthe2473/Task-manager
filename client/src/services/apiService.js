@@ -11,9 +11,17 @@ const api = axios.create({
 // Thêm interceptor để đính kèm token vào mọi yêu cầu
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Lấy token từ userInfo trong localStorage
+    const userInfo = localStorage.getItem('userInfo');
+    if (userInfo) {
+      try {
+        const user = JSON.parse(userInfo);
+        if (user.token) {
+          config.headers.Authorization = `Bearer ${user.token}`;
+        }
+      } catch (error) {
+        console.error('Error parsing userInfo:', error);
+      }
     }
     return config;
   },
@@ -22,12 +30,12 @@ api.interceptors.request.use(
 
 // Authentication API
 export const loginUser = async (email, password) => {
-  const response = await api.post('/users/login', { email, password });
+  const response = await api.post('/auth/login', { email, password });
   return response.data;
 };
 
 export const registerUser = async (userData) => {
-  const response = await api.post('/users/register', userData);
+  const response = await api.post('/auth/register', userData);
   return response.data;
 };
 
@@ -101,6 +109,61 @@ export const getProjectTasks = async (id) => {
 // Users API
 export const getUsers = async () => {
   const response = await api.get('/users');
+  return response.data;
+};
+
+// Calendar API
+export const getCalendarTasks = async (params = {}) => {
+  const response = await api.get('/calendar', { params });
+  return response.data;
+};
+
+// Teams API
+export const getTeams = async () => {
+  const response = await api.get('/teams');
+  return response.data;
+};
+
+export const getTeamById = async (id) => {
+  const response = await api.get(`/teams/${id}`);
+  return response.data;
+};
+
+export const addTeam = async (teamData) => {
+  const response = await api.post('/teams', teamData);
+  return response.data;
+};
+
+export const updateTeam = async (id, teamData) => {
+  const response = await api.put(`/teams/${id}`, teamData);
+  return response.data;
+};
+
+export const deleteTeam = async (id) => {
+  const response = await api.delete(`/teams/${id}`);
+  return response.data;
+};
+
+// Search API
+export const searchTasks = async (query) => {
+  const response = await api.get(`/search?q=${encodeURIComponent(query)}`);
+  return response.data;
+};
+
+// Notifications API
+export const getNotifications = async () => {
+  const response = await api.get('/notifications');
+  return response.data;
+};
+
+export const markNotificationAsRead = async (id) => {
+  const response = await api.put(`/notifications/${id}/read`);
+  return response.data;
+};
+
+// Activity Log API
+export const getActivityLogs = async (params = {}) => {
+  const response = await api.get('/activity-logs', { params });
   return response.data;
 };
 

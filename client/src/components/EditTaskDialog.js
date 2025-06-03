@@ -463,7 +463,7 @@ const EditTaskDialog = ({ open, onClose, task, onSave }) => {
 
         <StyledDialogContent>
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <FormSection>
                 <SectionTitle>
                   <TaskIcon sx={{ fontSize: 16 }} />
@@ -493,7 +493,7 @@ const EditTaskDialog = ({ open, onClose, task, onSave }) => {
               </FormSection>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <FormSection>
                 <SectionTitle>
                   <FlagIcon sx={{ fontSize: 16 }} />
@@ -543,7 +543,7 @@ const EditTaskDialog = ({ open, onClose, task, onSave }) => {
               </FormSection>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid xs={12} md={6}>
               <FormSection>
                 <SectionTitle>
                   <PersonIcon sx={{ fontSize: 16 }} />
@@ -606,7 +606,7 @@ const EditTaskDialog = ({ open, onClose, task, onSave }) => {
               </FormSection>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <FormSection>
                 <SectionTitle>
                   <CalendarIcon sx={{ fontSize: 16 }} />
@@ -624,7 +624,7 @@ const EditTaskDialog = ({ open, onClose, task, onSave }) => {
             </Grid>
 
             {/* Task Preview */}
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TaskPreview>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, color: '#333' }}>
                   Task Preview
@@ -678,7 +678,7 @@ const EditTaskDialog = ({ open, onClose, task, onSave }) => {
             </Grid>
 
             {/* Subtasks Section */}
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <FormSection>
                 <SectionTitle>
                   <CheckBoxOutlineBlankIcon sx={{ fontSize: 16 }} />

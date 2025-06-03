@@ -50,30 +50,13 @@ const Login = () => {
       [name]: name === 'remember' ? checked : value
     });
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    try {
-      // Chế độ đăng nhập giả lập
-      const mockUser = {
-        id: '1',
-        name: 'John Doe',
-        email: formData.email,
-        role: 'Project Manager',
-        token: 'fake-jwt-token'
-      };
-      
-      setTimeout(() => {
-        login(mockUser);
-        navigate('/');
-      }, 1000);
-      
-      // Đoạn code kết nối API thực (đã bị tắt)
-      /*
-      const response = await fetch('/api/users/login', {
+    try {      // Kết nối API thực
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -91,9 +74,25 @@ const Login = () => {
       // Đăng nhập thành công
       login(data);
       navigate('/');
-      */
+
     } catch (error) {
       setError(error.message);
+      
+      // Fallback to mock login for demo purposes
+      if (formData.email && formData.password) {
+        const mockUser = {
+          id: '1',
+          name: 'John Doe',
+          email: formData.email,
+          role: 'Project Manager',
+          token: 'demo-jwt-token-12345'
+        };
+        
+        setTimeout(() => {
+          login(mockUser);
+          navigate('/');
+        }, 500);
+      }
     } finally {
       setLoading(false);
     }

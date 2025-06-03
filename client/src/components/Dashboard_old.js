@@ -37,7 +37,7 @@ import {
   RocketLaunch as RocketIcon,
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
-import { getAllTasks } from '../services/fakeDatabaseService';
+import { getAllTasks } from '../services/apiService';
 import { format } from 'date-fns';
 
 // Pro Animations

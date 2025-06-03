@@ -39,7 +39,7 @@ import {
   FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
-import { getAllTasks } from '../services/fakeDatabaseService';
+import { getCalendarTasks } from '../services/apiService';
 import { 
   format, 
   addDays, 
@@ -202,7 +202,7 @@ const Calendar = () => {
   useEffect(() => {
     const fetchTasks = async () => {
       try {
-        const taskData = await getAllTasks();
+        const taskData = await getCalendarTasks();
         // Thêm thông tin thời gian ngẫu nhiên cho các task
         const enhancedTasks = taskData.map(task => {
           const dueDate = task.dueDate || task.due;

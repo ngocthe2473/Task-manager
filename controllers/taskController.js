@@ -129,17 +129,17 @@ exports.createTask = async (req, res) => {
       dueDate,
       estimatedHours,
       tags
-    } = req.body;
-
-    // Validation
-    if (!title || !project) {
-      return res.status(400).json({ message: 'Title and project are required' });
+    } = req.body;    // Validation
+    if (!title) {
+      return res.status(400).json({ message: 'Title is required' });
     }
 
-    // Check if project exists
-    const projectExists = await Project.findById(project);
-    if (!projectExists) {
-      return res.status(404).json({ message: 'Project not found' });
+    // Check if project exists (if provided)
+    if (project) {
+      const projectExists = await Project.findById(project);
+      if (!projectExists) {
+        return res.status(404).json({ message: 'Project not found' });
+      }
     }
 
     // Check if assignee exists
@@ -166,15 +166,16 @@ exports.createTask = async (req, res) => {
       { path: 'assignee', select: 'name email username' },
       { path: 'creator', select: 'name email username' },
       { path: 'project', select: 'name description' }
-    ]);
-
-    // Log activity
+    ]);    // Log activity
     await ActivityLog.create({
       user: req.user.id,
       action: 'create',
       entityType: 'Task',
       entityId: task._id,
-      metadata: { title: task.title, project: projectExists.name }
+      metadata: { 
+        title: task.title, 
+        project: project ? (await Project.findById(project))?.name : 'No Project' 
+      }
     });
 
     // Create notification for assignee

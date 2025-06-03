@@ -33,9 +33,11 @@ import { getSubTasksByTaskId } from '../services/subtaskService';
 
 // Modern minimalist styled components
 const BoardContainer = styled(Box)(({ theme }) => ({
-  padding: '24px',
+  padding: '24px 32px', // Tăng padding
   backgroundColor: '#fafafa',
   minHeight: '100vh',
+  maxWidth: '100%',
+  overflow: 'hidden',
 }));
 
 const BoardHeader = styled(Box)(({ theme }) => ({
@@ -54,17 +56,19 @@ const BoardTitle = styled(Typography)(({ theme }) => ({
 }));
 
 const ColumnContainer = styled(Grid)(({ theme }) => ({
-  height: 'calc(100vh - 200px)',
+  height: 'calc(100vh - 120px)', // Tăng chiều cao hơn nữa
   overflowY: 'auto',
+  padding: '0 12px', // Tăng padding horizontal
 }));
 
 const Column = styled(Paper)(({ theme }) => ({
-  padding: '20px',
+  padding: '28px', // Tăng padding hơn nữa
   backgroundColor: '#ffffff',
   borderRadius: '16px',
   border: '1px solid #e0e0e0',
   height: 'fit-content',
-  minHeight: '400px',
+  minHeight: '600px', // Tăng chiều cao tối thiểu
+  width: '100%',
 }));
 
 const ColumnHeader = styled(Box)(({ theme }) => ({
@@ -479,13 +483,11 @@ const TaskBoard = ({ onTaskClick }) => {
         <BoardTitle>Task Board</BoardTitle>        <Typography variant="body2" color="textSecondary" component="div">
           {tasks.length} tasks • {getTasksByStatus('done').length} completed
         </Typography>
-      </BoardHeader>
-
-      <ColumnContainer container spacing={3}>
+      </BoardHeader>      <ColumnContainer container spacing={3}>
         {columns.map((column) => {
           const columnTasks = getTasksByStatus(column.id);
           return (
-            <Grid item xs={12} sm={6} lg={3} key={column.id}>
+            <Grid item xs={12} sm={6} md={6} lg={4} xl={4} key={column.id}>
               <Column>
                 <ColumnHeader>
                   <ColumnTitle>

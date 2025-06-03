@@ -30,7 +30,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import EditIcon from '@mui/icons-material/Edit';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EmailIcon from '@mui/icons-material/Email';
-import { getUsers } from '../services/fakeDatabaseService';
+import { getUsers } from '../services/apiService';
 
 const Teams = () => {
   const [tabValue, setTabValue] = useState(0);

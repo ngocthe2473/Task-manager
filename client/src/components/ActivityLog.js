@@ -22,7 +22,7 @@ import CommentIcon from '@mui/icons-material/Comment';
 import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PersonIcon from '@mui/icons-material/Person';
-import { getAllTasks } from '../services/fakeDatabaseService';
+import { getAllTasks } from '../services/apiService';
 
 // Utility function to generate fake activity logs based on tasks
 const generateActivityLogs = (tasks, users) => {

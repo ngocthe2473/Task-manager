@@ -63,8 +63,10 @@ const SectionTitle = styled(Typography)(({ theme }) => ({
   padding: '16px 24px 8px 24px',
 }));
 
-// Use $active for transient prop that won't be passed to DOM
-const StyledListItem = styled(ListItem)(({ theme, $active }) => ({
+// Use shouldForwardProp to filter out transient props
+const StyledListItem = styled(ListItem, {
+  shouldForwardProp: (prop) => prop !== '$active',
+})(({ theme, $active }) => ({
   margin: '2px 16px',
   borderRadius: '12px',
   cursor: 'pointer',
