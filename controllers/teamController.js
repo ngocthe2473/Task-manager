@@ -719,3 +719,76 @@ exports.getMyTeam = async (req, res) => {
     });
   }
 };
+
+// @desc    Get team members for dropdown (confirmed members only)
+// @route   GET /api/teams/my-members
+// @access  Private
+exports.getMyTeamMembers = async (req, res) => {
+  try {
+    // Find all teams where the current user is a member
+    const teams = await Team.find({
+      'members.user': req.user.id
+    }).populate('members.user', 'name email avatar role');
+
+    // Extract all confirmed team members (excluding the current user)
+    const allMembers = new Map();
+    
+    teams.forEach(team => {
+      team.members.forEach(member => {
+        if (member.user._id.toString() !== req.user.id) {
+          allMembers.set(member.user._id.toString(), {
+            _id: member.user._id,
+            name: member.user.name,
+            email: member.user.email,
+            avatar: member.user.avatar,
+            role: member.user.role
+          });
+        }
+      });
+    });
+
+    // Convert Map to Array
+    const members = Array.from(allMembers.values());
+
+    res.status(200).json({
+      success: true,
+      data: members
+    });
+  } catch (error) {
+    console.error('Error fetching team members:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error'
+    });
+  }
+};
+
+// @desc    Check if current user is a team leader
+// @route   GET /api/teams/check-leader  
+// @access  Private
+exports.checkUserIsTeamLeader = async (req, res) => {
+  try {
+    // Find all teams where the current user is a leader
+    const teams = await Team.find({
+      'members': {
+        $elemMatch: {
+          user: req.user.id,
+          team_role: 'leader'
+        }
+      }
+    });
+
+    const isLeader = teams.length > 0;
+
+    res.status(200).json({
+      success: true,
+      isLeader: isLeader
+    });
+  } catch (error) {
+    console.error('Error checking team leader status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error'
+    });
+  }
+};

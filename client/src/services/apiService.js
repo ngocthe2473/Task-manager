@@ -50,6 +50,12 @@ export const getUserProfile = async () => {
   return response.data;
 };
 
+// Additional User Profile API
+export const updateUserProfile = async (userData) => {
+  const response = await api.put('/users/profile', userData);
+  return response.data;
+};
+
 // Tasks API
 export const getAllTasks = async () => {
   const response = await api.get('/tasks');
@@ -74,6 +80,28 @@ export const updateTask = async (id, taskData) => {
 
 export const deleteTask = async (id) => {
   const response = await api.delete(`/tasks/${id}`);
+  return response.data;
+};
+
+// SubTasks API
+export const getSubTasks = async (taskId) => {
+  const response = await api.get(`/tasks/${taskId}/subtasks`);
+  // Handle API response format { success: true, data: subtasks }
+  return response.data.data || response.data || [];
+};
+
+export const addSubTask = async (taskId, subTaskData) => {
+  const response = await api.post(`/tasks/${taskId}/subtasks`, subTaskData);
+  return response.data;
+};
+
+export const updateSubTask = async (subTaskId, subTaskData) => {
+  const response = await api.put(`/subtasks/${subTaskId}`, subTaskData);
+  return response.data;
+};
+
+export const deleteSubTask = async (subTaskId) => {
+  const response = await api.delete(`/subtasks/${subTaskId}`);
   return response.data;
 };
 
@@ -114,27 +142,38 @@ export const getProjectTasks = async (id) => {
   return response.data;
 };
 
+// Additional Project API
+export const getMyProjects = async () => {
+  const response = await api.get('/projects/my');
+  // Handle API response format { success: true, data: projects }
+  return response.data.data || response.data || [];
+};
+
 // Users API
 export const getUsers = async () => {
   const response = await api.get('/users');
-  return response.data;
+  // Handle API response format { success: true, data: users }
+  return response.data.data || response.data || [];
 };
 
 // Calendar API
 export const getCalendarTasks = async (params = {}) => {
   const response = await api.get('/calendar', { params });
-  return response.data;
+  // Handle API response format { success: true, data: tasks }
+  return response.data.data || response.data || [];
 };
 
 // Teams API
 export const getTeams = async () => {
   const response = await api.get('/teams');
-  return response.data;
+  // Handle API response format { success: true, data: teams }
+  return response.data.data || response.data || [];
 };
 
 export const getMyTeams = async () => {
   const response = await api.get('/teams/my');
-  return response.data;
+  // Handle API response format { success: true, data: teams }
+  return response.data.data || response.data || [];
 };
 
 export const getTeamById = async (id) => {
@@ -166,7 +205,8 @@ export const searchTasks = async (query) => {
 // Notifications API
 export const getNotifications = async () => {
   const response = await api.get('/notifications');
-  return response.data;
+  // Handle API response format { success: true, data: notifications }
+  return response.data.data || response.data || [];
 };
 
 export const markNotificationAsRead = async (id) => {
@@ -177,7 +217,129 @@ export const markNotificationAsRead = async (id) => {
 // Activity Log API
 export const getActivityLogs = async (params = {}) => {
   const response = await api.get('/activity-logs', { params });
+  // Handle API response format { success: true, data: logs }
+  return response.data.data || response.data || [];
+};
+
+// Time Logs API
+export const getTimeLogs = async (params = {}) => {
+  const response = await api.get('/timelogs', { params });
+  // Handle API response format { success: true, data: logs }
+  return response.data.data || response.data || [];
+};
+
+export const addTimeLog = async (timeLogData) => {
+  const response = await api.post('/timelogs', timeLogData);
   return response.data;
+};
+
+export const updateTimeLog = async (id, timeLogData) => {
+  const response = await api.put(`/timelogs/${id}`, timeLogData);
+  return response.data;
+};
+
+export const deleteTimeLog = async (id) => {
+  const response = await api.delete(`/timelogs/${id}`);
+  return response.data;
+};
+
+// Comments API
+export const getTaskComments = async (taskId) => {
+  const response = await api.get(`/tasks/${taskId}/comments`);
+  // Handle API response format { success: true, data: comments }
+  return response.data.data || response.data || [];
+};
+
+export const addComment = async (taskId, commentData) => {
+  const response = await api.post(`/tasks/${taskId}/comments`, commentData);
+  return response.data;
+};
+
+export const updateComment = async (commentId, commentData) => {
+  const response = await api.put(`/comments/${commentId}`, commentData);
+  return response.data;
+};
+
+export const deleteComment = async (commentId) => {
+  const response = await api.delete(`/comments/${commentId}`);
+  return response.data;
+};
+
+// Attachments API
+export const getAttachments = async (taskId) => {
+  const response = await api.get(`/tasks/${taskId}/attachments`);
+  // Handle API response format { success: true, data: attachments }
+  return response.data.data || response.data || [];
+};
+
+export const uploadAttachment = async (taskId, formData) => {
+  const response = await api.post(`/tasks/${taskId}/attachments`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
+export const deleteAttachment = async (attachmentId) => {
+  const response = await api.delete(`/attachments/${attachmentId}`);
+  return response.data;
+};
+
+// Admin API
+export const createUser = async (userData) => {
+  const response = await api.post('/users', userData);
+  return response.data;
+};
+
+export const updateUser = async (userId, userData) => {
+  const response = await api.put(`/users/${userId}`, userData);
+  return response.data;
+};
+
+export const deleteUser = async (userId) => {
+  const response = await api.delete(`/users/${userId}`);
+  return response.data;
+};
+
+// Team Management API
+export const addTeamMember = async (teamId, userId) => {
+  const response = await api.post(`/teams/${teamId}/members`, { userId });
+  return response.data;
+};
+
+export const removeTeamMember = async (teamId, userId) => {
+  const response = await api.delete(`/teams/${teamId}/members/${userId}`);
+  return response.data;
+};
+
+export const updateTeamMemberRole = async (teamId, userId, role) => {
+  const response = await api.put(`/teams/${teamId}/members/${userId}`, { role });
+  return response.data;
+};
+
+// Get user's tasks (assigned or created by user)
+export const getMyTasks = async () => {
+  const response = await api.get('/tasks/my-tasks');
+  return response.data.data || response.data || [];
+};
+
+// Get dashboard stats for current user
+export const getDashboardStats = async () => {
+  const response = await api.get('/tasks/dashboard-stats');
+  return response.data.data || response.data || {};
+};
+
+// Get all confirmed team members for current user
+export const getMyTeamMembers = async () => {
+  const response = await api.get('/teams/my-members');
+  return response.data.data || response.data || [];
+};
+
+// Check if current user is a team leader
+export const checkUserIsTeamLeader = async () => {
+  const response = await api.get('/teams/check-leader');
+  return response.data.isLeader || false;
 };
 
 export default api;

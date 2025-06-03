@@ -17,7 +17,9 @@ const {
   removeTeamMember,
   getTeamStats,
   changeTeamRole,
-  getMyTeam
+  getMyTeam,
+  getMyTeamMembers,
+  checkUserIsTeamLeader
 } = require('../controllers/teamController');
 const router = express.Router();
 
@@ -27,6 +29,12 @@ router.route('/')
 
 // Get user's teams
 router.get('/my', authenticate, getMyTeam);
+
+// Get user's team members
+router.get('/my-members', authenticate, getMyTeamMembers);
+
+// Check if user is team leader
+router.get('/check-leader', authenticate, checkUserIsTeamLeader);
 
 router.route('/:id')
   .get(authenticate, validateMongoId, getTeamById)

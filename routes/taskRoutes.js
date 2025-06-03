@@ -5,7 +5,9 @@ const {
   getTaskById, 
   createTask, 
   updateTask, 
-  deleteTask 
+  deleteTask,
+  getMyTasks,
+  getDashboardStats
 } = require('../controllers/taskController');
 const { 
   getSubTasks, 
@@ -24,6 +26,10 @@ const { createRateLimit } = require('../middlewares/rateLimiting');
 router.route('/')
   .get(authenticate, validatePagination, getTasks)
   .post(authenticate, createRateLimit, validateTaskCreation, createTask);
+
+// User-specific routes
+router.get('/my-tasks', authenticate, getMyTasks);
+router.get('/dashboard-stats', authenticate, getDashboardStats);
 
 router.route('/:id')
   .get(authenticate, validateMongoId, getTaskById)

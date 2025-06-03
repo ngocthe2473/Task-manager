@@ -84,11 +84,9 @@ exports.getUsers = async (req, res) => {
     // Calculate statistics    const totalUsers = await User.countDocuments();
     const activeUsers = await User.countDocuments({ isActive: true });
     const adminCount = await User.countDocuments({ role: 'admin' });
-    const memberCount = await User.countDocuments({ role: 'member' });
-
-    res.json({
+    const memberCount = await User.countDocuments({ role: 'member' });    res.json({
       success: true,
-      users,
+      data: usersWithTeams,
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / limit),

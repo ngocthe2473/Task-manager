@@ -40,6 +40,7 @@ import {
   Timeline as TimelineIcon,
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
+import { getAllTasks, getProjects } from '../services/apiService';
 
 // Animations
 const slideIn = keyframes`
@@ -96,13 +97,42 @@ const UserProfile = () => {  const theme = useTheme();
   const handleEditToggle = () => {
     setIsEditing(!isEditing);
   };
-
   // Fetch real user data
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        // TODO: Replace with actual API calls to get user statistics
-        // For now, initialize with empty stats
+        // Get user profile data
+        const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
+        setUserData({
+          ...userData,
+          name: userInfo.name || 'User Name',
+          email: userInfo.email || 'user@example.com'
+        });
+
+        // Get user statistics from API
+        const [tasksData, projectsData] = await Promise.all([
+          getAllTasks(),
+          getProjects()
+        ]);
+
+        // Calculate user statistics
+        const userTasks = tasksData.filter(task => task.assignedTo === userInfo.id);
+        const completedTasks = userTasks.filter(task => task.status === 'done');
+        const userProjects = projectsData.filter(project => 
+          project.members && project.members.includes(userInfo.id)
+        );
+
+        setUserStats({
+          tasksCompleted: completedTasks.length,
+          projectsJoined: userProjects.length,
+          achievements: Math.floor(completedTasks.length / 5), // 1 achievement per 5 completed tasks
+          skillLevel: Math.min(10, Math.floor(completedTasks.length / 10)), // Max level 10
+          teamRating: 4.5, // Static for now
+          streakDays: Math.min(30, completedTasks.length), // Simulate streak
+        });
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching user data:', error);
         setUserStats({
           tasksCompleted: 0,
           projectsJoined: 0,
@@ -111,9 +141,6 @@ const UserProfile = () => {  const theme = useTheme();
           teamRating: 0,
           streakDays: 0,
         });
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching user data:', error);
         setLoading(false);
       }
     };

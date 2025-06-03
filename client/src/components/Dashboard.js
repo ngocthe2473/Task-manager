@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -29,7 +30,7 @@ import {
   ArrowForward as ArrowForwardIcon
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
-import { getAllTasks, getProjects, getUsers } from '../services/apiService';
+import { getAllTasks, getProjects, getUsers, getMyTasks, getDashboardStats } from '../services/apiService';
 import { format } from 'date-fns';
 
 // Modern minimalist styled components
@@ -250,6 +251,7 @@ const ProjectTitle = styled(Typography)(({ theme }) => ({
 }));
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalTasks: 0,
@@ -258,8 +260,11 @@ const Dashboard = () => {
     upcomingTasks: 0,
     overdueTasks: 0,
     productivity: 0
-  });  const [recentTasks, setRecentTasks] = useState([]);  const [projects, setProjects] = useState([]);
+  });
+  const [recentTasks, setRecentTasks] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
+  const [teamStats, setTeamStats] = useState([]);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   
   // Get user info from localStorage 
@@ -276,47 +281,80 @@ const Dashboard = () => {
     return { name: 'User', role: 'User' };
   };
   const user = getUserInfo();
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch tasks
-        const allTasks = await getAllTasks();
+        // Fetch dashboard stats and user's tasks
+        const dashboardData = await getDashboardStats();
+        const userTasks = await getMyTasks(); // This should only return tasks assigned to or created by the user
         
-        const completed = allTasks.filter(task => task.status === 'done').length;
-        const inProgress = allTasks.filter(task => task.status === 'in-progress').length;
-        const upcoming = allTasks.filter(task => task.status === 'todo').length;
-        const overdue = allTasks.filter(task => 
-          task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done'
-        ).length;
-          // Calculate productivity percentage
-        const productivity = Math.round((completed / (completed + inProgress + upcoming)) * 100) || 0;
+        // Filter tasks to only include those assigned to or created by the user
+        const filteredTasks = userTasks.filter(task => 
+          task.assignee?._id === user._id || 
+          task.creator?._id === user._id ||
+          task.assignee === user._id ||
+          task.creator === user._id
+        );
         
+        // Set stats from filtered tasks
         setStats({
-          totalTasks: allTasks.length,
-          completedTasks: completed,
-          inProgressTasks: inProgress,
-          upcomingTasks: upcoming,
-          overdueTasks: overdue,
-          productivity
+          totalTasks: filteredTasks.length,
+          completedTasks: filteredTasks.filter(task => task.status === 'done').length,
+          inProgressTasks: filteredTasks.filter(task => task.status === 'in-progress').length,
+          upcomingTasks: filteredTasks.filter(task => task.status === 'todo').length,
+          overdueTasks: filteredTasks.filter(task => 
+            task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done'
+          ).length,
+          productivity: Math.round((filteredTasks.filter(task => task.status === 'done').length / filteredTasks.length) * 100) || 0
         });
         
-        // Set recent tasks - get the 5 most recent
+        // Set recent tasks from filtered tasks
         setRecentTasks(
-          [...allTasks]
+          [...filteredTasks]
             .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
             .slice(0, 5)
         );
         
-        // Fetch projects
-        const allProjects = await getProjects();
-        console.log('Fetched projects:', allProjects); // Debug log
+        // Process team stats for multiple teams
+        const userTeams = dashboardData.teamStats?.filter(team => 
+          team.members.some(member => member.id === user._id)
+        ) || [];
         
-        // Process projects data to include task counts and progress
-        const processedProjects = allProjects.map(project => {
-          // Filter tasks by project
-          const projectTasks = allTasks.filter(task => task.project && task.project._id === project._id);
+        setTeamStats(userTeams);
+        
+        // Set team members from all teams user belongs to
+        const allTeamMembers = [];
+        userTeams.forEach(team => {
+          team.members.forEach(member => {
+            if (member.id !== user._id) { // Exclude current user
+              allTeamMembers.push({
+                id: member.id,
+                name: member.name,
+                role: member.role,
+                teamName: team.teamName,
+                avatar: null
+              });
+            }
+          });
+        });
+        setTeamMembers(allTeamMembers);
+        
+        // Fetch and filter projects
+        const allProjects = await getProjects();
+        const userProjectIds = filteredTasks.map(task => task.project?._id).filter(Boolean);
+        const userProjects = allProjects.filter(project => 
+          userProjectIds.includes(project._id)
+        );
+        
+        // Process projects data
+        const processedProjects = userProjects.map(project => {
+          const projectTasks = filteredTasks.filter(task => 
+            task.project && task.project._id === project._id
+          );
           const completedProjectTasks = projectTasks.filter(task => task.status === 'done').length;
-          const progress = projectTasks.length > 0 ? Math.round((completedProjectTasks / projectTasks.length) * 100) : 0;
+          const progress = projectTasks.length > 0 ? 
+            Math.round((completedProjectTasks / projectTasks.length) * 100) : 0;
           
           return {
             ...project,
@@ -324,39 +362,24 @@ const Dashboard = () => {
             taskCount: projectTasks.length,
             completedTasks: completedProjectTasks,
             progress: progress,
-            color: getProjectColor(project._id) // Generate a color based on project ID
-          };        });
+            color: getProjectColor(project._id)
+          };
+        });
         
         setProjects(processedProjects);
         
-        // Fetch team members (users)
-        const allUsers = await getUsers();
-        console.log('Fetched team members:', allUsers); // Debug log
-        
-        // Process users to create team members list (exclude current user)
-        const members = allUsers
-          .filter(user => user._id !== getUserInfo()._id) // Exclude current user
-          .slice(0, 4) // Limit to 4 members for display
-          .map(user => ({
-            id: user._id,
-            name: user.name,
-            role: user.role === 'admin' ? 'Admin' : 'Team Member',
-            avatar: null
-          }));
-          setTeamMembers(members);
-        
-        // Create upcoming events from tasks with due dates in the next 7 days
+        // Create upcoming events from user's tasks
         const today = new Date();
         const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
         
-        const upcomingTaskEvents = allTasks
+        const upcomingTaskEvents = filteredTasks
           .filter(task => {
             if (!task.dueDate) return false;
             const dueDate = new Date(task.dueDate);
             return dueDate >= today && dueDate <= nextWeek && task.status !== 'done';
           })
           .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-          .slice(0, 3) // Limit to 3 upcoming events
+          .slice(0, 3)
           .map(task => ({
             id: task._id,
             title: `Task: ${task.title}`,
@@ -375,6 +398,12 @@ const Dashboard = () => {
     
     fetchData();
   }, []);
+
+  // Navigation handler for View All Tasks
+  const handleViewAllTasks = () => {
+    // Navigate to Tasks page using React Router
+    navigate('/tasks');
+  };
 
   // Helper function to generate project colors
   const getProjectColor = (projectId) => {
@@ -528,132 +557,146 @@ const Dashboard = () => {
                   color="primary"
                   endIcon={<ArrowForwardIcon />}
                   fullWidth
+                  onClick={handleViewAllTasks}
                 >
                   View All Tasks
                 </ViewAllButton>
               </StyledPaper>
-              
-              {/* Productivity */}
+                {/* Team Productivity - Multiple Teams */}
               <StyledPaper sx={{ mt: 3 }}>
                 <SectionTitle>
                   <SpeedIcon sx={{ color: '#2196f3' }} />
                   Team Productivity
                 </SectionTitle>
                 
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={4}>
-                    <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center', mt: 2 }}>
-                      <CircularProgress
-                        variant="determinate"
-                        value={stats.productivity}
-                        size={140}
-                        thickness={5}
-                        sx={{
-                          color: '#2196f3',
-                          '& .MuiCircularProgress-circle': {
-                            strokeLinecap: 'round',
-                          },
-                        }}
-                      />
-                      <Box
-                        sx={{
-                          top: 0,
-                          left: 0,
-                          bottom: 0,
-                          right: 0,
-                          position: 'absolute',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexDirection: 'column'
-                        }}
-                      >
-                        <Typography variant="h4" sx={{ fontWeight: 700, color: '#333' }}>
-                          {stats.productivity}%
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
-                          Efficiency
-                        </Typography>
-                      </Box>
-                    </Box>
+                {teamStats.length > 0 ? (
+                  <Grid container spacing={3}>
+                    {teamStats.map((team, index) => (
+                      <Grid item xs={12} key={team.teamId}>
+                        <Box sx={{ 
+                          p: 2, 
+                          border: '1px solid #e0e0e0', 
+                          borderRadius: '12px',
+                          mb: index < teamStats.length - 1 ? 2 : 0
+                        }}>
+                          <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', mb: 2 }}>
+                            {team.teamName}
+                          </Typography>
+                          
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} md={4}>
+                              <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+                                <CircularProgress
+                                  variant="determinate"
+                                  value={team.productivity}
+                                  size={120}
+                                  thickness={5}
+                                  sx={{
+                                    color: index === 0 ? '#2196f3' : index === 1 ? '#4caf50' : '#ff9800',
+                                    '& .MuiCircularProgress-circle': {
+                                      strokeLinecap: 'round',
+                                    },
+                                  }}
+                                />
+                                <Box
+                                  sx={{
+                                    top: 0,
+                                    left: 0,
+                                    bottom: 0,
+                                    right: 0,
+                                    position: 'absolute',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexDirection: 'column'
+                                  }}
+                                >
+                                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#333' }}>
+                                    {team.productivity}%
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ color: '#666' }}>
+                                    Efficiency
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </Grid>
+                            
+                            <Grid item xs={12} md={8}>
+                              <Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
+                                    Tasks Completed
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ color: '#666' }}>
+                                    {team.completedTasks} / {team.totalTasks}
+                                  </Typography>
+                                </Box>
+                                <LinearProgress 
+                                  variant="determinate"
+                                  value={(team.completedTasks / (team.totalTasks || 1)) * 100}
+                                  sx={{
+                                    height: 8,
+                                    borderRadius: 4,
+                                    backgroundColor: '#f0f0f0',
+                                    mb: 2,
+                                    '& .MuiLinearProgress-bar': {
+                                      borderRadius: 4,
+                                      backgroundColor: index === 0 ? '#2196f3' : index === 1 ? '#4caf50' : '#ff9800',
+                                    }
+                                  }}
+                                />
+                                
+                                <Typography variant="body2" sx={{ color: '#666', mb: 1 }}>
+                                  Team Members: {team.members.length}
+                                </Typography>
+                                
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                  {team.members.slice(0, 3).map((member) => (
+                                    <Tooltip key={member.id} title={member.name}>
+                                      <Avatar 
+                                        sx={{ 
+                                          width: 28, 
+                                          height: 28, 
+                                          fontSize: 12,
+                                          bgcolor: `hsl(${member.id.length * 60}, 70%, 60%)`
+                                        }}
+                                      >
+                                        {member.name.charAt(0)}
+                                      </Avatar>
+                                    </Tooltip>
+                                  ))}
+                                  {team.members.length > 3 && (
+                                    <Avatar sx={{ width: 28, height: 28, fontSize: 10, bgcolor: '#999' }}>
+                                      +{team.members.length - 3}
+                                    </Avatar>
+                                  )}
+                                </Box>
+                              </Box>
+                            </Grid>
+                          </Grid>
+                        </Box>
+                      </Grid>
+                    ))}
                   </Grid>
-                  
-                  <Grid item xs={12} md={8}>
-                    <Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
-                          Tasks Completed
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
-                          {stats.completedTasks} / {stats.totalTasks}
-                        </Typography>
-                      </Box>
-                      <LinearProgress 
-                        variant="determinate"
-                        value={(stats.completedTasks / (stats.totalTasks || 1)) * 100}
-                        sx={{
-                          height: 10,
-                          borderRadius: 5,
-                          backgroundColor: '#f0f0f0',
-                          mb: 3,
-                          '& .MuiLinearProgress-bar': {
-                            borderRadius: 5,
-                            backgroundColor: '#4caf50',
-                          }
-                        }}
-                      />
-                      
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
-                          Tasks In Progress
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
-                          {stats.inProgressTasks} / {stats.totalTasks}
-                        </Typography>
-                      </Box>
-                      <LinearProgress 
-                        variant="determinate"
-                        value={(stats.inProgressTasks / (stats.totalTasks || 1)) * 100}
-                        sx={{
-                          height: 10,
-                          borderRadius: 5,
-                          backgroundColor: '#f0f0f0',
-                          mb: 3,
-                          '& .MuiLinearProgress-bar': {
-                            borderRadius: 5,
-                            backgroundColor: '#2196f3',
-                          }
-                        }}
-                      />
-                      
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
-                          Tasks Pending
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#666' }}>
-                          {stats.upcomingTasks} / {stats.totalTasks}
-                        </Typography>
-                      </Box>
-                      <LinearProgress 
-                        variant="determinate"
-                        value={(stats.upcomingTasks / (stats.totalTasks || 1)) * 100}
-                        sx={{
-                          height: 10,
-                          borderRadius: 5,
-                          backgroundColor: '#f0f0f0',
-                          '& .MuiLinearProgress-bar': {
-                            borderRadius: 5,
-                            backgroundColor: '#ff9800',
-                          }
-                        }}
-                      />
-                    </Box>
-                  </Grid>
-                </Grid>
+                ) : (
+                  <Box sx={{ 
+                    textAlign: 'center', 
+                    py: 4,
+                    color: '#999'
+                  }}>
+                    <SpeedIcon sx={{ fontSize: 48, mb: 2 }} />
+                    <Typography variant="h6" sx={{ mb: 1 }}>
+                      No Team Data Available
+                    </Typography>
+                    <Typography variant="body2">
+                      You are not a member of any team yet.
+                    </Typography>
+                  </Box>
+                )}
               </StyledPaper>
             </Grid>
             
-            <Grid item xs={12} lg={4}>              {/* Team */}
+            <Grid item xs={12} lg={4}>              {/* Team Members by Teams */}
               <StyledPaper>
                 <SectionTitle>
                   <PeopleIcon sx={{ color: '#2196f3' }} />
@@ -661,20 +704,27 @@ const Dashboard = () => {
                 </SectionTitle>
                 
                 <Box>
-                  {teamMembers.length > 0 ? (
-                    teamMembers.map((member) => (
-                      <TeamMember key={member.id}>
-                        <MemberAvatar sx={{ bgcolor: `hsl(${member.id.length * 60}, 70%, 60%)` }}>
-                          {member.name ? member.name.charAt(0) : 'U'}
-                        </MemberAvatar>
-                        <MemberInfo>
-                          <MemberName>{member.name}</MemberName>
-                          <MemberRole>{member.role}</MemberRole>
-                        </MemberInfo>
-                        <IconButton size="small" sx={{ ml: 'auto' }}>
-                          <ArrowForwardIcon fontSize="small" />
-                        </IconButton>
-                      </TeamMember>
+                  {teamStats.length > 0 ? (
+                    teamStats.map((team, index) => (
+                      <Box key={team.teamId} sx={{ mb: index < teamStats.length - 1 ? 3 : 0 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#333', mb: 2 }}>
+                          {team.teamName}
+                        </Typography>
+                        {team.members.map((member) => (
+                          <TeamMember key={member.id}>
+                            <MemberAvatar sx={{ bgcolor: `hsl(${member.id.length * 60}, 70%, 60%)` }}>
+                              {member.name ? member.name.charAt(0) : 'U'}
+                            </MemberAvatar>
+                            <MemberInfo>
+                              <MemberName>{member.name}</MemberName>
+                              <MemberRole>{member.role}</MemberRole>
+                            </MemberInfo>
+                            <IconButton size="small" sx={{ ml: 'auto' }}>
+                              <ArrowForwardIcon fontSize="small" />
+                            </IconButton>
+                          </TeamMember>
+                        ))}
+                      </Box>
                     ))
                   ) : (
                     <Box sx={{ 

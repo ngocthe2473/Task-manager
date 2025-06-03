@@ -24,6 +24,7 @@ import {
   ListItemSecondaryAction,
   Tab,
   Tabs,
+  CircularProgress,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
@@ -31,13 +32,16 @@ import EditIcon from '@mui/icons-material/Edit';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EmailIcon from '@mui/icons-material/Email';
 import { getUsers, getTeams, getMyTeams } from '../services/apiService';
+import PeopleIcon from '@mui/icons-material/People';
 
 const Teams = () => {
   const [tabValue, setTabValue] = useState(0);
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [openInviteDialog, setOpenInviteDialog] = useState(false);
-  const [loading, setLoading] = useState(true);  useEffect(() => {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -73,6 +77,7 @@ const Teams = () => {
 
     fetchData();
   }, [tabValue]); // Add tabValue as dependency to refetch when tab changes
+
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
@@ -82,11 +87,11 @@ const Teams = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, alignItems: 'center' }}>
         <Typography variant="h4" gutterBottom component="div" sx={{ mb: 0 }}>
           Teams
-        </Typography>
-        <Button 
+        </Typography>        <Button 
           variant="contained" 
           color="primary" 
           startIcon={<AddIcon />}
+          onClick={() => alert('Team creation dialog would open here. Full implementation available in AdminDashboard.')}
         >
           Create Team
         </Button>
@@ -107,121 +112,151 @@ const Teams = () => {
       </Paper>
 
       {tabValue === 0 && (
-        <Grid container spacing={3}>
-          {teams.map((team) => (
-            <Grid item xs={12} md={6} key={team.id}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <Typography variant="h6" gutterBottom>
-                      {team.name}
-                    </Typography>
-                    <IconButton>
-                      <MoreVertIcon />
-                    </IconButton>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {team.description}
-                  </Typography>
-                  
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Team Lead:
-                  </Typography>
-                  {team.members.filter(member => member.id === team.leadId).map(lead => (
-                    <Box key={lead.id} sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <Avatar src={lead.avatar} sx={{ mr: 1 }} />
-                      <Typography>{lead.name}</Typography>
+        loading ? (
+          <Box sx={{ textAlign: 'center', py: 5, width: '100%' }}>
+            <CircularProgress />
+            <Typography variant="body2" sx={{ mt: 2 }}>Loading teams...</Typography>
+          </Box>
+        ) : teams.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 5, width: '100%' }}>
+            <PeopleIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+              No teams found
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              You are not a member of any team yet.
+            </Typography>
+          </Box>
+        ) : (
+          <Grid container spacing={3}>
+            {teams.map((team) => (
+              <Grid item xs={12} md={6} key={team.id}>
+                <Card>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Typography variant="h6" gutterBottom>
+                        {team.name}
+                      </Typography>
+                      <IconButton>
+                        <MoreVertIcon />
+                      </IconButton>
                     </Box>
-                  ))}
-                  
-                  <Divider sx={{ my: 2 }} />
-                  
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Members ({team.members.length}):
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {team.members.map(member => (
-                      <Chip
-                        key={member.id}
-                        avatar={<Avatar src={member.avatar} />}
-                        label={member.name}
-                        variant="outlined"
-                        sx={{ mb: 1 }}
-                      />
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      {team.description}
+                    </Typography>
+                    
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Team Lead:
+                    </Typography>
+                    {team.members.filter(member => member.id === team.leadId).map(lead => (
+                      <Box key={lead.id} sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <Avatar src={lead.avatar} sx={{ mr: 1 }} />
+                        <Typography>{lead.name}</Typography>
+                      </Box>
                     ))}
-                    <Chip
-                      icon={<PersonAddIcon />}
-                      label="Add Member"
-                      onClick={() => setOpenInviteDialog(true)}
-                      color="primary"
-                      variant="outlined"
-                    />
-                  </Box>
-                </CardContent>
-                <CardActions>
-                  <Button size="small" startIcon={<EditIcon />}>Edit Team</Button>
-                  <Button size="small" startIcon={<EmailIcon />}>Message All</Button>
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+                    
+                    <Divider sx={{ my: 2 }} />
+                    
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Members ({team.members.length}):
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {team.members.map(member => (
+                        <Chip
+                          key={member.id}
+                          avatar={<Avatar src={member.avatar} />}
+                          label={member.name}
+                          variant="outlined"
+                          sx={{ mb: 1 }}
+                        />
+                      ))}
+                      <Chip
+                        icon={<PersonAddIcon />}
+                        label="Add Member"
+                        onClick={() => setOpenInviteDialog(true)}
+                        color="primary"
+                        variant="outlined"
+                      />
+                    </Box>
+                  </CardContent>
+                  <CardActions>
+                    <Button size="small" startIcon={<EditIcon />}>Edit Team</Button>
+                    <Button size="small" startIcon={<EmailIcon />}>Message All</Button>
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        )
       )}
       
       {tabValue === 1 && (
-        <Paper sx={{ width: '100%', p: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">All Members</Typography>
-            <Button 
-              variant="outlined" 
-              startIcon={<PersonAddIcon />}
-              onClick={() => setOpenInviteDialog(true)}
-            >
-              Invite User
-            </Button>
+        loading ? (
+          <Box sx={{ textAlign: 'center', py: 5, width: '100%' }}>
+            <CircularProgress />
+            <Typography variant="body2" sx={{ mt: 2 }}>Loading members...</Typography>
           </Box>
-          
-          <List>
-            {users.map(user => (
-              <ListItem key={user.id} divider>
-                <ListItemAvatar>
-                  <Avatar src={user.avatar} />
-                </ListItemAvatar>
-                <ListItemText 
-                  primary={user.name} 
-                  secondary={user.email} 
-                />
-                <ListItemSecondaryAction>
-                  <Chip 
-                    label={user.id === '1' ? "Admin" : "Member"} 
-                    color={user.id === '1' ? "secondary" : "default"} 
-                    size="small" 
-                    sx={{ mr: 1 }}
+        ) : users.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 5, width: '100%' }}>
+            <PersonAddIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+              No members found
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              No users available in the system.
+            </Typography>
+          </Box>
+        ) : (
+          <Paper sx={{ width: '100%', p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">All Members</Typography>
+              <Button 
+                variant="outlined" 
+                startIcon={<PersonAddIcon />}
+                onClick={() => setOpenInviteDialog(true)}
+              >
+                Invite User
+              </Button>
+            </Box>
+            
+            <List>
+              {users.map(user => (
+                <ListItem key={user.id} divider>
+                  <ListItemAvatar>
+                    <Avatar src={user.avatar} />
+                  </ListItemAvatar>
+                  <ListItemText 
+                    primary={user.name} 
+                    secondary={user.email} 
                   />
-                  <IconButton edge="end">
-                    <MoreVertIcon />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-            ))}
-          </List>
-        </Paper>
+                  <ListItemSecondaryAction>
+                    <Chip 
+                      label={user.id === '1' ? "Admin" : "Member"} 
+                      color={user.id === '1' ? "secondary" : "default"} 
+                      size="small" 
+                      sx={{ mr: 1 }}
+                    />
+                    <IconButton edge="end">
+                      <MoreVertIcon />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              ))}
+            </List>
+          </Paper>
+        )
       )}
       
       {tabValue === 2 && (
-        <Paper sx={{ width: '100%', p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>No pending invites</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Invite new team members to collaborate on your projects
+        <Box sx={{ textAlign: 'center', py: 5, width: '100%' }}>
+          <EmailIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+            No pending invites
           </Typography>
-          <Button 
-            variant="contained" 
-            startIcon={<PersonAddIcon />}
-            onClick={() => setOpenInviteDialog(true)}
-          >
-            Invite User
-          </Button>
-        </Paper>
+          <Typography variant="body2" color="text.secondary">
+            You have no pending team invitations.
+          </Typography>
+        </Box>
       )}
       
       {/* Invite Dialog */}

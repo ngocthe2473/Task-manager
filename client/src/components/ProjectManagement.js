@@ -48,15 +48,9 @@ import {
   Search as SearchIcon,
   Clear as ClearIcon
 } from '@mui/icons-material';
+import { getProjects, addProject, updateProject, deleteProject, getTeams, getAllTasks, getUsers } from '../services/apiService';
 import { styled, keyframes } from '@mui/material/styles';
 import { format } from 'date-fns';
-import { 
-  getProjects, 
-  addProject, 
-  updateProject, 
-  deleteProject,
-  getUsers 
-} from '../services/apiService';
 
 // Animations
 const floatAnimation = keyframes`
@@ -587,74 +581,29 @@ const ProjectManagement = () => {
 
       <DialogContent sx={{ mt: 2, p: 3 }}>
         <Grid container spacing={3}>
-          <Grid xs={12}>
+          <Grid item xs={12} sm={6}>
             <TextField
-              name="name"
-              label="Project Name"
               fullWidth
+              label="Project Name *"
+              name="name"
               value={formData.name}
               onChange={handleInputChange}
               error={!!formErrors.name}
               helperText={formErrors.name}
-              required
-              variant="outlined"
-              sx={{ 
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '12px',
-                }
-              }}
             />
           </Grid>
-          
-          <Grid xs={12}>
+          <Grid item xs={12} sm={6}>
             <TextField
-              name="description"
-              label="Description"
               fullWidth
-              multiline
-              rows={4}
+              label="Description *"
+              name="description"
               value={formData.description}
               onChange={handleInputChange}
               error={!!formErrors.description}
               helperText={formErrors.description}
-              required
-              variant="outlined"
-              sx={{ 
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '12px',
-                }
-              }}
             />
           </Grid>
-
-          <Grid xs={12} sm={6}>
-            <FormControl fullWidth error={!!formErrors.team}>
-              <InputLabel>Team (Optional)</InputLabel>
-              <Select
-                name="team"
-                value={formData.team}
-                onChange={handleInputChange}
-                label="Team (Optional)"
-                sx={{ 
-                  borderRadius: '12px',
-                }}
-              >
-                <MenuItem value="">
-                  <em>No team assigned</em>
-                </MenuItem>
-                {teams.map((team) => (
-                  <MenuItem key={team._id} value={team._id}>
-                    {team.name || team.email}
-                  </MenuItem>
-                ))}
-              </Select>
-              {formErrors.team && (
-                <FormHelperText>{formErrors.team}</FormHelperText>
-              )}
-            </FormControl>
-          </Grid>
-
-          <Grid xs={12} sm={6}>
+          <Grid item xs={12} sm={6}>
             <FormControl fullWidth>
               <InputLabel>Status</InputLabel>
               <Select
@@ -662,9 +611,6 @@ const ProjectManagement = () => {
                 value={formData.status}
                 onChange={handleInputChange}
                 label="Status"
-                sx={{ 
-                  borderRadius: '12px',
-                }}
               >
                 <MenuItem value="planning">Planning</MenuItem>
                 <MenuItem value="in_progress">In Progress</MenuItem>
@@ -673,8 +619,7 @@ const ProjectManagement = () => {
               </Select>
             </FormControl>
           </Grid>
-
-          <Grid xs={12} sm={6}>
+          <Grid item xs={12} sm={6}>
             <FormControl fullWidth>
               <InputLabel>Priority</InputLabel>
               <Select
@@ -682,54 +627,37 @@ const ProjectManagement = () => {
                 value={formData.priority}
                 onChange={handleInputChange}
                 label="Priority"
-                sx={{ 
-                  borderRadius: '12px',
-                }}
               >
-                <MenuItem value="High">High Priority</MenuItem>
-                <MenuItem value="Medium">Medium Priority</MenuItem>
-                <MenuItem value="Low">Low Priority</MenuItem>
+                <MenuItem value="Low">Low</MenuItem>
+                <MenuItem value="Medium">Medium</MenuItem>
+                <MenuItem value="High">High</MenuItem>
               </Select>
             </FormControl>
           </Grid>
-
-          <Grid xs={12} sm={6}>
+          <Grid item xs={12} sm={6}>
             <TextField
-              name="startDate"
-              label="Start Date"
-              type="date"
               fullWidth
+              label="Start Date *"
+              name="startDate"
+              type="date"
               value={formData.startDate}
               onChange={handleInputChange}
+              InputLabelProps={{ shrink: true }}
               error={!!formErrors.startDate}
               helperText={formErrors.startDate}
-              InputLabelProps={{ shrink: true }}
-              required
-              sx={{ 
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '12px',
-                }
-              }}
             />
           </Grid>
-
-          <Grid xs={12} sm={6}>
+          <Grid item xs={12} sm={6}>
             <TextField
-              name="endDate"
-              label="End Date"
-              type="date"
               fullWidth
+              label="End Date *"
+              name="endDate"
+              type="date"
               value={formData.endDate}
               onChange={handleInputChange}
+              InputLabelProps={{ shrink: true }}
               error={!!formErrors.endDate}
               helperText={formErrors.endDate}
-              InputLabelProps={{ shrink: true }}
-              required
-              sx={{ 
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '12px',
-                }
-              }}
             />
           </Grid>
         </Grid>
@@ -953,9 +881,19 @@ const ProjectManagement = () => {
             <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
               {projects.length === 0 ? 'No projects found' : 'No projects match your filters'}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {projects.length === 0 ? 'Create your first project!' : 'Try adjusting your search or filters'}
             </Typography>
+            {projects.length === 0 && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => { resetForm(); setSelectedProject(null); setOpenDialog(true); }}
+                sx={{ borderRadius: '12px', fontWeight: 600 }}
+              >
+                Create Project
+              </Button>
+            )}
             {projects.length > 0 && (
               <Button
                 variant="outlined"

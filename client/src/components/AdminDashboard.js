@@ -43,6 +43,7 @@ import {
   Alarm as AlarmIcon,
   EventNote as EventIcon,
   Assessment as ReportIcon,
+  Assessment as AssessmentIcon,
   TrendingUp as TrendingUpIcon,
   Error as ErrorIcon,
   CheckCircle as CheckCircleIcon,
@@ -51,7 +52,7 @@ import {
 import { styled } from '@mui/material/styles';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
 import { PieChart, Pie, Cell, Legend } from 'recharts';
-import { getAllTasks, getUsers, getProjects } from '../services/apiService';
+import { getAllTasks, getUsers, getProjects, createUser, updateUser, deleteUser, addProject, updateProject, deleteProject } from '../services/apiService';
 
 // Modern minimalist styled components
 const DashboardContainer = styled(Box)(({ theme }) => ({
@@ -191,70 +192,7 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
   }
 }));
 
-// Mock data for charts
-const taskStatus = [
-  { name: 'Completed', value: 68, color: '#4caf50' },
-  { name: 'In Progress', value: 22, color: '#2196f3' },
-  { name: 'Pending', value: 10, color: '#ff9800' }
-];
-
-const teamPerformance = [
-  { name: 'Team A', completed: 45, inProgress: 15, pending: 5 },
-  { name: 'Team B', completed: 30, inProgress: 20, pending: 8 },
-  { name: 'Team C', completed: 55, inProgress: 10, pending: 3 },
-  { name: 'Team D', completed: 25, inProgress: 25, pending: 12 }
-];
-
-const recentUsers = [
-  { id: 1, name: 'John Doe', email: 'john@example.com', role: 'Admin', status: 'active', joined: '2024-05-15' },
-  { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'Admin', status: 'active', joined: '2024-05-12' },
-  { id: 3, name: 'Mike Johnson', email: 'mike@example.com', role: 'Developer', status: 'pending', joined: '2024-05-10' },
-  { id: 4, name: 'Sarah Wilson', email: 'sarah@example.com', role: 'Designer', status: 'inactive', joined: '2024-05-05' },
-  { id: 5, name: 'Alex Brown', email: 'alex@example.com', role: 'Developer', status: 'active', joined: '2024-04-28' }
-];
-
-const recentProjects = [
-  { 
-    id: 1, 
-    name: 'Website Redesign', 
-    status: 'inProgress', 
-    progress: 65, 
-    members: 4,
-    deadline: '2024-06-15'
-  },
-  { 
-    id: 2, 
-    name: 'Mobile App Development', 
-    status: 'inProgress', 
-    progress: 42, 
-    members: 6,
-    deadline: '2024-07-30'
-  },
-  { 
-    id: 3, 
-    name: 'Marketing Campaign', 
-    status: 'completed', 
-    progress: 100, 
-    members: 3,
-    deadline: '2024-05-20'
-  },
-  { 
-    id: 4, 
-    name: 'Database Migration', 
-    status: 'pending', 
-    progress: 10, 
-    members: 2,
-    deadline: '2024-08-01'
-  },
-  { 
-    id: 5, 
-    name: 'UI Component Library', 
-    status: 'inProgress', 
-    progress: 78, 
-    members: 5,
-    deadline: '2024-06-25'
-  }
-];
+// Mock data for charts removed - using real data from API
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState(0);
@@ -272,6 +210,76 @@ const AdminDashboard = () => {
     totalTasks: 0,
     completedTasks: 0
   });
+
+  // Generate chart data from real data
+  const getTaskStatusData = () => {
+    if (!tasks.length) return [];
+    
+    const statusCounts = tasks.reduce((acc, task) => {
+      const status = task.status;
+      if (status === 'done' || status === 'completed') {
+        acc.completed = (acc.completed || 0) + 1;
+      } else if (status === 'in-progress' || status === 'in_progress') {
+        acc.inProgress = (acc.inProgress || 0) + 1;
+      } else {
+        acc.pending = (acc.pending || 0) + 1;
+      }
+      return acc;
+    }, {});
+
+    return [
+      { name: 'Completed', value: statusCounts.completed || 0, color: '#4caf50' },
+      { name: 'In Progress', value: statusCounts.inProgress || 0, color: '#2196f3' },
+      { name: 'Pending', value: statusCounts.pending || 0, color: '#ff9800' }
+    ];
+  };
+
+  const getTeamPerformanceData = () => {
+    if (!tasks.length || !projects.length) return [];
+    
+    // Group tasks by project/team
+    const projectStats = projects.slice(0, 4).map(project => {
+      const projectTasks = tasks.filter(task => 
+        task.project?._id === project._id || 
+        task.project === project._id ||
+        task.projectId === project._id
+      );
+      const completed = projectTasks.filter(task => task.status === 'done' || task.status === 'completed').length;
+      const inProgress = projectTasks.filter(task => task.status === 'in-progress' || task.status === 'in_progress').length;
+      const pending = projectTasks.filter(task => !['done', 'completed', 'in-progress', 'in_progress'].includes(task.status)).length;
+      
+      return {
+        name: project.name || `Project ${project._id?.slice(-4)}`,
+        completed,
+        inProgress,
+        pending
+      };
+    });
+    
+    return projectStats;
+  };
+
+  const getRecentUsers = () => {
+    return users.slice(0, 5).map(user => ({
+      id: user._id,
+      name: user.name || user.username,
+      email: user.email,
+      role: user.role || 'User',
+      status: user.isActive !== false ? 'active' : 'inactive',
+      joined: new Date(user.createdAt || Date.now()).toLocaleDateString()
+    }));
+  };
+
+  const getRecentProjects = () => {
+    return projects.slice(0, 5).map(project => ({
+      id: project._id,
+      name: project.name,
+      status: project.status || 'pending',
+      progress: project.progress || 0,
+      members: project.team?.members?.length || 0,
+      deadline: project.endDate ? new Date(project.endDate).toLocaleDateString() : 'No deadline'
+    }));
+  };
 
   useEffect(() => {
     fetchDashboardData();
@@ -322,10 +330,89 @@ const AdminDashboard = () => {
     setSelectedProject(project);
     setProjectDialogOpen(true);
   };
-
   const handleCloseProjectDialog = () => {
     setProjectDialogOpen(false);
     setSelectedProject(null);
+  };
+
+  // User CRUD handlers
+  const handleSaveUser = async (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    const userData = {
+      name: formData.get('name'),
+      email: formData.get('email'),
+      role: formData.get('role'),
+      status: formData.get('status'),
+    };
+
+    if (!selectedUser) {
+      userData.password = formData.get('password');
+    }
+
+    try {
+      if (selectedUser) {
+        await updateUser(selectedUser._id, userData);
+      } else {
+        await createUser(userData);
+      }
+      handleCloseUserDialog();
+      fetchDashboardData(); // Refresh data
+    } catch (error) {
+      console.error('Error saving user:', error);
+      alert('Error saving user. Please try again.');
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      try {
+        await deleteUser(userId);
+        fetchDashboardData(); // Refresh data
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        alert('Error deleting user. Please try again.');
+      }
+    }
+  };
+
+  // Project CRUD handlers
+  const handleSaveProject = async (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    const projectData = {
+      name: formData.get('name'),
+      description: formData.get('description'),
+      status: formData.get('status'),
+      priority: formData.get('priority'),
+      startDate: formData.get('startDate'),
+      endDate: formData.get('endDate'),
+    };
+
+    try {
+      if (selectedProject) {
+        await updateProject(selectedProject._id, projectData);
+      } else {
+        await addProject(projectData);
+      }
+      handleCloseProjectDialog();
+      fetchDashboardData(); // Refresh data
+    } catch (error) {
+      console.error('Error saving project:', error);
+      alert('Error saving project. Please try again.');
+    }
+  };
+
+  const handleDeleteProject = async (projectId) => {
+    if (window.confirm('Are you sure you want to delete this project?')) {
+      try {
+        await deleteProject(projectId);
+        fetchDashboardData(); // Refresh data
+      } catch (error) {
+        console.error('Error deleting project:', error);
+        alert('Error deleting project. Please try again.');
+      }
+    }
   };
 
   // Function to format date to readable string
@@ -433,7 +520,7 @@ const AdminDashboard = () => {
                 <Box sx={{ height: 300 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={teamPerformance}
+                      data={getTeamPerformanceData()}
                       margin={{ top: 20, right: 20, left: 20, bottom: 20 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />
@@ -462,7 +549,7 @@ const AdminDashboard = () => {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={taskStatus}
+                        data={getTaskStatusData()}
                         cx="50%"
                         cy="50%"
                         innerRadius={60}
@@ -470,8 +557,7 @@ const AdminDashboard = () => {
                         paddingAngle={2}
                         dataKey="value"
                         label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {taskStatus.map((entry, index) => (
+                      >                        {getTaskStatusData().map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
@@ -516,7 +602,7 @@ const AdminDashboard = () => {
                       </TableRow>
                     </StyledTableHead>
                     <TableBody>
-                      {recentProjects.slice(0, 4).map((project) => (
+                      {getRecentProjects().slice(0, 4).map((project) => (
                         <TableRow key={project.id}>
                           <StyledTableCell>{project.name}</StyledTableCell>
                           <StyledTableCell>
@@ -606,7 +692,7 @@ const AdminDashboard = () => {
                       </TableRow>
                     </StyledTableHead>
                     <TableBody>
-                      {recentUsers.slice(0, 4).map((user) => (
+                      {getRecentUsers().slice(0, 4).map((user) => (
                         <TableRow key={user.id}>
                           <StyledTableCell>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -682,7 +768,7 @@ const AdminDashboard = () => {
                   </TableRow>
                 </StyledTableHead>
                 <TableBody>
-                  {recentUsers.map((user) => (
+                  {getRecentUsers().map((user) => (
                     <TableRow key={user.id}>
                       <StyledTableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -710,15 +796,14 @@ const AdminDashboard = () => {
                           size="small"
                         />
                       </StyledTableCell>
-                      <StyledTableCell>{formatDate(user.joined)}</StyledTableCell>
-                      <StyledTableCell align="right">
+                      <StyledTableCell>{formatDate(user.joined)}</StyledTableCell>                      <StyledTableCell align="right">
                         <Tooltip title="Edit">
                           <ActionButton size="small" onClick={() => handleOpenUserDialog(user)}>
                             <EditIcon fontSize="small" />
                           </ActionButton>
                         </Tooltip>
                         <Tooltip title="Delete">
-                          <ActionButton size="small">
+                          <ActionButton size="small" onClick={() => handleDeleteUser(user._id)}>
                             <DeleteIcon fontSize="small" />
                           </ActionButton>
                         </Tooltip>
@@ -729,86 +814,96 @@ const AdminDashboard = () => {
               </Table>
             </StyledTableContainer>
           </CardContent>
-        </StyledCard>
-
-        {/* User Dialog */}
+        </StyledCard>        {/* User Dialog */}
         <StyledDialog open={userDialogOpen} onClose={handleCloseUserDialog} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {selectedUser ? 'Edit User' : 'Add New User'}
-          </DialogTitle>
-          <DialogContent dividers>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <StyledTextField
-                  fullWidth
-                  label="Full Name"
-                  defaultValue={selectedUser?.name || ''}
-                />
+          <form onSubmit={handleSaveUser}>
+            <DialogTitle>
+              {selectedUser ? 'Edit User' : 'Add New User'}
+            </DialogTitle>
+            <DialogContent dividers>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <StyledTextField
+                    fullWidth
+                    label="Full Name"
+                    name="name"
+                    defaultValue={selectedUser?.name || ''}
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <StyledTextField
+                    fullWidth
+                    label="Email"
+                    name="email"
+                    type="email"
+                    defaultValue={selectedUser?.email || ''}
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Role</InputLabel>
+                    <Select
+                      name="role"
+                      defaultValue={selectedUser?.role || 'user'}
+                      label="Role"
+                      required
+                    >
+                      <MenuItem value="admin">Admin</MenuItem>
+                      <MenuItem value="user">User</MenuItem>
+                      <MenuItem value="manager">Manager</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Status</InputLabel>
+                    <Select
+                      name="status"
+                      defaultValue={selectedUser?.status || 'active'}
+                      label="Status"
+                      required
+                    >
+                      <MenuItem value="active">Active</MenuItem>
+                      <MenuItem value="pending">Pending</MenuItem>
+                      <MenuItem value="inactive">Inactive</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                {!selectedUser && (
+                  <>
+                    <Grid item xs={12} md={6}>
+                      <StyledTextField
+                        fullWidth
+                        type="password"
+                        label="Password"
+                        name="password"
+                        required
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <StyledTextField
+                        fullWidth
+                        type="password"
+                        label="Confirm Password"
+                        name="confirmPassword"
+                        required
+                      />
+                    </Grid>
+                  </>
+                )}
               </Grid>
-              <Grid item xs={12} md={6}>
-                <StyledTextField
-                  fullWidth
-                  label="Email"
-                  type="email"
-                  defaultValue={selectedUser?.email || ''}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Role</InputLabel>
-                  <Select
-                    defaultValue={selectedUser?.role || 'Developer'}
-                    label="Role"
-                  >
-                    <MenuItem value="Admin">Admin</MenuItem>
-                    <MenuItem value="Admin">Admin</MenuItem>
-                    <MenuItem value="Developer">Developer</MenuItem>
-                    <MenuItem value="Designer">Designer</MenuItem>
-                    <MenuItem value="Tester">Tester</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Status</InputLabel>
-                  <Select
-                    defaultValue={selectedUser?.status || 'active'}
-                    label="Status"
-                  >
-                    <MenuItem value="active">Active</MenuItem>
-                    <MenuItem value="pending">Pending</MenuItem>
-                    <MenuItem value="inactive">Inactive</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              {!selectedUser && (
-                <>
-                  <Grid item xs={12} md={6}>
-                    <StyledTextField
-                      fullWidth
-                      type="password"
-                      label="Password"
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <StyledTextField
-                      fullWidth
-                      type="password"
-                      label="Confirm Password"
-                    />
-                  </Grid>
-                </>
-              )}
-            </Grid>
-          </DialogContent>
-          <DialogActions sx={{ padding: '16px 24px' }}>
-            <Button onClick={handleCloseUserDialog} color="inherit">
-              Cancel
-            </Button>
-            <ModernButton variant="contained" color="primary">
-              {selectedUser ? 'Save Changes' : 'Add User'}
-            </ModernButton>
-          </DialogActions>
+            </DialogContent>
+            <DialogActions sx={{ padding: '16px 24px' }}>
+              <Button onClick={handleCloseUserDialog} color="inherit">
+                Cancel
+              </Button>
+              <ModernButton type="submit" variant="contained" color="primary">
+                {selectedUser ? 'Save Changes' : 'Add User'}
+              </ModernButton>
+            </DialogActions>
+          </form>
         </StyledDialog>
       </TabPanel>
 
@@ -842,9 +937,8 @@ const AdminDashboard = () => {
                     <StyledHeadCell>Deadline</StyledHeadCell>
                     <StyledHeadCell align="right">Actions</StyledHeadCell>
                   </TableRow>
-                </StyledTableHead>
-                <TableBody>
-                  {recentProjects.map((project) => (
+                </StyledTableHead>                <TableBody>
+                  {getRecentProjects().map((project) => (
                     <TableRow key={project.id}>
                       <StyledTableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -913,9 +1007,8 @@ const AdminDashboard = () => {
                           <ActionButton size="small" onClick={() => handleOpenProjectDialog(project)}>
                             <EditIcon fontSize="small" />
                           </ActionButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <ActionButton size="small">
+                        </Tooltip>                        <Tooltip title="Delete">
+                          <ActionButton size="small" onClick={() => handleDeleteProject(project._id)}>
                             <DeleteIcon fontSize="small" />
                           </ActionButton>
                         </Tooltip>
@@ -926,82 +1019,95 @@ const AdminDashboard = () => {
               </Table>
             </StyledTableContainer>
           </CardContent>
-        </StyledCard>
-
-        {/* Project Dialog */}
+        </StyledCard>        {/* Project Dialog */}
         <StyledDialog open={projectDialogOpen} onClose={handleCloseProjectDialog} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {selectedProject ? 'Edit Project' : 'Add New Project'}
-          </DialogTitle>
-          <DialogContent dividers>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <StyledTextField
-                  fullWidth
-                  label="Project Name"
-                  defaultValue={selectedProject?.name || ''}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Status</InputLabel>
-                  <Select
-                    defaultValue={selectedProject?.status || 'inProgress'}
-                    label="Status"
-                  >
-                    <MenuItem value="inProgress">In Progress</MenuItem>
-                    <MenuItem value="pending">Pending</MenuItem>
-                    <MenuItem value="completed">Completed</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <StyledTextField
-                  fullWidth
-                  label="Deadline"
-                  type="date"
-                  defaultValue={selectedProject?.deadline || '2024-06-30'}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Box sx={{ mb: 1 }}>
-                  <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                    Progress ({selectedProject?.progress || 0}%)
-                  </Typography>
-                  <LinearProgress
-                    variant="determinate"
-                    value={selectedProject?.progress || 0}
-                    sx={{ 
-                      height: 8, 
-                      borderRadius: 4,
-                      backgroundColor: '#f0f0f0',
-                      '& .MuiLinearProgress-bar': {
-                        backgroundColor: '#2196f3'
-                      }
-                    }}
+          <form onSubmit={handleSaveProject}>
+            <DialogTitle>
+              {selectedProject ? 'Edit Project' : 'Add New Project'}
+            </DialogTitle>
+            <DialogContent dividers>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <StyledTextField
+                    fullWidth
+                    label="Project Name"
+                    name="name"
+                    defaultValue={selectedProject?.name || ''}
+                    required
                   />
-                </Box>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Status</InputLabel>
+                    <Select
+                      name="status"
+                      defaultValue={selectedProject?.status || 'planning'}
+                      label="Status"
+                      required
+                    >
+                      <MenuItem value="planning">Planning</MenuItem>
+                      <MenuItem value="in_progress">In Progress</MenuItem>
+                      <MenuItem value="completed">Completed</MenuItem>
+                      <MenuItem value="on_hold">On Hold</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Priority</InputLabel>
+                    <Select
+                      name="priority"
+                      defaultValue={selectedProject?.priority || 'medium'}
+                      label="Priority"
+                      required
+                    >
+                      <MenuItem value="low">Low</MenuItem>
+                      <MenuItem value="medium">Medium</MenuItem>
+                      <MenuItem value="high">High</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <StyledTextField
+                    fullWidth
+                    label="Start Date"
+                    name="startDate"
+                    type="date"
+                    defaultValue={selectedProject?.startDate ? selectedProject.startDate.split('T')[0] : ''}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <StyledTextField
+                    fullWidth
+                    label="End Date"
+                    name="endDate"
+                    type="date"
+                    defaultValue={selectedProject?.endDate ? selectedProject.endDate.split('T')[0] : ''}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <StyledTextField
+                    fullWidth
+                    label="Project Description"
+                    name="description"
+                    multiline
+                    rows={3}
+                    defaultValue={selectedProject?.description || ''}
+                  />
+                </Grid>
               </Grid>
-              <Grid item xs={12}>
-                <StyledTextField
-                  fullWidth
-                  label="Project Description"
-                  multiline
-                  rows={3}
-                  defaultValue={selectedProject?.description || ''}
-                />
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions sx={{ padding: '16px 24px' }}>
-            <Button onClick={handleCloseProjectDialog} color="inherit">
-              Cancel
-            </Button>
-            <ModernButton variant="contained" color="primary">
-              {selectedProject ? 'Save Changes' : 'Create Project'}
-            </ModernButton>
-          </DialogActions>
+            </DialogContent>
+            <DialogActions sx={{ padding: '16px 24px' }}>
+              <Button onClick={handleCloseProjectDialog} color="inherit">
+                Cancel
+              </Button>
+              <ModernButton type="submit" variant="contained" color="primary">
+                {selectedProject ? 'Save Changes' : 'Create Project'}
+              </ModernButton>
+            </DialogActions>
+          </form>
         </StyledDialog>
       </TabPanel>
 

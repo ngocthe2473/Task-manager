@@ -47,11 +47,9 @@ exports.getNotifications = async (req, res) => {
     const unreadCount = await Notification.countDocuments({
       user: req.user.id,
       isRead: false
-    });
-
-    res.json({
+    });    res.json({
       success: true,
-      notifications,
+      data: notifications,
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / limit),

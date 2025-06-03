@@ -17,6 +17,7 @@ import {
   Tooltip,
   Fade,
   Zoom,
+  Divider,
 } from '@mui/material';
 import {
   People as PeopleIcon,

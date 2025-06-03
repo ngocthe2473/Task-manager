@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { getUserProfile, updateUserProfile } from '../services/apiService';
 import {
   Box,
   Typography,

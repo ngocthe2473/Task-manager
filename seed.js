@@ -61,33 +61,33 @@ const importData = async () => {
     await Comment.deleteMany();
 
     console.log('Data cleared...'.red.inverse);    // Create users
-    const hashedPassword = await bcrypt.hash('123456', 10);
+    // Note: Don't hash password here - User model's pre-save middleware will do it
     
     const users = [
       {
         name: 'Admin User',
         email: 'admin@example.com',
-        password: hashedPassword,
+        password: '123456', // Will be hashed by User model pre-save middleware
         role: 'admin',
         avatar: 'https://ui-avatars.com/api/?name=Admin+User&background=random'
       },
       {
         name: 'John Doe',
         email: 'john@example.com',
-        password: hashedPassword,
+        password: '123456', // Will be hashed by User model pre-save middleware
         role: 'user',
         avatar: 'https://ui-avatars.com/api/?name=John+Doe&background=random'
       },
       {
         name: 'Jane Smith',
         email: 'jane@example.com',
-        password: hashedPassword,
+        password: '123456', // Will be hashed by User model pre-save middleware
         role: 'user',
         avatar: 'https://ui-avatars.com/api/?name=Jane+Smith&background=random'
       }
     ];
 
-    const createdUsers = await User.insertMany(users);
+    const createdUsers = await User.create(users);
     console.log('Users created...'.green.inverse);
 
     // Create projects

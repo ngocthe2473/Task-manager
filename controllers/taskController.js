@@ -384,29 +384,62 @@ exports.getTasksByProject = async (req, res) => {
 // @access  Private
 exports.getMyTasks = async (req, res) => {
   try {
-    const { status, priority } = req.query;
+    const {
+      page = 1,
+      limit = 50,
+      status,
+      priority,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
 
+    // Build filter for user's tasks (assigned to user or created by user)
     const filter = {
       $or: [
         { assignee: req.user.id },
         { creator: req.user.id }
       ]
     };
-
+    
     if (status) filter.status = status;
-    if (priority) filter.priority = priority;    const tasks = await Task.find(filter)
+    if (priority) filter.priority = priority;
+    
+    // Add search functionality
+    if (search) {
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { title: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } }
+        ]
+      });
+    }
+
+    const tasks = await Task.find(filter)
       .populate('assignee', 'name email')
       .populate('creator', 'name email')
       .populate('project', 'name description')
-      .sort({ createdAt: -1 });
+      .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .exec();
+
+    const total = await Task.countDocuments(filter);
 
     res.status(200).json({
       success: true,
       count: tasks.length,
+      total,
+      pagination: {
+        page: parseInt(page),
+        pages: Math.ceil(total / limit),
+        limit: parseInt(limit)
+      },
       data: tasks
     });
   } catch (error) {
-    console.error('Error getting my tasks:', error);
+    console.error('Error getting user tasks:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -20,9 +20,11 @@ import {
   Message as MessageIcon,
   Add as AddIcon,
   Settings as SettingsIcon,
-  Logout as LogoutIcon
+  Logout as LogoutIcon,
+  Person as PersonIcon
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
+import { useNavigate } from 'react-router-dom';
 
 // Modern minimalist styled components
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
@@ -149,34 +151,35 @@ const ModernIconButton = styled(IconButton)(({ theme }) => ({
   },
 }));
 
-const Navbar = ({ onMenuToggle }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+const Navbar = () => {
+  const [user, setUser] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
-  const { userInfo, logout: authLogout } = useContext(AuthContext);
+  const navigate = useNavigate();
 
-  const handleUserMenuOpen = (event) => {
+  useEffect(() => {
+    const userInfo = localStorage.getItem('userInfo');
+    if (userInfo) {
+      setUser(JSON.parse(userInfo).user);
+    }
+  }, []);
+
+  const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
   };
 
-  const handleUserMenuClose = () => {
+  const handleMenuClose = () => {
     setAnchorEl(null);
   };
+
   const handleLogout = () => {
-    handleUserMenuClose();
-    authLogout();
+    localStorage.removeItem('userInfo');
+    navigate('/login');
   };
 
   return (
     <StyledAppBar position="fixed">
       <StyledToolbar>
         <LeftSection>
-          <MenuButton
-            color="inherit"
-            aria-label="menu"
-            onClick={onMenuToggle}
-          >
-            <MenuIcon />
-          </MenuButton>
           <Logo variant="h6">
             TaskFlow Pro
           </Logo>
@@ -187,20 +190,11 @@ const Navbar = ({ onMenuToggle }) => {
             <SearchIcon sx={{ color: '#999' }} />
             <SearchInput
               placeholder="Search tasks, projects..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </SearchContainer>
         </CenterSection>
 
         <RightSection>
-          <NewTaskButton
-            startIcon={<AddIcon />}
-            variant="contained"
-          >
-            New Task
-          </NewTaskButton>
-
           <ModernIconButton>
             <Badge badgeContent={3} color="error">
               <NotificationsIcon />
@@ -211,45 +205,37 @@ const Navbar = ({ onMenuToggle }) => {
             <MessageIcon />
           </ModernIconButton>
 
-          <UserSection onClick={handleUserMenuOpen}>
-            <Avatar              sx={{
-                width: 36,
-                height: 36,
-                background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
-              }}            >
-              {(userInfo?.user?.name || userInfo?.name || 'U').charAt(0).toUpperCase()}
-            </Avatar><UserInfo>
-              <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
-                {userInfo?.user?.name || userInfo?.name || 'User'}
+          {user && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body1">
+                {user.name}
               </Typography>
-              <Typography variant="caption" sx={{ color: '#666', textTransform: 'capitalize' }}>
-                {userInfo?.user?.role || userInfo?.role || 'user'}
-              </Typography>
-            </UserInfo>
-          </UserSection>
-
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleUserMenuClose}
-            PaperProps={{
-              sx: {
-                mt: 1,
-                borderRadius: '12px',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-                minWidth: '200px',
-              },
-            }}
-          >
-            <MenuItem onClick={handleUserMenuClose}>
-              <SettingsIcon sx={{ mr: 2, color: '#666' }} />
-              Settings
-            </MenuItem>
-            <MenuItem onClick={handleLogout}>
-              <LogoutIcon sx={{ mr: 2, color: '#666' }} />
-              Logout
-            </MenuItem>
-          </Menu>
+              <IconButton
+                onClick={handleMenuOpen}
+                size="small"
+                sx={{ ml: 2 }}
+              >
+                <Avatar sx={{ width: 32, height: 32 }}>
+                  {user.name.charAt(0)}
+                </Avatar>
+              </IconButton>
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+              >
+                <MenuItem onClick={() => {
+                  handleMenuClose();
+                  navigate('/profile');
+                }}>
+                  Profile
+                </MenuItem>
+                <MenuItem onClick={handleLogout}>
+                  Logout
+                </MenuItem>
+              </Menu>
+            </Box>
+          )}
         </RightSection>
       </StyledToolbar>
     </StyledAppBar>

@@ -86,7 +86,7 @@ app.use('/api/subtasks', subTaskRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/timelogs', timeLogRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/activitylogs', activityLogRoutes);
+app.use('/api/activity-logs', activityLogRoutes);
 app.use('/api/attachments', attachmentRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/search', searchRoutes);

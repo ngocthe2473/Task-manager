@@ -10,6 +10,12 @@ import Teams from './components/Teams';
 import Settings from './components/Settings';
 import TaskDetail from './components/TaskDetail';
 import ProjectManagement from './components/ProjectManagement';
+import AdminDashboard from './components/AdminDashboard';
+import Profile from './components/Profile';
+import Reports from './components/Reports';
+import ActivityLog from './components/ActivityLog';
+import TeamManagement from './components/TeamManagement';
+import AddTaskDialog from './components/AddTaskDialog';
 import Login from './components/Login';
 import Register from './components/Register';
 import { AuthProvider } from './context/AuthContext';
@@ -20,10 +26,21 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 const App = () => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [addTaskOpen, setAddTaskOpen] = useState(false);
 
   const handleTaskClick = (task) => {
     setSelectedTask(task);
     setDetailOpen(true);
+  };
+
+  const handleNewTask = () => {
+    setAddTaskOpen(true);
+  };
+
+  const handleTaskSave = (newTask) => {
+    // Refresh data or handle the new task
+    console.log('New task created:', newTask);
+    // You might want to emit an event or callback to refresh data
   };
 
   return (
@@ -37,11 +54,10 @@ const App = () => {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
 
-              {/* Private Routes */}
-              <Route path="/" element={
+              {/* Private Routes */}              <Route path="/" element={
                 <PrivateRoute>
                   <>
-                    <Navbar />
+                    <Navbar onNewTask={handleNewTask} />
                     <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
                       <Sidebar />
                       <Box
@@ -58,12 +74,10 @@ const App = () => {
                     </Box>
                   </>
                 </PrivateRoute>
-              } />
-
-              <Route path="/tasks" element={
+              } />              <Route path="/tasks" element={
                 <PrivateRoute>
                   <>
-                    <Navbar />
+                    <Navbar onNewTask={handleNewTask} />
                     <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
                       <Sidebar />
                       <Box
@@ -144,9 +158,7 @@ const App = () => {
                     </Box>
                   </>
                 </PrivateRoute>
-              } />
-
-              <Route path="/projects" element={
+              } />              <Route path="/projects" element={
                 <PrivateRoute>
                   <>
                     <Navbar />
@@ -167,15 +179,129 @@ const App = () => {
                   </>
                 </PrivateRoute>
               } />
-            </Routes>
 
-            {selectedTask && (
+              <Route path="/admin" element={
+                <PrivateRoute>
+                  <>
+                    <Navbar />
+                    <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
+                      <Sidebar />
+                      <Box
+                        component="main"
+                        sx={{
+                          flexGrow: 1,
+                          p: 0,
+                          overflowY: 'auto',
+                          backgroundColor: '#f7f8fa'
+                        }}
+                      >
+                        <AdminDashboard />
+                      </Box>
+                    </Box>
+                  </>
+                </PrivateRoute>
+              } />
+
+              <Route path="/profile" element={
+                <PrivateRoute>
+                  <>
+                    <Navbar />
+                    <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
+                      <Sidebar />
+                      <Box
+                        component="main"
+                        sx={{
+                          flexGrow: 1,
+                          p: 0,
+                          overflowY: 'auto',
+                          backgroundColor: '#f7f8fa'
+                        }}
+                      >
+                        <Profile />
+                      </Box>
+                    </Box>
+                  </>
+                </PrivateRoute>
+              } />
+
+              <Route path="/reports" element={
+                <PrivateRoute>
+                  <>
+                    <Navbar />
+                    <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
+                      <Sidebar />
+                      <Box
+                        component="main"
+                        sx={{
+                          flexGrow: 1,
+                          p: 0,
+                          overflowY: 'auto',
+                          backgroundColor: '#f7f8fa'
+                        }}
+                      >
+                        <Reports />
+                      </Box>
+                    </Box>
+                  </>
+                </PrivateRoute>
+              } />
+
+              <Route path="/activity" element={
+                <PrivateRoute>
+                  <>
+                    <Navbar />
+                    <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
+                      <Sidebar />
+                      <Box
+                        component="main"
+                        sx={{
+                          flexGrow: 1,
+                          p: 0,
+                          overflowY: 'auto',
+                          backgroundColor: '#f7f8fa'
+                        }}
+                      >
+                        <ActivityLog />
+                      </Box>
+                    </Box>
+                  </>
+                </PrivateRoute>
+              } />
+
+              <Route path="/team-management" element={
+                <PrivateRoute>
+                  <>
+                    <Navbar />
+                    <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
+                      <Sidebar />
+                      <Box
+                        component="main"
+                        sx={{
+                          flexGrow: 1,
+                          p: 0,
+                          overflowY: 'auto',
+                          backgroundColor: '#f7f8fa'
+                        }}
+                      >
+                        <TeamManagement />
+                      </Box>
+                    </Box>
+                  </>
+                </PrivateRoute>
+              } />
+            </Routes>            {selectedTask && (
               <TaskDetail
                 open={detailOpen}
                 onClose={() => setDetailOpen(false)}
                 task={selectedTask}
               />
             )}
+
+            <AddTaskDialog
+              open={addTaskOpen}
+              onClose={() => setAddTaskOpen(false)}
+              onSave={handleTaskSave}
+            />
           </Box>
         </Router>
       </LocalizationProvider>

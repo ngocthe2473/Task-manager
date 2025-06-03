@@ -14,7 +14,8 @@ import {
   IconButton,
   Tooltip,
   Paper,
-  Button
+  Button,
+  CircularProgress
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -28,8 +29,9 @@ import {
 import { styled } from '@mui/material/styles';
 import { format } from 'date-fns';
 import EditTaskDialog from './EditTaskDialog';
-import { getAllTasks, addTask, updateTask, deleteTask } from '../services/apiService';
+import { getAllTasks, addTask, updateTask, deleteTask, getMyTasks } from '../services/apiService';
 import { getSubTasksByTaskId } from '../services/subtaskService';
+import { useNavigate } from 'react-router-dom';
 
 // Modern minimalist styled components
 const BoardContainer = styled(Box)(({ theme }) => ({
@@ -102,7 +104,6 @@ const TaskCard = styled(Card)(({ theme }) => ({
   borderRadius: '12px',
   border: '1px solid #e0e0e0',
   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
-  cursor: 'pointer',
   transition: 'all 0.2s ease',
   '&:hover': {
     transform: 'translateY(-2px)',
@@ -221,98 +222,63 @@ const StyledFab = styled(Fab)(({ theme }) => ({
 
 const TaskBoard = ({ onTaskClick }) => {
   const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
+  const navigate = useNavigate();
 
-  // Mock data
-  const mockTasks = [
-    {
-      id: 1,
-      title: 'Design System Update',
-      description: 'Update the design system components to match new brand guidelines',
-      status: 'todo',
-      priority: 'high',
-      assignee: { id: 1, name: 'John Doe', avatar: null },
-      project: { id: 1, name: 'Web Redesign', color: '#2196f3' },
-      dueDate: new Date('2024-01-20'),
-      progress: 0,
-      createdAt: '2024-01-15T10:00:00Z'
-    },
-    {
-      id: 2,
-      title: 'API Integration',
-      description: 'Integrate payment gateway API with the checkout process',
-      status: 'in-progress',
-      priority: 'urgent',
-      assignee: { id: 2, name: 'Jane Smith', avatar: null },
-      project: { id: 2, name: 'Mobile App', color: '#4caf50' },
-      dueDate: new Date('2024-01-18'),
-      progress: 65,
-      createdAt: '2024-01-14T14:30:00Z'
-    },
-    {
-      id: 3,
-      title: 'User Testing',
-      description: 'Conduct user testing sessions for the new dashboard interface',
-      status: 'review',
-      priority: 'medium',
-      assignee: { id: 3, name: 'Mike Johnson', avatar: null },
-      project: { id: 1, name: 'Web Redesign', color: '#2196f3' },
-      dueDate: new Date('2024-01-25'),
-      progress: 90,
-      createdAt: '2024-01-12T09:15:00Z'
-    },
-    {
-      id: 4,
-      title: 'Documentation',
-      description: 'Complete API documentation for the new endpoints',
-      status: 'done',
-      priority: 'low',
-      assignee: { id: 4, name: 'Sarah Wilson', avatar: null },
-      project: { id: 3, name: 'Marketing Campaign', color: '#ff9800' },
-      dueDate: new Date('2024-01-16'),
-      progress: 100,
-      createdAt: '2024-01-10T16:45:00Z'
-    }
+  // Define columns array
+  const columns = [
+    { id: 'todo', title: 'To Do', color: '#2196f3' },
+    { id: 'in-progress', title: 'In Progress', color: '#ff9800' },
+    { id: 'review', title: 'Review', color: '#9c27b0' },
+    { id: 'done', title: 'Done', color: '#4caf50' }
   ];
 
-  const columns = [
-    { id: 'todo', title: 'To Do', color: '#666' },
-    { id: 'in-progress', title: 'In Progress', color: '#2196f3' },
-    { id: 'review', title: 'In Review', color: '#ff9800' },
-    { id: 'done', title: 'Done', color: '#4caf50' }
-  ];  useEffect(() => {
-    // Fetch tasks from API
+  // Get user info from localStorage
+  const getUserInfo = () => {
+    try {
+      const userInfo = localStorage.getItem('userInfo');
+      if (userInfo) {
+        const userData = JSON.parse(userInfo);
+        return userData.user || { _id: null };
+      }
+    } catch (error) {
+      console.error('Error parsing user info:', error);
+    }
+    return { _id: null };
+  };
+
+  const currentUser = getUserInfo();
+
+  useEffect(() => {
     const fetchTasks = async () => {
       try {
-        const response = await getAllTasks();
-        console.log('TaskBoard - API response:', response); // Debug log
-        
-        // Handle different API response formats
-        const tasksData = response?.data || response || [];
-        console.log('TaskBoard - Processed tasks:', tasksData); // Debug log
-        
-        // Ensure we have an array
-        if (Array.isArray(tasksData)) {
-          setTasks(tasksData);
-        } else {
-          console.error('Tasks data is not an array:', tasksData);
-          setTasks([]);
-        }
-      } catch (error) {
-        console.error('Error fetching tasks:', error);
-        setTasks([]); // Set empty array on error
-        setSnackbar({
-          open: true,
-          message: 'Error loading tasks. Please try again.',
-          severity: 'error'
-        });
+        const response = await getMyTasks();
+        // Filter tasks to only include those assigned to or created by the user
+        const filteredTasks = response.filter(task => 
+          task.assignee?._id === currentUser._id || 
+          task.creator?._id === currentUser._id ||
+          task.assignee === currentUser._id ||
+          task.creator === currentUser._id
+        );
+        setTasks(filteredTasks);
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to fetch tasks');
+        setLoading(false);
       }
     };
-    
+
     fetchTasks();
   }, []);
+
   const handleTaskSave = async (taskData) => {
     try {
       if (selectedTask) {
@@ -361,11 +327,11 @@ const TaskBoard = ({ onTaskClick }) => {
       onTaskClick(task);
     }
   };
-  const handleTaskDelete = async (taskId) => {
+
+  const handleTaskDelete = async (task) => {
     try {
-      await deleteTask(taskId);
-      setTasks(prevTasks => prevTasks.filter(task => task._id !== taskId));
-      
+      await deleteTask(task._id);
+      setTasks(tasks.filter(t => t._id !== task._id));
       setSnackbar({
         open: true,
         message: 'Task deleted successfully!',
@@ -398,96 +364,173 @@ const TaskBoard = ({ onTaskClick }) => {
   const isOverdue = (dueDate) => {
     return dueDate && new Date(dueDate) < new Date();
   };
-  const renderTask = (task) => (
-    <TaskCard key={task._id} onClick={() => handleTaskEdit(task)}>
-      <TaskCardContent>
-        <TaskTitle>{task.title}</TaskTitle>
-        <TaskDescription>{task.description || 'No description'}</TaskDescription>
-        
-        <TaskMeta>
-          <PriorityChip
-            priority={task.priority?.toLowerCase()}
-            label={task.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1).toLowerCase() : 'Medium'}
-            size="small"
-          />
-          {task.project && (
-            <Chip
-              label={typeof task.project === 'object' ? task.project.name : 'Project'}
-              size="small"
-              sx={{
-                backgroundColor: (typeof task.project === 'object' && task.project.color) 
-                  ? task.project.color + '20' 
-                  : '#2196f320',
-                color: (typeof task.project === 'object' && task.project.color) 
-                  ? task.project.color 
-                  : '#2196f3',
-                fontSize: '11px',
-                height: '20px',
-                fontWeight: 500
-              }}
-            />
-          )}
-        </TaskMeta>
 
-        {task.status === 'in-progress' && (
-          <Box sx={{ mb: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="caption" color="textSecondary">
-                Progress
-              </Typography>
-              <Typography variant="caption" color="textSecondary">
-                {task.progress || 0}%
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={task.progress || 0}
-              sx={{
-                height: 4,
-                borderRadius: 2,
-                backgroundColor: '#f0f0f0',
-                '& .MuiLinearProgress-bar': {
-                  backgroundColor: '#2196f3',
-                },
-              }}
-            />
-          </Box>
-        )}        <TaskFooter>
-          <AssigneeSection>
-            {task.assignee && (
-              <>
-                <Avatar
-                  sx={{
-                    width: 24,
-                    height: 24,
-                    fontSize: '12px',
-                    backgroundColor: '#2196f3'
+  const renderTask = (task) => {
+    const canEdit = currentUser._id === task.creator?._id || currentUser._id === task.creator;
+    const canDelete = currentUser._id === task.creator?._id || currentUser._id === task.creator;
+    const canComment = true; // Anyone can comment on tasks
+
+    return (
+      <TaskCard
+        key={task._id}
+        task={task}
+        onClick={() => onTaskClick(task)}
+        onEdit={canEdit ? () => handleTaskEdit(task) : undefined}
+        onDelete={canDelete ? () => handleTaskDelete(task) : undefined}
+        canEdit={canEdit}
+        canDelete={canDelete}
+        canComment={canComment}
+      >
+        <TaskCardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+            <TaskTitle onClick={(e) => {
+              e.stopPropagation();
+              handleTaskEdit(task);
+            }} sx={{ cursor: 'pointer', flex: 1 }}>
+              {task.title}
+            </TaskTitle>
+            <Box sx={{ display: 'flex', gap: 0.5, ml: 1 }}>
+              <Tooltip title="Edit Task">
+                <IconButton 
+                  size="small" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleTaskEdit(task);
+                  }}
+                  disabled={!canEdit}
+                  sx={{ 
+                    width: 28, 
+                    height: 28,
+                    color: canEdit ? '#2196f3' : '#ccc'
                   }}
                 >
-                  {typeof task.assignee === 'object' && task.assignee.name 
-                    ? task.assignee.name.charAt(0) 
-                    : 'U'}
-                </Avatar>
-                <Typography variant="caption" color="textSecondary">
-                  {typeof task.assignee === 'object' && task.assignee.name 
-                    ? task.assignee.name 
-                    : 'Unassigned'}
-                </Typography>
-              </>
-            )}
-          </AssigneeSection>
-            {task.dueDate && (
-            <DueDateChip
-              icon={<CalendarIcon />}
-              label={format(new Date(task.dueDate), 'MMM dd')}
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Delete Task">
+                <IconButton 
+                  size="small" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm('Are you sure you want to delete this task?')) {
+                      handleTaskDelete(task);
+                    }
+                  }}
+                  disabled={!canDelete}
+                  sx={{ 
+                    width: 28, 
+                    height: 28,
+                    color: canDelete ? '#f44336' : '#ccc'
+                  }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+          
+          <TaskDescription onClick={(e) => {
+            e.stopPropagation();
+            handleTaskEdit(task);
+          }} sx={{ cursor: 'pointer' }}>
+            {task.description || 'No description'}
+          </TaskDescription>
+          
+          <TaskMeta>
+            <PriorityChip
+              priority={task.priority?.toLowerCase()}
+              label={task.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1).toLowerCase() : 'Medium'}
               size="small"
-              overdue={isOverdue(task.dueDate) ? 1 : 0}
             />
+            {task.project && (
+              <Chip
+                label={typeof task.project === 'object' ? task.project.name : 'Project'}
+                size="small"
+                sx={{
+                  backgroundColor: (typeof task.project === 'object' && task.project.color) 
+                    ? task.project.color + '20' 
+                    : '#2196f320',
+                  color: (typeof task.project === 'object' && task.project.color) 
+                    ? task.project.color 
+                    : '#2196f3',
+                  fontSize: '11px',
+                  height: '20px',
+                  fontWeight: 500
+                }}
+              />
+            )}
+          </TaskMeta>
+
+          {task.status === 'in-progress' && (
+            <Box sx={{ mb: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="caption" color="textSecondary">
+                  Progress
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  {task.progress || 0}%
+                </Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={task.progress || 0}
+                sx={{
+                  height: 4,
+                  borderRadius: 2,
+                  backgroundColor: '#f0f0f0',
+                  '& .MuiLinearProgress-bar': {
+                    backgroundColor: '#2196f3',
+                  },
+                }}
+              />
+            </Box>
           )}
-        </TaskFooter>
-      </TaskCardContent>
-    </TaskCard>
-  );
+
+          <TaskFooter>
+            <AssigneeSection>
+              {task.assignee && (
+                <>
+                  <Avatar
+                    sx={{
+                      width: 24,
+                      height: 24,
+                      fontSize: '12px',
+                      backgroundColor: '#2196f3'
+                    }}
+                  >
+                    {typeof task.assignee === 'object' && task.assignee.name 
+                      ? task.assignee.name.charAt(0) 
+                      : 'U'}
+                  </Avatar>
+                  <Typography variant="caption" color="textSecondary">
+                    {typeof task.assignee === 'object' && task.assignee.name 
+                      ? task.assignee.name 
+                      : 'Unassigned'}
+                  </Typography>
+                </>
+              )}
+            </AssigneeSection>
+            {task.dueDate && (
+              <DueDateChip
+                icon={<CalendarIcon />}
+                label={format(new Date(task.dueDate), 'MMM dd')}
+                size="small"
+                overdue={isOverdue(task.dueDate) ? 1 : 0}
+              />
+            )}
+          </TaskFooter>
+        </TaskCardContent>
+      </TaskCard>
+    );
+  };
+
+  if (loading) {
+    return <CircularProgress />;
+  }
+
+  if (error) {
+    return <Typography color="error">{error}</Typography>;
+  }
 
   return (
     <BoardContainer>

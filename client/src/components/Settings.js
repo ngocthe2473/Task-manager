@@ -22,6 +22,7 @@ import {
   CircularProgress
 } from '@mui/material';
 import { AuthContext } from '../context/AuthContext';
+import { getUserProfile, updateUserProfile } from '../services/apiService';
 import {
   Person as PersonIcon,
   Security as SecurityIcon,

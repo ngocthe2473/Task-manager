@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Drawer,
   List,
@@ -27,10 +27,14 @@ import {
   Add as AddIcon,
   CheckCircle as CompletedIcon,
   Schedule as PendingIcon,
-  ErrorOutline as OverdueIcon
+  ErrorOutline as OverdueIcon,
+  AdminPanelSettings as AdminIcon,
+  SupervisorAccount as AdminDashboardIcon,
+  Person as ProfileIcon
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
 import { getAllTasks, getProjects } from '../services/apiService';
 
 const drawerWidth = 280;
@@ -171,6 +175,7 @@ const AddProjectButton = styled(Box)(({ theme }) => ({
 const Sidebar = ({ open = true, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { userInfo } = useContext(AuthContext);
   const [projectsExpanded, setProjectsExpanded] = useState(true);
   const [stats, setStats] = useState({
     total: 0,
@@ -248,17 +253,25 @@ const Sidebar = ({ open = true, onClose }) => {
     const colors = ['#2196f3', '#4caf50', '#ff9800', '#f44336', '#9c27b0', '#00bcd4'];
     const index = projectId ? projectId.length % colors.length : 0;
     return colors[index];
-  };
-
-  const menuItems = [
+  };  const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'Tasks', icon: <TasksIcon />, path: '/tasks' },
     { text: 'Calendar', icon: <CalendarIcon />, path: '/calendar' },
     { text: 'Teams', icon: <TeamIcon />, path: '/teams' },
     { text: 'Projects', icon: <ProjectIcon />, path: '/projects' },
     { text: 'Reports', icon: <ReportsIcon />, path: '/reports' },
+    { text: 'Activity Log', icon: <TimelineIcon />, path: '/activity' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' }
   ];
+
+  const adminMenuItems = [
+    { text: 'Admin Dashboard', icon: <AdminDashboardIcon />, path: '/admin' },
+    { text: 'Team Management', icon: <AdminIcon />, path: '/team-management' },
+    { text: 'User Profile', icon: <ProfileIcon />, path: '/profile' }
+  ];
+
+  // Check if user is admin
+  const isAdmin = userInfo?.role === 'admin' || userInfo?.isAdmin;
 
   const handleNavigation = (path) => {
     navigate(path);
@@ -286,9 +299,30 @@ const Sidebar = ({ open = true, onClose }) => {
                 <ListItemIcon>{item.icon}</ListItemIcon>
                 <ListItemText primary={item.text} />
               </StyledListItem>
-            ))}
-          </List>
+            ))}          </List>
         </Box>
+
+        {/* Admin Menu - only show for admin users */}
+        {isAdmin && (
+          <>
+            <Divider sx={{ margin: '16px 0' }} />
+            <Box>
+              <SectionTitle>Administration</SectionTitle>
+              <List>
+                {adminMenuItems.map((item) => (
+                  <StyledListItem
+                    key={item.text}
+                    $active={isActive(item.path)}
+                    onClick={() => handleNavigation(item.path)}
+                  >
+                    <ListItemIcon>{item.icon}</ListItemIcon>
+                    <ListItemText primary={item.text} />
+                  </StyledListItem>
+                ))}
+              </List>
+            </Box>
+          </>
+        )}
 
         <Divider sx={{ margin: '16px 0' }} />
 

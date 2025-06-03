@@ -101,11 +101,9 @@ exports.getActivityLogs = async (req, res) => {
       },
       { $sort: { activityCount: -1 } },
       { $limit: 10 }
-    ]);
-
-    res.json({
+    ]);    res.json({
       success: true,
-      logs,
+      data: logs,
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / limit),

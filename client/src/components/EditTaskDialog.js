@@ -44,15 +44,16 @@ import { styled } from '@mui/material/styles';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { getSubTasksByTaskId, addSubTask, updateSubTask, deleteSubTask } from '../services/subtaskService';
-import { getUsers, getProjects } from '../services/apiService';
+import { getSubTasks, addSubTask, updateSubTask, deleteSubTask, getUsers, getProjects, getMyTeamMembers, checkUserIsTeamLeader } from '../services/apiService';
+import { useContext } from 'react';
+import { AuthContext } from '../context/AuthContext';
 
 // Modern minimalist styled components
 const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiDialog-paper': {
     borderRadius: '16px',
-    maxWidth: '700px',
-    width: '100%',
+    maxWidth: '900px', // Increased from 700px to 900px
+    width: '95%', // Increased from 100% to 95% for better responsive design
     margin: '16px',
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
   },
@@ -185,6 +186,7 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
 }));
 
 const EditTaskDialog = ({ open, onClose, task, onSave }) => {
+  const { userInfo } = useContext(AuthContext);
   const isEditing = Boolean(task);
   const [formData, setFormData] = useState({
     title: '',
@@ -202,11 +204,11 @@ const EditTaskDialog = ({ open, onClose, task, onSave }) => {
     title: '', 
     completed: false,
     description: '' 
-  });
-  const [users, setUsers] = useState([]);
+  });  const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [isTeamLeader, setIsTeamLeader] = useState(false);
 
   // Mock data for when props are not provided
   const defaultUsers = [
@@ -278,24 +280,24 @@ const EditTaskDialog = ({ open, onClose, task, onSave }) => {
   const fetchSubtasks = async (taskId) => {
     setLoading(true);
     try {
-      const data = await getSubTasksByTaskId(taskId);
+      const data = await getSubTasks(taskId);
       setSubtasks(data);
     } catch (error) {
       console.error('Error fetching subtasks:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const fetchUsersAndProjects = async () => {
+  };  const fetchUsersAndProjects = async () => {
     setLoading(true);
     try {
-      const [usersData, projectsData] = await Promise.all([
-        getUsers(),
-        getProjects()
+      const [usersData, projectsData, leaderStatus] = await Promise.all([
+        getMyTeamMembers(), // Use team members instead of all users
+        getProjects(),
+        checkUserIsTeamLeader()
       ]);
       setUsers(usersData);
       setProjects(projectsData);
+      setIsTeamLeader(leaderStatus);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -673,87 +675,7 @@ const EditTaskDialog = ({ open, onClose, task, onSave }) => {
                       variant="outlined"
                     />
                   )}
-                </Box>
-              </TaskPreview>
-            </Grid>
-
-            {/* Subtasks Section */}
-            <Grid xs={12}>
-              <FormSection>
-                <SectionTitle>
-                  <CheckBoxOutlineBlankIcon sx={{ fontSize: 16 }} />
-                  Subtasks
-                </SectionTitle>
-
-                <Box sx={{ mb: 2 }}>
-                  <TextField
-                    fullWidth
-                    variant="outlined"
-                    placeholder="Enter subtask title..."
-                    value={newSubtask.title}
-                    onChange={(e) => setNewSubtask({ ...newSubtask, title: e.target.value })}
-                    sx={{ borderRadius: '8px', mb: 1 }}
-                  />
-                  <TextField
-                    fullWidth
-                    variant="outlined"
-                    placeholder="Enter subtask description..."
-                    value={newSubtask.description}
-                    onChange={(e) => setNewSubtask({ ...newSubtask, description: e.target.value })}
-                    sx={{ borderRadius: '8px', mb: 1 }}
-                  />
-                  <Button
-                    variant="contained"
-                    onClick={handleAddSubtask}
-                    disabled={!isSubtaskFormValid()}
-                    sx={{ borderRadius: '8px', backgroundColor: '#2196f3', color: '#fff' }}
-                  >
-                    Add Subtask
-                  </Button>
-                </Box>
-
-                {loading ? (
-                  <LinearProgress />
-                ) : (
-                  <List>
-                    {subtasks.map((subtask) => (
-                      <ListItem
-                        key={subtask._id}
-                        secondaryAction={
-                          <IconButton edge="end" onClick={() => handleDeleteSubtask(subtask._id)}>
-                            <DeleteIcon />
-                          </IconButton>
-                        }
-                        disablePadding
-                      >
-                        <ListItemButton>
-                          <ListItemIcon>
-                            <Checkbox
-                              edge="start"
-                              checked={subtask.completed}
-                              onChange={(e) => handleToggleSubtask(subtask)}
-                              icon={<CheckBoxOutlineBlankIcon />}
-                              checkedIcon={<CheckBoxIcon />}
-                            />
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={
-                              <Typography variant="body2" sx={{ fontWeight: 500, color: subtask.completed ? '#999' : '#333' }}>
-                                {subtask.title}
-                              </Typography>
-                            }
-                            secondary={
-                              <Typography variant="caption" sx={{ color: '#666' }}>
-                                {subtask.description}
-                              </Typography>
-                            }
-                          />
-                        </ListItemButton>
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-              </FormSection>
+                </Box>              </TaskPreview>
             </Grid>
           </Grid>
 
@@ -816,14 +738,13 @@ const EditTaskDialog = ({ open, onClose, task, onSave }) => {
                 ))}
               </List>
               
-              {/* Add New Subtask */}
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                <TextField
+              {/* Add New Subtask */}              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                <StyledTextField
                   size="small"
                   label="New Subtask"
                   value={newSubtask.title}
                   onChange={(e) => setNewSubtask({...newSubtask, title: e.target.value})}
-                  sx={{ flexGrow: 1, borderRadius: '8px' }}
+                  sx={{ flexGrow: 1 }}
                 />
                 <Button
                   variant="outlined"
@@ -839,8 +760,7 @@ const EditTaskDialog = ({ open, onClose, task, onSave }) => {
                 >
                   Add
                 </Button>
-              </Box>
-              <TextField
+              </Box>              <StyledTextField
                 size="small"
                 label="Description (optional)"
                 value={newSubtask.description}
@@ -850,15 +770,18 @@ const EditTaskDialog = ({ open, onClose, task, onSave }) => {
               />
             </Paper>
           </FormSection>
-        </StyledDialogContent>
-
-        <StyledDialogActions>
+        </StyledDialogContent>        <StyledDialogActions>
           <CancelButton onClick={handleClose}>
             Cancel
           </CancelButton>
+          {!isEditing && !isTeamLeader && (
+            <Typography variant="caption" color="error" sx={{ mr: 2 }}>
+              Only team leaders can create tasks
+            </Typography>
+          )}
           <SaveButton 
             onClick={handleSave}
-            disabled={!formData.title.trim()}
+            disabled={!formData.title.trim() || (!isEditing && !isTeamLeader)}
           >
             {isEditing ? 'Update Task' : 'Create Task'}
           </SaveButton>
