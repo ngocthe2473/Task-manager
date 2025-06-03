@@ -26,7 +26,7 @@ Create these variables in Postman:
 {
   "name": "Test User",
   "email": "test@example.com",
-  "password": "password123",
+  "password": "Password123",
   "role": "user"
 }
 ```

@@ -1,5 +1,6 @@
 {
   "info": {
+    "_postman_id": "task-manager-api-collection-001",
     "name": "Task Manager API Collection",
     "description": "Complete API testing collection for Task Manager application",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -29,8 +30,7 @@
       "key": "projectId",
       "value": "",
       "type": "string"
-    },
-    {
+    },    {
       "key": "teamId",
       "value": "",
       "type": "string"
@@ -39,14 +39,18 @@
       "key": "commentId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "subtaskId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
     {
       "name": "1. Authentication",
       "item": [
-        {
-          "name": "Register User",
+        {          "name": "Register User",
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/auth/register",
@@ -58,12 +62,11 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"user\"\n}"
+              "raw": "{\n  \"name\": \"New User\",\n  \"email\": \"newuser@example.com\",\n  \"password\": \"Password123\",\n  \"role\": \"user\"\n}"
             }
           }
         },
-        {
-          "name": "Login User",
+        {          "name": "Login User",
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/auth/login",
@@ -75,7 +78,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+              "raw": "{\n  \"email\": \"Test@example.com\",\n  \"password\": \"Password123\"\n}"
             }
           },
           "event": [
@@ -112,8 +115,7 @@
             ]
           }
         },
-        {
-          "name": "Update User Profile",
+        {          "name": "Update User Profile",
           "request": {
             "method": "PUT",
             "url": "{{baseUrl}}/users/profile",
@@ -129,7 +131,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"updated@example.com\"\n}"
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"Test@example.com\"\n}"
             }
           }
         },
@@ -255,7 +257,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Test Project\",\n  \"description\": \"A test project\",\n  \"startDate\": \"2025-06-01\",\n  \"endDate\": \"2025-12-31\",\n  \"status\": \"active\",\n  \"team\": \"{{teamId}}\"\n}"
+              "raw": "{\n  \"name\": \"Test Project\",\n  \"description\": \"A test project\",\n  \"startDate\": \"2025-06-01\",\n  \"endDate\": \"2025-12-31\",\n  \"status\": \"in_progress\",\n  \"priority\": \"Medium\"\n}"
             }
           },
           "event": [
@@ -365,8 +367,7 @@
             ]
           }
         },
-        {
-          "name": "Update Task",
+        {          "name": "Update Task",
           "request": {
             "method": "PUT",
             "url": "{{baseUrl}}/tasks/{{taskId}}",
@@ -382,8 +383,120 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Updated Task Title\",\n  \"description\": \"Updated description\",\n  \"status\": \"in_progress\"\n}"
+              "raw": "{\n  \"title\": \"Updated Task Title\",\n  \"description\": \"Updated description\",\n  \"status\": \"in-progress\"\n}"
             }
+          }
+        },
+        {
+          "name": "Delete Task",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/tasks/{{taskId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Get My Tasks",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/tasks/my",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Filter Tasks",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/tasks?status=todo&priority=high",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5.1. SubTask Management",
+      "item": [
+        {
+          "name": "Create SubTask",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/tasks/{{taskId}}/subtasks",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Test SubTask\",\n  \"description\": \"A test subtask\",\n  \"completed\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Get SubTasks for Task",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/tasks/{{taskId}}/subtasks",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Update SubTask",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/subtasks/{{subtaskId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated SubTask\",\n  \"completed\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete SubTask",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/subtasks/{{subtaskId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
           }
         }
       ]
