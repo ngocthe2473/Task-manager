@@ -25,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
+import { searchTasks, searchProjectsByName } from '../services/apiService';
 
 // Modern minimalist styled components
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
@@ -154,6 +155,10 @@ const ModernIconButton = styled(IconButton)(({ theme }) => ({
 const Navbar = () => {
   const [user, setUser] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [searchValue, setSearchValue] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -162,6 +167,31 @@ const Navbar = () => {
       setUser(JSON.parse(userInfo).user);
     }
   }, []);
+
+  // Search handler
+  useEffect(() => {
+    if (!searchValue) {
+      setSearchResults([]);
+      setSearchOpen(false);
+      return;
+    }
+    setSearchLoading(true);
+    // Gọi song song cả task và project
+    Promise.all([
+      searchTasks(searchValue, 5),
+      searchProjectsByName(searchValue, 5)
+    ]).then(([tasks, projects]) => {
+      const results = [];
+      if (tasks && tasks.length > 0) {
+        results.push(...tasks.map(t => ({ type: 'task', id: t._id, title: t.title })));
+      }
+      if (projects && projects.length > 0) {
+        results.push(...projects.map(p => ({ type: 'project', id: p._id, title: p.name })));
+      }
+      setSearchResults(results);
+      setSearchOpen(true);
+    }).finally(() => setSearchLoading(false));
+  }, [searchValue]);
 
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -176,6 +206,20 @@ const Navbar = () => {
     navigate('/login');
   };
 
+  const handleSearchChange = (e) => {
+    setSearchValue(e.target.value);
+  };
+
+  const handleResultClick = (item) => {
+    setSearchOpen(false);
+    setSearchValue('');
+    if (item.type === 'task') {
+      navigate(`/tasks/${item.id}`);
+    } else if (item.type === 'project') {
+      navigate(`/projects/${item.id}`);
+    }
+  };
+
   return (
     <StyledAppBar position="fixed">
       <StyledToolbar>
@@ -186,12 +230,60 @@ const Navbar = () => {
         </LeftSection>
 
         <CenterSection>
-          <SearchContainer>
-            <SearchIcon sx={{ color: '#999' }} />
-            <SearchInput
-              placeholder="Search tasks, projects..."
-            />
-          </SearchContainer>
+          <Box sx={{ position: 'relative', width: '100%' }}>
+            <SearchContainer>
+              <SearchIcon sx={{ color: '#999' }} />
+              <SearchInput
+                placeholder="Search tasks, projects..."
+                value={searchValue}
+                onChange={handleSearchChange}
+                onFocus={() => searchResults.length > 0 && setSearchOpen(true)}
+                sx={{ minWidth: 200 }}
+              />
+            </SearchContainer>
+            {searchOpen && (searchResults.length > 0 || searchLoading) && (
+              <Box sx={{
+                position: 'absolute',
+                top: '110%',
+                left: 0,
+                width: '100%',
+                bgcolor: '#fff',
+                boxShadow: 3,
+                borderRadius: 2,
+                zIndex: 10,
+                maxHeight: 300,
+                overflowY: 'auto',
+                p: 1
+              }}>
+                {searchLoading && (
+                  <Typography sx={{ p: 1, color: '#888' }}>Loading...</Typography>
+                )}
+                {!searchLoading && searchResults.length === 0 && (
+                  <Typography sx={{ p: 1, color: '#888' }}>No results found</Typography>
+                )}
+                {searchResults.map((item, idx) => (
+                  <Box
+                    key={item.type + item.id}
+                    sx={{
+                      p: 1,
+                      cursor: 'pointer',
+                      borderRadius: 1,
+                      '&:hover': { bgcolor: '#f5f5f5' },
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}
+                    onClick={() => handleResultClick(item)}
+                  >
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {item.type === 'task' ? '📝' : '📁'}
+                    </Typography>
+                    <Typography variant="body2">{item.title}</Typography>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
         </CenterSection>
 
         <RightSection>

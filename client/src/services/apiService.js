@@ -343,10 +343,19 @@ export const checkUserIsTeamLeader = async () => {
 };
 
 // Search user by email
+// Sử dụng đúng route cho user thường (không phải admin)
 export const searchUsersByEmail = async (email) => {
-  const response = await api.get(`/users?search=${encodeURIComponent(email)}`);
-  // Trả về mảng user phù hợp
-  return response.data.data || response.data || [];
+  try {
+    const response = await api.get(`/users/search?q=${encodeURIComponent(email)}`);
+    // Trả về mảng user phù hợp
+    return response.data.data || response.data || [];
+  } catch (err) {
+    // Nếu lỗi 400 (Bad Request) hoặc 403 thì trả về mảng rỗng, tránh văng lỗi ra UI
+    if (err.response && (err.response.status === 400 || err.response.status === 403)) {
+      return [];
+    }
+    throw err;
+  }
 };
 
 // === NEW SEARCH AND ANALYTICS APIs ===

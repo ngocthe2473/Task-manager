@@ -48,7 +48,7 @@ import {
   Search as SearchIcon,
   Clear as ClearIcon
 } from '@mui/icons-material';
-import { getMyProjects, addProject, updateProject, deleteProject, getTeams, getAllTasks, getUsers } from '../services/apiService';
+import { getMyProjects, addProject, updateProject, deleteProject, getTeams, getAllTasks, getUsers, getProjects } from '../services/apiService';
 import { styled, keyframes } from '@mui/material/styles';
 import { format } from 'date-fns';
 
@@ -196,17 +196,14 @@ const ProjectManagement = () => {
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const response = await getMyProjects();
-      
+      const response = await getProjects();
       // Handle both array response and object response with data property
       const projectsData = Array.isArray(response) ? response : (response.data || []);
       setProjects(projectsData);
-      
       // Calculate stats
       const totalProjects = projectsData.length;
       const activeProjects = projectsData.filter(p => p.status === 'in_progress').length;
       const completedProjects = projectsData.filter(p => p.status === 'completed').length;
-      
       // Calculate unique team members from all projects
       const allMembers = new Set();
       projectsData.forEach(project => {
@@ -214,7 +211,6 @@ const ProjectManagement = () => {
           project.team.members.forEach(member => allMembers.add(member._id || member));
         }
       });
-      
       setStats({
         totalProjects,
         activeProjects,
@@ -236,15 +232,14 @@ const ProjectManagement = () => {
 
   const fetchTeams = async () => {
     try {
-      const response = await getUsers();
+      const response = await getTeams();
       // Handle response properly - could be array or object with data property
-      const usersData = Array.isArray(response) ? response : (response.data || []);
-      setTeams(usersData);
-      
-      // Update team members stat based on users
+      const teamsData = Array.isArray(response) ? response : (response.data || []);
+      setTeams(teamsData);
+      // Update team members stat based on teams (optional, hoặc có thể bỏ)
       setStats(prev => ({
         ...prev,
-        teamMembers: usersData.length
+        teamMembers: teamsData.reduce((acc, t) => acc + (t.members?.length || 0), 0)
       }));
     } catch (error) {
       console.error('Error fetching teams:', error);
@@ -580,8 +575,24 @@ const ProjectManagement = () => {
       </DialogTitle>
 
       <DialogContent sx={{ mt: 2, p: 3 }}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} sm={6}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth required error={!!formErrors.team}>
+              <InputLabel>Team *</InputLabel>
+              <Select
+                name="team"
+                value={formData.team}
+                onChange={handleInputChange}
+                label="Team *"
+              >
+                {teams.map((team) => (
+                  <MenuItem key={team._id} value={team._id}>{team.name}</MenuItem>
+                ))}
+              </Select>
+              {formErrors.team && <FormHelperText>{formErrors.team}</FormHelperText>}
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={4}>
             <TextField
               fullWidth
               label="Project Name *"
@@ -592,7 +603,22 @@ const ProjectManagement = () => {
               helperText={formErrors.name}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth>
+              <InputLabel>Priority</InputLabel>
+              <Select
+                name="priority"
+                value={formData.priority}
+                onChange={handleInputChange}
+                label="Priority"
+              >
+                <MenuItem value="Low">Low</MenuItem>
+                <MenuItem value="Medium">Medium</MenuItem>
+                <MenuItem value="High">High</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12}>
             <TextField
               fullWidth
               label="Description *"
@@ -601,9 +627,12 @@ const ProjectManagement = () => {
               onChange={handleInputChange}
               error={!!formErrors.description}
               helperText={formErrors.description}
+              multiline
+              minRows={2}
+              maxRows={4}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} md={4}>
             <FormControl fullWidth>
               <InputLabel>Status</InputLabel>
               <Select
@@ -619,22 +648,7 @@ const ProjectManagement = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6}>
-            <FormControl fullWidth>
-              <InputLabel>Priority</InputLabel>
-              <Select
-                name="priority"
-                value={formData.priority}
-                onChange={handleInputChange}
-                label="Priority"
-              >
-                <MenuItem value="Low">Low</MenuItem>
-                <MenuItem value="Medium">Medium</MenuItem>
-                <MenuItem value="High">High</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} md={4}>
             <TextField
               fullWidth
               label="Start Date *"
@@ -647,7 +661,7 @@ const ProjectManagement = () => {
               helperText={formErrors.startDate}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} md={4}>
             <TextField
               fullWidth
               label="End Date *"

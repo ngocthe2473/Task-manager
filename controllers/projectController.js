@@ -50,10 +50,8 @@ exports.getProjects = async (req, res) => {
 
     // Build filter object
     const filter = {};
-    
     if (status) filter.status = status;
     if (team) filter.team = team;
-    
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -61,16 +59,13 @@ exports.getProjects = async (req, res) => {
       ];
     }
 
-    // Role-based filtering
-    if (req.user.role === 'member') {
-      // Members can only see projects from their team
-      if (req.user.team) {
-        filter.team = req.user.team;
-      } else {
-        // If user has no team, they can't see any projects
-        filter.team = null;
-      }
-    }
+    // Hiển thị project do user tạo hoặc là thành viên team liên quan
+    const userId = req.user.id;
+    const userTeams = await Team.find({ 'members.user': userId }).distinct('_id');
+    filter.$or = [
+      { createdBy: userId },
+      { team: { $in: userTeams } }
+    ];
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const sort = {};
@@ -79,11 +74,7 @@ exports.getProjects = async (req, res) => {
     const projects = await Project.find(filter)
       .populate({
         path: 'team',
-        select: 'name members manager',
-        populate: {
-          path: 'manager',
-          select: 'name email'
-        }
+        select: 'name members'
       })
       .sort(sort)
       .skip(skip)
@@ -202,14 +193,11 @@ exports.createProject = async (req, res) => {
       createdBy: req.user.id
     });
 
+    // Team schema không có trường 'manager', chỉ populate 'name members'
     const populatedProject = await Project.findById(project._id)
       .populate({
         path: 'team',
-        select: 'name members manager',
-        populate: {
-          path: 'manager',
-          select: 'name email'
-        }
+        select: 'name members'
       });
 
     // Log activity

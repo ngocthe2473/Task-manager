@@ -233,6 +233,19 @@
           }
         },
         {
+          "name": "Get My Teams",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/teams/my",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
           "name": "Get Team by ID",
           "request": {
             "method": "GET",

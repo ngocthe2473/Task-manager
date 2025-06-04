@@ -212,7 +212,7 @@ const Teams = () => {
         ) : (
           <Grid container spacing={3}>
             {teams.map((team) => (
-              <Grid item xs={12} md={6} key={team.id}>
+              <Grid item xs={12} md={6} key={team._id}>
                 <Card>
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -230,8 +230,8 @@ const Teams = () => {
                     <Typography variant="subtitle2" sx={{ mb: 1 }}>
                       Team Lead:
                     </Typography>
-                    {team.members.filter(member => member.id === team.leadId).map(lead => (
-                      <Box key={lead.id} sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    {team.members.filter(member => member._id === team.leadId).map(lead => (
+                      <Box key={lead._id} sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                         <Avatar src={lead.avatar} sx={{ mr: 1 }} />
                         <Typography>{lead.name}</Typography>
                       </Box>
@@ -245,7 +245,7 @@ const Teams = () => {
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                       {team.members.map(member => (
                         <Chip
-                          key={member.id}
+                          key={member._id}
                           avatar={<Avatar src={member.avatar} />}
                           label={member.name}
                           variant="outlined"
