@@ -275,7 +275,6 @@ const ProjectManagement = () => {
         const response = await addProject(projectData);
         const newProject = response.data || response; // Handle different response structures
         
-        setProjects(prev => [newProject, ...prev]);
         setOpenDialog(false);
         resetForm();
         setSnackbar({

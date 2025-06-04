@@ -51,22 +51,20 @@ const Teams = () => {
   const [inviteLoading, setInviteLoading] = useState(false);
 
   useEffect(() => {
+    console.log('useEffect [tabValue] fired, tabValue =', tabValue);
     const fetchData = async () => {
       try {
         setLoading(true);
         console.log('Fetching teams data for tab:', tabValue); // Debug log
-        
-        const userData = await getUsers();
-        setUsers(userData);
-        console.log('Users data:', userData); // Debug log
-          // Fetch teams based on current tab
+        // Fetch teams based on current tab first
         let teamsData;
         if (tabValue === 0) {
           // My Teams tab - get user's teams only
           console.log('Calling getMyTeams API...'); // Debug log
           const response = await getMyTeams();
           console.log('getMyTeams response:', response); // Debug log
-          teamsData = response.data || response; // Handle both formats
+          console.log('getMyTeams JSON:', JSON.stringify(response, null, 2));
+          teamsData = response; // Đảm bảo luôn là mảng
         } else {
           // Other tabs - get all teams
           console.log('Calling getTeams API...'); // Debug log
@@ -74,9 +72,17 @@ const Teams = () => {
           console.log('getTeams response:', response); // Debug log
           teamsData = response.data || response; // Handle both formats
         }
-        
         setTeams(teamsData || []);
         console.log('Final teams set:', teamsData || []); // Debug log
+        // Gọi getUsers sau, không ảnh hưởng tới getMyTeams
+        try {
+          const userData = await getUsers();
+          setUsers(userData);
+          console.log('Users data:', userData); // Debug log
+        } catch (userErr) {
+          console.error('Error loading users:', userErr);
+          setUsers([]);
+        }
         setLoading(false);
       } catch (error) {
         console.error('Error loading data:', error);
