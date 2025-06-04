@@ -112,7 +112,9 @@ const TaskCount = styled(Chip)(({ theme }) => ({
   height: '24px',
 }));
 
-const TaskCard = styled(Card)(({ theme }) => ({
+const TaskCard = styled(Card, {
+  shouldForwardProp: (prop) => !['onEdit', 'onDelete', 'canEdit', 'canDelete', 'canComment', 'task'].includes(prop),
+})(({ theme }) => ({
   marginBottom: '16px',
   borderRadius: '12px',
   border: '1px solid #e0e0e0',
@@ -495,11 +497,14 @@ const TaskBoard = ({ onTaskClick }) => {
         canComment={canComment}
       >
         <TaskCardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-            <TaskTitle onClick={(e) => {
-              e.stopPropagation();
-              handleTaskEdit(task);
-            }} sx={{ cursor: 'pointer', flex: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>            <TaskTitle 
+              component="div"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleTaskEdit(task);
+              }} 
+              sx={{ cursor: 'pointer', flex: 1 }}
+            >
               {task.title}
             </TaskTitle>
             <Box sx={{ display: 'flex', gap: 0.5, ml: 1 }}>
@@ -671,10 +676,8 @@ const TaskBoard = ({ onTaskClick }) => {
                   {column.title}
                 </ColumnTitle>
                 <TaskCount label={columnTasks.length} />
-              </ColumnHeader>
-
-              <Box>
-                {columnTasks.map(renderTask)}
+              </ColumnHeader>              <Box>
+                {columnTasks.map(task => renderTask(task))}
                 
                 <AddTaskButton
                   startIcon={<AddIcon />}

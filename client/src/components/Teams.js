@@ -31,7 +31,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import EditIcon from '@mui/icons-material/Edit';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EmailIcon from '@mui/icons-material/Email';
-import { getUsers, getTeams, getMyTeams, addTeam, searchUsersByEmail } from '../services/apiService';
+import { getUsers, getTeams, getMyTeams, addTeam, searchUsersByEmail, updateTeam } from '../services/apiService';
 import PeopleIcon from '@mui/icons-material/People';
 import Autocomplete from '@mui/material/Autocomplete';
 
@@ -46,9 +46,12 @@ const Teams = () => {
   const [createError, setCreateError] = useState('');
   const [allUsers, setAllUsers] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
-  const [inputValue, setInputValue] = useState('');
-  const [options, setOptions] = useState([]);
+  const [inputValue, setInputValue] = useState('');  const [options, setOptions] = useState([]);
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [editingTeam, setEditingTeam] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', description: '', members: [] });
+  const [editError, setEditError] = useState('');
 
   useEffect(() => {
     console.log('useEffect [tabValue] fired, tabValue =', tabValue);
@@ -152,13 +155,60 @@ const Teams = () => {
       setOptions(selectedUsers);
     }
   };
-
   const handleInviteChange = (event, newValue) => {
     setSelectedUsers(newValue);
     setOptions([
       ...newValue,
       ...options.filter(u => !newValue.some(su => su._id === u._id))
     ]);
+  };
+  const handleOpenEditDialog = (team) => {
+    setEditingTeam(team);
+    setEditForm({
+      name: team.name,
+      description: team.description || '',
+      members: team.members || []
+    });
+    // Convert team members to selectedUsers format for the autocomplete
+    if (team.members && Array.isArray(team.members)) {
+      const currentMembers = team.members.map(member => member.user).filter(user => user);
+      setSelectedUsers(currentMembers);
+      setOptions(currentMembers);
+    } else {
+      setSelectedUsers([]);
+      setOptions([]);
+    }
+    setEditError('');
+    setOpenEditDialog(true);
+  };
+  const handleCloseEditDialog = () => {
+    setOpenEditDialog(false);
+    setEditingTeam(null);
+    setEditForm({ name: '', description: '', members: [] });
+    setSelectedUsers([]);
+    setOptions([]);
+    setInputValue('');
+    setEditError('');
+  };
+  const handleEditTeam = async () => {
+    if (!editForm.name.trim()) {
+      setEditError('Team name is required');
+      return;
+    }
+    try {
+      await updateTeam(editingTeam._id, {
+        name: editForm.name,
+        description: editForm.description,
+        members: selectedUsers.map(u => u._id) // Include updated members
+      });
+      setOpenEditDialog(false);
+      setEditError('');
+      setLoading(true);
+      // Refresh the teams data
+      setTimeout(() => window.location.reload(), 500);
+    } catch (err) {
+      setEditError(err?.response?.data?.message || 'Failed to update team');
+    }
   };
 
   return (
@@ -219,6 +269,7 @@ const Teams = () => {
           <Grid container spacing={3}>
             {teams.map((team) => (
               <Grid item xs={12} md={6} key={team._id}>
+                {/* ...existing code for each team card... */}
                 <Card>
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -232,7 +283,6 @@ const Teams = () => {
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                       {team.description}
                     </Typography>
-                    
                     <Typography variant="subtitle2" sx={{ mb: 1 }}>
                       Team Lead:
                     </Typography>
@@ -244,9 +294,7 @@ const Teams = () => {
                         </Typography>
                       </Box>
                     ))}
-                    
                     <Divider sx={{ my: 2 }} />
-                    
                     <Typography variant="subtitle2" sx={{ mb: 1 }}>
                       Members ({team.members.length}):
                     </Typography>
@@ -268,14 +316,35 @@ const Teams = () => {
                         variant="outlined"
                       />
                     </Box>
-                  </CardContent>
-                  <CardActions>
-                    <Button size="small" startIcon={<EditIcon />}>Edit Team</Button>
+                  </CardContent>                  <CardActions>
+                    <Button 
+                      size="small" 
+                      startIcon={<EditIcon />}
+                      onClick={() => handleOpenEditDialog(team)}
+                    >
+                      Edit Team
+                    </Button>
                     <Button size="small" startIcon={<EmailIcon />}>Message All</Button>
                   </CardActions>
                 </Card>
               </Grid>
             ))}
+            {/* Nút tạo team ở cuối danh sách */}
+            <Grid item xs={12} md={6} key="create-team-button">
+              <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
+                <CardContent sx={{ width: '100%', textAlign: 'center' }}>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<AddIcon />}
+                    onClick={handleOpenCreateDialog}
+                    sx={{ borderRadius: '12px', fontWeight: 600 }}
+                  >
+                    Tạo Team mới
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
         )
       )}
@@ -431,8 +500,58 @@ const Teams = () => {
           {createError && <Typography color="error" sx={{ mb: 1 }}>{createError}</Typography>}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseCreateDialog}>Cancel</Button>
-          <Button onClick={handleCreateTeam} variant="contained">Create</Button>
+          <Button onClick={handleCloseCreateDialog}>Cancel</Button>          <Button onClick={handleCreateTeam} variant="contained">Create</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Team Dialog */}
+      <Dialog open={openEditDialog} onClose={handleCloseEditDialog}>
+        <DialogTitle>Edit Team</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Team Name"
+            type="text"
+            fullWidth
+            value={editForm.name}
+            onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+            required
+            sx={{ mb: 2 }}
+          />          <TextField
+            label="Description"
+            type="text"
+            fullWidth
+            multiline
+            minRows={2}
+            value={editForm.description}
+            onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+            sx={{ mb: 2 }}
+          />
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            Team Members:
+          </Typography>
+          <Autocomplete
+            multiple
+            options={options}
+            value={selectedUsers}
+            inputValue={inputValue}
+            onInputChange={handleInviteInputChange}
+            onChange={handleInviteChange}
+            getOptionLabel={option => option.name + (option.email ? ` (${option.email})` : '')}
+            filterSelectedOptions
+            loading={inviteLoading}
+            renderInput={params => (
+              <TextField {...params} label="Add/Remove Members by Email" placeholder="Type email..." sx={{ mb: 2 }} />
+            )}
+            isOptionEqualToValue={(option, value) => option._id === value._id}
+            sx={{ mb: 2 }}
+          />
+          {editError && <Typography color="error" sx={{ mb: 1 }}>{editError}</Typography>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseEditDialog}>Cancel</Button>
+          <Button onClick={handleEditTeam} variant="contained">Update</Button>
         </DialogActions>
       </Dialog>
     </Box>

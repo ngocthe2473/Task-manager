@@ -147,7 +147,7 @@ const ActivityLog = () => {
 
   if (loading) {
     return (
-      <Box sx={{ flexGrow: 1, padding: 3, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <Box sx={{ flexGrow: 1, padding: 3, paddingTop: 5, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         <CircularProgress />
       </Box>
     );
@@ -155,7 +155,7 @@ const ActivityLog = () => {
 
   if (error) {
     return (
-      <Box sx={{ flexGrow: 1, padding: 3 }}>
+      <Box sx={{ flexGrow: 1, padding: 3, paddingTop: 5 }}>
         <Typography variant="h4" gutterBottom component="div">
           Activity Log
         </Typography>
@@ -163,11 +163,10 @@ const ActivityLog = () => {
           <Typography color="error">{error}</Typography>
         </Paper>
       </Box>
-    );
-  }
+    );  }
 
   return (
-    <Box sx={{ flexGrow: 1, padding: 3 }}>
+    <Box sx={{ flexGrow: 1, padding: 3, paddingTop: 5 }}>
       <Typography variant="h4" gutterBottom component="div">
         Activity Log
       </Typography>

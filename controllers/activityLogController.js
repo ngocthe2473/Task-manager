@@ -26,10 +26,8 @@ exports.getActivityLogs = async (req, res) => {
     } = req.query;
 
     // Build query
-    const query = {};
-
-    if (user) {
-      query.user = mongoose.Types.ObjectId(user);
+    const query = {};    if (user) {
+      query.user = new mongoose.Types.ObjectId(user);
     }
 
     if (action) {
@@ -161,11 +159,9 @@ exports.getMyActivityLogs = async (req, res) => {
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
-    const total = await ActivityLog.countDocuments(query);
-
-    // Get user's activity summary
+    const total = await ActivityLog.countDocuments(query);    // Get user's activity summary
     const summary = await ActivityLog.aggregate([
-      { $match: { user: mongoose.Types.ObjectId(req.user.id) } },
+      { $match: { user: new mongoose.Types.ObjectId(req.user.id) } },
       {
         $group: {
           _id: '$action',
@@ -497,7 +493,7 @@ exports.exportActivityLogs = async (req, res) => {
     // Build query
     const query = {};
 
-    if (user) query.user = mongoose.Types.ObjectId(user);
+    if (user) query.user = new mongoose.Types.ObjectId(user);
     if (action) query.action = action;
     if (entityType) query.entityType = entityType;
 

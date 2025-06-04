@@ -32,7 +32,8 @@ import {
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
-import { searchTasks, searchProjectsByName } from '../services/apiService';
+import { searchTasks, searchProjectsByName, getTaskById, getProjectById } from '../services/apiService';
+import SearchResultModal from './SearchResultModal';
 
 // Modern minimalist styled components
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
@@ -179,11 +180,13 @@ const Navbar = () => {
   const handleMarkAsRead = async (notifId) => {
     await markNotificationAsRead(notifId);
     setNotifications(notifications.map(n => n._id === notifId ? { ...n, isRead: true } : n));
-  };
-  const [searchValue, setSearchValue] = useState('');
+  };  const [searchValue, setSearchValue] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedType, setSelectedType] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -234,15 +237,37 @@ const Navbar = () => {
   const handleSearchChange = (e) => {
     setSearchValue(e.target.value);
   };
-
-  const handleResultClick = (item) => {
+  const handleResultClick = async (item) => {
     setSearchOpen(false);
     setSearchValue('');
-    if (item.type === 'task') {
-      navigate(`/tasks/${item.id}`);
-    } else if (item.type === 'project') {
-      navigate(`/projects/${item.id}`);
+    
+    try {
+      let detailData;
+      if (item.type === 'task') {
+        detailData = await getTaskById(item.id);
+        setSelectedItem(detailData.data || detailData);
+        setSelectedType('task');
+      } else if (item.type === 'project') {
+        detailData = await getProjectById(item.id);
+        setSelectedItem(detailData.data || detailData);
+        setSelectedType('project');
+      }
+      setModalOpen(true);
+    } catch (error) {
+      console.error('Error fetching item details:', error);
+      // Fallback to navigation if API fails
+      if (item.type === 'task') {
+        navigate(`/tasks/${item.id}`);
+      } else if (item.type === 'project') {
+        navigate(`/projects/${item.id}`);
+      }
     }
+  };
+
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setSelectedItem(null);
+    setSelectedType(null);
   };
 
   return (
@@ -390,9 +415,16 @@ const Navbar = () => {
                 </MenuItem>
               </Menu>
             </Box>
-          )}
-        </RightSection>
+          )}        </RightSection>
       </StyledToolbar>
+
+      {/* Search Result Modal */}
+      <SearchResultModal
+        open={modalOpen}
+        onClose={handleCloseModal}
+        item={selectedItem}
+        type={selectedType}
+      />
     </StyledAppBar>
   );
 };

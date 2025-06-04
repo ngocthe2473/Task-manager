@@ -9,6 +9,9 @@ const Project = require('../models/Project');
 // @access  Private
 exports.getCalendarView = async (req, res) => {
   try {
+    console.log('Calendar API called by user:', req.user.id, req.user.email);
+    console.log('Query params:', req.query);
+    
     const {
       start,
       end,
@@ -119,15 +122,15 @@ exports.getCalendarView = async (req, res) => {
     }
 
     let tasks = [];
-    let subtasks = [];
-
-    // Fetch tasks if requested
+    let subtasks = [];    // Fetch tasks if requested
     if (type === 'all' || type === 'tasks') {
+      console.log('Task filter:', JSON.stringify(taskFilter, null, 2));
       tasks = await Task.find(taskFilter)
         .populate('assignee', 'name email avatar')
         .populate('project', 'name color')
         .populate('creator', 'name email')
         .sort({ dueDate: 1 });
+      console.log('Found tasks:', tasks.length);
     }
 
     // Fetch subtasks if requested
@@ -201,7 +204,15 @@ exports.getCalendarView = async (req, res) => {
       overdue: events.filter(e => e.extendedProps.isOverdue).length,
       urgent: events.filter(e => e.priority === 'high').length,
       completed: events.filter(e => e.status === 'done').length
-    };
+    };    console.log('Final response:', {
+      eventsCount: events.length,
+      stats,
+      dateRange: {
+        start: startDate,
+        end: endDate,
+        view
+      }
+    });
 
     res.status(200).json({
       success: true,

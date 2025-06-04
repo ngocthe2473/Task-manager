@@ -220,18 +220,45 @@ const Calendar = () => {
           return;
         }
         console.log('Fetching calendar tasks for user:', userInfo.id);
-        const events = await getCalendarTasks();
+        
+        // Calculate date range based on current view
+        let startDate, endDate;
+        if (viewMode === 'day') {
+          startDate = currentDate;
+          endDate = currentDate;
+        } else if (viewMode === 'week') {
+          startDate = startOfWeek(currentDate, { weekStartsOn: 1 });
+          endDate = endOfWeek(currentDate, { weekStartsOn: 1 });
+        } else {
+          startDate = startOfMonth(currentDate);
+          endDate = endOfMonth(currentDate);
+        }        const events = await getCalendarTasks({
+          start: format(startDate, 'yyyy-MM-dd'),
+          end: format(endDate, 'yyyy-MM-dd'),
+          view: viewMode        });
+        
         console.log('Fetched calendar events:', events);
-        const enhancedTasks = events.map(task => {
-          const dueDate = task.dueDate || task.due || task.end;
+        console.log('Events structure:', events.length > 0 ? events[0] : 'No events');
+        console.log('Date range:', { 
+          start: format(startDate, 'yyyy-MM-dd'), 
+          end: format(endDate, 'yyyy-MM-dd'),
+          viewMode 
+        });        const enhancedTasks = events.map(task => {
+          // Handle backend's event structure: start, end instead of startDate, dueDate
+          const dueDate = task.end || task.dueDate || task.due;
+          const startDate = task.start || task.startDate;
           const randomStartHour = 9 + Math.floor(Math.random() * 10);
           const randomEndHour = randomStartHour + 1 + Math.floor(Math.random() * 2);
           return {
             ...task,
+            // Map backend fields to frontend expected fields
+            dueDate: dueDate,
+            startDate: startDate,
             startTime: `${randomStartHour}:00`,
             endTime: `${randomEndHour}:${randomStartHour % 2 === 0 ? '00' : '30'}`,
             color: getTaskColor(task.priority, task.status),
-            dueDate: dueDate
+            // Keep both end and dueDate for compatibility
+            end: dueDate
           };
         });
         setTasks(enhancedTasks);
@@ -240,23 +267,27 @@ const Calendar = () => {
       }
     };
     fetchTasks();
-  }, [userInfo]);
-
+  }, [userInfo, currentDate, viewMode]);
   // Calculate stats when tasks change
   useEffect(() => {
+    console.log('Calculating stats for tasks:', tasks.length);
     if (tasks.length > 0) {
+      console.log('Sample task for stats:', tasks[0]);
       const today = new Date();
       const stats = {
         total: tasks.length,
-        completed: tasks.filter(task => task.status === 'done').length,
-        inProgress: tasks.filter(task => task.status === 'inprogress').length,
+        completed: tasks.filter(task => task.status === 'done' || task.status === 'completed').length,
+        inProgress: tasks.filter(task => task.status === 'inprogress' || task.status === 'in_progress' || task.status === 'in-progress').length,
         overdue: tasks.filter(task => {
-          const dueDate = new Date(task.dueDate || task.due);
-          return dueDate < today && task.status !== 'done';
+          const dueDate = new Date(task.end || task.dueDate || task.due);
+          return dueDate < today && !['done', 'completed'].includes(task.status);
         }).length,
-      };
+      };      console.log('Calculated stats:', stats);
       setTaskStats(stats);
-    }  }, [tasks]);
+    } else {
+      console.log('No tasks to calculate stats for');
+    }
+  }, [tasks]);
 
   const handleViewChange = (event, newValue) => {
     if (newValue !== null) {
@@ -316,14 +347,28 @@ const Calendar = () => {
     const start = startOfWeek(currentDate, { weekStartsOn: 1 }); // Bắt đầu từ Thứ 2
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
   };
-
   // Lấy task cho một ngày cụ thể
   const getTasksForDay = (date) => {
-    const formattedDate = format(date, 'yyyy-MM-dd');
-    return tasks.filter(task => {
-      const taskDate = task.dueDate || task.due;
-      return taskDate === formattedDate;
+    const tasksForDay = tasks.filter(task => {
+      // Try multiple possible date fields from backend
+      const taskDate = task.end || task.dueDate || task.due || task.start;
+      if (!taskDate) {
+        console.log('Task without date:', task);
+        return false;
+      }
+      // Chuyển về Date object nếu là string
+      const taskDateObj = typeof taskDate === 'string' ? new Date(taskDate) : taskDate;
+      const isSame = isSameDay(date, taskDateObj);
+      
+      if (isSame) {
+        console.log('Found task for date:', format(date, 'yyyy-MM-dd'), task.title);
+      }
+      
+      return isSame;
     });
+    
+    console.log(`Tasks for ${format(date, 'yyyy-MM-dd')}:`, tasksForDay.length);
+    return tasksForDay;
   };
 
   // Chuyển đổi thời gian thành vị trí trong calendar

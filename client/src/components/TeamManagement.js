@@ -115,42 +115,52 @@ const TeamManagement = () => {
   const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchTeamData = async () => {
+  useEffect(() => {    const fetchTeamData = async () => {
       try {
+        console.log('Fetching team data...');
         const teamsData = await getTeams();
         const usersData = await getUsers();
         const tasksData = await getAllTasks();
         
-        // Extract team members from teams and combine with user data
-        const allTeamMembers = [];
-        if (teamsData && Array.isArray(teamsData)) {
+        console.log('Teams data:', teamsData);
+        console.log('Users data:', usersData);
+        console.log('Tasks data:', tasksData);
+          // Extract team members from teams and combine with user data
+        const allTeamMembers = [];        if (teamsData && Array.isArray(teamsData)) {
           teamsData.forEach(team => {
+            console.log('Processing team:', team.name, 'with members:', team.members);
             if (team.members && Array.isArray(team.members)) {
-              team.members.forEach(memberId => {
-                const user = usersData.find(u => u._id === memberId);
+              team.members.forEach(member => {
+                // member is an object with { user, team_role, joinedAt }
+                const user = member.user;
                 if (user) {
                   // Calculate tasks completed for this user
                   const userTasks = tasksData.filter(task => task.assignedTo === user._id);
                   const completedTasks = userTasks.filter(task => task.status === 'done').length;
                   
-                  allTeamMembers.push({
-                    id: user._id,
-                    name: user.name,
-                    role: user.role || 'Team Member',
-                    avatar: user.name ? user.name.charAt(0).toUpperCase() : 'U',
-                    status: 'online', // Default status, would need real-time data
-                    tasksCompleted: completedTasks,
-                    efficiency: userTasks.length > 0 ? Math.round((completedTasks / userTasks.length) * 100) : 0,
-                    skills: user.skills || [],
-                    joinDate: user.createdAt || new Date().toISOString(),
-                  });
+                  // Check if this user is already added to avoid duplicates
+                  const existingMember = allTeamMembers.find(tm => tm.id === user._id);
+                  if (!existingMember) {
+                    allTeamMembers.push({
+                      id: user._id,
+                      name: user.name,
+                      role: member.team_role || user.role || 'Team Member',
+                      avatar: user.name ? user.name.charAt(0).toUpperCase() : 'U',
+                      status: 'online', // Default status, would need real-time data
+                      tasksCompleted: completedTasks,
+                      efficiency: userTasks.length > 0 ? Math.round((completedTasks / userTasks.length) * 100) : 0,
+                      skills: user.skills || [],
+                      joinDate: member.joinedAt || user.createdAt || new Date().toISOString(),                      teamName: team.name,
+                    });
+                  }
+                } else {
+                  console.warn('No user data found for member:', member);
                 }
               });
             }
-          });
-        }
+          });        }
         
+        console.log('Final team members:', allTeamMembers);
         setTeamMembers(allTeamMembers);
         setLoading(false);
       } catch (error) {
@@ -169,13 +179,26 @@ const TeamManagement = () => {
       background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.02)}, ${alpha(theme.palette.secondary.main, 0.02)})`,
       minHeight: '100vh',
     }}>
-      {/* Epic Team Management Content */}
-      <Typography variant="h4" sx={{ mb: 4, fontWeight: 600, textAlign: 'center' }}>
+      {/* Epic Team Management Content */}      <Typography variant="h4" sx={{ mb: 4, fontWeight: 600, textAlign: 'center' }}>
         Team Management
       </Typography>
 
-      <Grid container spacing={4}>
-        {teamMembers.map(member => (
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <Typography>Loading team members...</Typography>
+        </Box>
+      ) : teamMembers.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Typography variant="h6" color="text.secondary">
+            No team members found
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Make sure you are part of a team or create a new team to see members.
+          </Typography>
+        </Box>
+      ) : (
+        <Grid container spacing={4}>
+          {teamMembers.map(member => (
           <Grid item xs={12} sm={6} md={4} key={member.id}>
             <GlassPaper sx={{ p: 3, position: 'relative' }}>
               {/* Status Badge */}
@@ -201,11 +224,15 @@ const TeamManagement = () => {
 
               <Typography variant="h6" sx={{ mt: 2, mb: 1, fontWeight: 500, textAlign: 'center' }}>
                 {member.name}
-              </Typography>
-
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mb: 2 }}>
+              </Typography>              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mb: 1 }}>
                 {member.role}
               </Typography>
+              
+              {member.teamName && (
+                <Typography variant="body2" color="primary" sx={{ textAlign: 'center', mb: 2, fontWeight: 500 }}>
+                  Team: {member.teamName}
+                </Typography>
+              )}
 
               <Divider sx={{ my: 2 }} />
 
@@ -262,11 +289,11 @@ const TeamManagement = () => {
                 startIcon={<PersonAddIcon />}
               >
                 Add to Team
-              </Button>
-            </GlassPaper>
+              </Button>            </GlassPaper>
           </Grid>
-        ))}
-      </Grid>
+          ))}
+        </Grid>
+      )}
     </Box>
   );
 };

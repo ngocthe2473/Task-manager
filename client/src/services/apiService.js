@@ -240,9 +240,9 @@ export const markNotificationAsRead = async (id) => {
 
 // Activity Log API
 export const getActivityLogs = async (params = {}) => {
-  const response = await api.get('/activity-logs', { params });
-  // Handle API response format { success: true, data: logs }
-  return response.data.data || response.data || [];
+  const response = await api.get('/activity-logs/me', { params });
+  // Handle API response format { success: true, logs, pagination, summary }
+  return response.data.logs || response.data.data || response.data || [];
 };
 
 // Time Logs API

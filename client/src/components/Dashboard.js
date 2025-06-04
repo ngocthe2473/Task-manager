@@ -30,7 +30,7 @@ import {
   ArrowForward as ArrowForwardIcon
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
-import { getAllTasks, getProjects, getUsers, getMyTasks, getDashboardStats } from '../services/apiService';
+import { getAllTasks, getProjects, getUsers, getMyTasks, getDashboardStats, getMyTeams, getMyTeamMembers } from '../services/apiService';
 import { format } from 'date-fns';
 
 // Modern minimalist styled components
@@ -281,13 +281,13 @@ const Dashboard = () => {
     return { name: 'User', role: 'User' };
   };
   const user = getUserInfo();
-
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch dashboard stats and user's tasks
+        // Fetch dashboard stats, user's tasks, and teams
         const dashboardData = await getDashboardStats();
         const userTasks = await getMyTasks(); // This should only return tasks assigned to or created by the user
+        const userTeams = await getMyTeams(); // Fetch user's teams directly
         
         // Filter tasks to only include those assigned to or created by the user
         const filteredTasks = userTasks.filter(task => 
@@ -308,37 +308,52 @@ const Dashboard = () => {
           ).length,
           productivity: Math.round((filteredTasks.filter(task => task.status === 'done').length / filteredTasks.length) * 100) || 0
         });
-        
-        // Set recent tasks from filtered tasks
+          // Set recent tasks from filtered tasks
         setRecentTasks(
           [...filteredTasks]
             .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
             .slice(0, 5)
         );
         
-        // Process team stats for multiple teams
-        const userTeams = dashboardData.teamStats?.filter(team => 
-          team.members.some(member => member.id === user._id)
-        ) || [];
+        // Process team stats from fetched teams data
+        console.log('Raw userTeams from API:', userTeams); // Debug log
         
-        setTeamStats(userTeams);
-        
-        // Set team members from all teams user belongs to
-        const allTeamMembers = [];
-        userTeams.forEach(team => {
-          team.members.forEach(member => {
-            if (member.id !== user._id) { // Exclude current user
-              allTeamMembers.push({
-                id: member.id,
-                name: member.name,
-                role: member.role,
-                teamName: team.teamName,
-                avatar: null
-              });
-            }
-          });
+        // Transform team data to match expected format
+        const processedTeamStats = userTeams.map(team => {
+          // Get tasks for this team
+          const teamTasks = filteredTasks.filter(task => 
+            team.members.some(member => 
+              member.user && (
+                (typeof member.user === 'object' && member.user._id === (task.assignee?._id || task.assignee)) ||
+                (typeof member.user === 'string' && member.user === (task.assignee?._id || task.assignee))
+              )
+            )
+          );
+          
+          const completedTeamTasks = teamTasks.filter(task => task.status === 'done').length;
+          const productivity = teamTasks.length > 0 ? Math.round((completedTeamTasks / teamTasks.length) * 100) : 0;
+          
+          return {
+            teamId: team._id,
+            teamName: team.name,
+            members: team.members.map(member => ({
+              id: typeof member.user === 'object' ? member.user._id : member.user,
+              name: typeof member.user === 'object' ? member.user.name : 'Unknown User',
+              role: member.team_role || 'member',
+              email: typeof member.user === 'object' ? member.user.email : ''
+            })),
+            totalTasks: teamTasks.length,
+            completedTasks: completedTeamTasks,
+            productivity: productivity
+          };
         });
-        setTeamMembers(allTeamMembers);
+          console.log('Processed team stats:', processedTeamStats); // Debug log
+        setTeamStats(processedTeamStats);
+        
+        // Fetch team members using dedicated API
+        const teamMembers = await getMyTeamMembers();
+        console.log('Team members from API:', teamMembers); // Debug log
+        setTeamMembers(teamMembers);
         
         // Fetch and filter projects
         const allProjects = await getProjects();
@@ -661,7 +676,7 @@ const Dashboard = () => {
                                           bgcolor: `hsl(${member.id.length * 60}, 70%, 60%)`
                                         }}
                                       >
-                                        {member.name.charAt(0)}
+                                        {member.name ? member.name.charAt(0) : 'U'}
                                       </Avatar>
                                     </Tooltip>
                                   ))}
@@ -702,29 +717,21 @@ const Dashboard = () => {
                   <PeopleIcon sx={{ color: '#2196f3' }} />
                   Team Members
                 </SectionTitle>
-                
-                <Box>
-                  {teamStats.length > 0 ? (
-                    teamStats.map((team, index) => (
-                      <Box key={team.teamId} sx={{ mb: index < teamStats.length - 1 ? 3 : 0 }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#333', mb: 2 }}>
-                          {team.teamName}
-                        </Typography>
-                        {team.members.map((member) => (
-                          <TeamMember key={member.id}>
-                            <MemberAvatar sx={{ bgcolor: `hsl(${member.id.length * 60}, 70%, 60%)` }}>
-                              {member.name ? member.name.charAt(0) : 'U'}
-                            </MemberAvatar>
-                            <MemberInfo>
-                              <MemberName>{member.name}</MemberName>
-                              <MemberRole>{member.role}</MemberRole>
-                            </MemberInfo>
-                            <IconButton size="small" sx={{ ml: 'auto' }}>
-                              <ArrowForwardIcon fontSize="small" />
-                            </IconButton>
-                          </TeamMember>
-                        ))}
-                      </Box>
+                  <Box>
+                  {teamMembers.length > 0 ? (
+                    teamMembers.map((member) => (
+                      <TeamMember key={member._id}>
+                        <MemberAvatar sx={{ bgcolor: `hsl(${member._id.length * 60}, 70%, 60%)` }}>
+                          {member.name ? member.name.charAt(0) : 'U'}
+                        </MemberAvatar>
+                        <MemberInfo>
+                          <MemberName>{member.name}</MemberName>
+                          <MemberRole>{member.role}</MemberRole>
+                        </MemberInfo>
+                        <IconButton size="small" sx={{ ml: 'auto' }}>
+                          <ArrowForwardIcon fontSize="small" />
+                        </IconButton>
+                      </TeamMember>
                     ))
                   ) : (
                     <Box sx={{ 

@@ -788,11 +788,10 @@ exports.searchTasks = async (req, res) => {
     const searchRegex = new RegExp(q.trim(), 'i');
     
     const tasks = await Task.find({
-      $and: [
-        {
+      $and: [        {
           $or: [
             { assignee: req.user.id },
-            { createdBy: req.user.id }
+            { creator: req.user.id }
           ]
         },
         {
@@ -801,11 +800,10 @@ exports.searchTasks = async (req, res) => {
             { description: searchRegex }
           ]
         }
-      ]
-    })
+      ]    })
     .populate('assignee', 'name email avatar')
     .populate('project', 'name color')
-    .populate('createdBy', 'name email')
+    .populate('creator', 'name email')
     .limit(parseInt(limit))
     .sort({ updatedAt: -1 });
 
@@ -914,12 +912,11 @@ exports.searchProjects = async (req, res) => {
 exports.getComprehensiveStats = async (req, res) => {
   try {
     const userId = req.user.id;
-    
-    // Get user's tasks
+      // Get user's tasks
     const userTasks = await Task.find({
       $or: [
         { assignee: userId },
-        { createdBy: userId }
+        { creator: userId }
       ]
     }).populate('project', 'name color');
 
@@ -973,11 +970,10 @@ exports.getComprehensiveStats = async (req, res) => {
     // Get recent tasks (last 7 days)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
-    const recentTasks = await Task.find({
+      const recentTasks = await Task.find({
       $or: [
         { assignee: userId },
-        { createdBy: userId }
+        { creator: userId }
       ],
       updatedAt: { $gte: sevenDaysAgo }
     })
@@ -990,10 +986,9 @@ exports.getComprehensiveStats = async (req, res) => {
     const nextWeek = new Date();
     nextWeek.setDate(nextWeek.getDate() + 7);
     
-    const upcomingTasks = await Task.find({
-      $or: [
+    const upcomingTasks = await Task.find({      $or: [
         { assignee: userId },
-        { createdBy: userId }
+        { creator: userId }
       ],
       dueDate: { 
         $gte: new Date(),
@@ -1042,15 +1037,14 @@ exports.getTeamAnalytics = async (req, res) => {
 
     for (const team of teams) {
       const teamMemberIds = team.members.map(member => member.user._id);
-      
-      // Get tasks for this team
+        // Get tasks for this team
       const teamTasks = await Task.find({
         $or: [
           { assignee: { $in: teamMemberIds } },
-          { createdBy: { $in: teamMemberIds } }
+          { creator: { $in: teamMemberIds } }
         ]
       }).populate('assignee', 'name email avatar')
-        .populate('createdBy', 'name email avatar');
+        .populate('creator', 'name email avatar');
 
       // Calculate team statistics
       const teamStats = {
@@ -1183,7 +1177,7 @@ exports.advancedSearchTasks = async (req, res) => {
     if (priority) filter.priority = priority;
     if (assignee) filter.assignee = assignee;
     if (project) filter.project = project;
-    if (createdBy) filter.createdBy = createdBy;
+    if (createdBy) filter.creator = createdBy;
     if (fromDate || toDate) {
       filter.createdAt = {};
       if (fromDate) filter.createdAt.$gte = new Date(fromDate);
@@ -1195,7 +1189,7 @@ exports.advancedSearchTasks = async (req, res) => {
       Task.find(filter)
         .populate('assignee', 'name email avatar')
         .populate('project', 'name color')
-        .populate('createdBy', 'name email')
+        .populate('creator', 'name email')
         .sort(sort)
         .skip(skip)
         .limit(parseInt(limit)),
@@ -1320,7 +1314,7 @@ exports.dashboardSummary = async (req, res) => {
     const userId = req.user.id;
     // Tổng số task, số task theo trạng thái, số project, số team, số task quá hạn, số task hoàn thành tuần này
     const [tasks, projects, teams] = await Promise.all([
-      Task.find({ $or: [{ assignee: userId }, { createdBy: userId }] }),
+      Task.find({ $or: [{ assignee: userId }, { creator: userId }] }),
       Project.find({}),
       Team.find({ 'members.user': userId })
     ]);
