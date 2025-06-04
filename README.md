@@ -46,7 +46,7 @@ Task Manager là một ứng dụng web toàn diện để quản lý công vi�
 ```bash
 git clone https://github.com/your-username/Task-manager.git
 cd Task-manager
-git checkout Project-1
+git checkout Project-CHCSDLTT
 ```
 
 ### Bước 2: Cài đặt dependencies cho Backend
