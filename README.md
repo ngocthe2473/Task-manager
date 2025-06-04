@@ -46,7 +46,7 @@ Task Manager là một ứng dụng web toàn diện để quản lý công vi�
 ```bash
 git clone https://github.com/your-username/Task-manager.git
 cd Task-manager
-git checkout Project-CHCSDLTT
+git checkout Project-1
 ```
 
 ### Bước 2: Cài đặt dependencies cho Backend
@@ -67,6 +67,7 @@ Tạo file `.env` trong thư mục gốc với nội dung:
 ```env
 # Database (MongoDB Atlas)
 MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/taskmanager
+Note: Trong tiểu luận đã cung cấp đường dẫn chính xácxác
 
 # JWT Secret
 JWT_SECRET=your-super-secret-jwt-key-here
@@ -375,16 +376,10 @@ Distributed under the MIT License. See `LICENSE` for more information.
 - ✅ Code organization & best practices
 
 ### Test accounts
-- **Admin full access**: admin@taskmanager.com / password123
-- **Manager access**: pm@taskmanager.com / password123  
-- **Basic user**: dev@taskmanager.com / password123
+- **Admin full access**: admin@company.com / Password123
+- **Basic user**: vo.thi.son17@company.com / Password123 hoặc các tài khoản khác trong db
+  
 
-### Demo data
-- 500+ sample tasks với varied statuses
-- 10+ teams với realistic hierarchies  
-- 20+ projects với milestones
-- Comments và activity logs
-- File attachments examples
 
 ### Grading checklist
 - [x] Working authentication system
