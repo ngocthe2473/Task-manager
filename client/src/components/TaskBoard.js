@@ -65,7 +65,7 @@ const BoardTitle = styled(Typography)(({ theme }) => ({
 
 const ColumnContainer = styled(Box)(({ theme }) => ({
   display: 'grid',
-  gridTemplateColumns: 'repeat(4, 25%)', // 4 cột, mỗi cột chính xác 25%
+  gridTemplateColumns: '1fr 1fr 1fr 1fr', // 4 cột đều nhau
   gap: '16px',
   height: 'calc(100vh - 120px)',
   overflowY: 'auto',
