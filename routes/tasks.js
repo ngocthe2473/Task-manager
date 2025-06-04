@@ -15,7 +15,13 @@ router.post('/', protect, taskController.createTask);
 router.get('/:id', protect, taskController.getTaskById);
 router.put('/:id', protect, taskController.updateTask);
 router.delete('/:id', protect, taskController.deleteTask);
+<<<<<<< Updated upstream
 router.get('/:id/subtasks', protect, taskController.getSubtasks);
+=======
+// Subtasks are now handled in subTaskController
+// router.get('/:id/subtasks', protect, taskController.getSubtasks);
+router.put('/:id/status', protect, taskController.updateTaskStatus);
+>>>>>>> Stashed changes
 
 // Comment routes
 router.get('/:taskId/comments', protect, commentController.getComments);
