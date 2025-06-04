@@ -22,7 +22,8 @@ const {
   advancedProjectAnalytics,
   autocompleteProjectName,
   exportProjectsCSV,
-  projectDashboardSummary
+  projectDashboardSummary,
+  getProjectTasks
 } = require('../controllers/projectController');
 const router = express.Router();
 
@@ -51,5 +52,6 @@ router.route('/:id')
   .delete(authenticate, validateMongoId, deleteProject);
 
 router.get('/:id/stats', authenticate, validateMongoId, getProjectStats);
+router.get('/:id/tasks', authenticate, validateMongoId, getProjectTasks);
 
 module.exports = router;

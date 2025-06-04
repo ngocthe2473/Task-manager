@@ -29,8 +29,7 @@
     {
       "key": "projectId",
       "value": "",
-      "type": "string"
-    },    {
+      "type": "string"    },    {
       "key": "teamId",
       "value": "",
       "type": "string"
@@ -41,6 +40,11 @@
       "type": "string"
     },    {
       "key": "subtaskId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "attachmentId",
       "value": "",
       "type": "string"
     }
@@ -109,7 +113,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"Test@example.com\",\n  \"password\": \"Password123\"\n}"
+              "raw": "{\n  \"email\": \"long@example.com\",\n  \"password\": \"Password123\"\n}"
             }
           },
           "event": [
@@ -162,7 +166,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"Test@example.com\"\n}"
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"long@example.com\"\n}"
             }
           }
         },
@@ -456,12 +460,36 @@
               }
             ]
           }
-        },
-        {
+        },        {
           "name": "Filter Tasks",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/tasks?status=todo&priority=high",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },        {
+          "name": "Get All Tasks of a Project",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/projects/{{projectId}}/tasks",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Get My Tasks of a Project",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/projects/{{projectId}}/tasks?assignedToMe=true",
             "header": [
               {
                 "key": "Authorization",
@@ -766,8 +794,7 @@
           }
         }
       ]
-    },
-    {
+    },    {
       "name": "10. Time Log APIs",
       "item": [
         {
@@ -796,6 +823,210 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/timelogs",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Activity Log APIs",
+      "item": [
+        {
+          "name": "Get Activity Logs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/activity-logs",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Get Activity Logs with Filters",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/activity-logs?action=task_created&entityType=Task&page=1&limit=10",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Get Activity Logs for User",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/activity-logs/user/{{userId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. File/Attachment APIs",
+      "item": [
+        {
+          "name": "Upload File",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/attachments/upload",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "task",
+                  "value": "{{taskId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Test file upload",
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Attachments for Task",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/attachments?task={{taskId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Download File",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/attachments/download/{{attachmentId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Delete Attachment",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/attachments/{{attachmentId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Reports APIs",
+      "item": [
+        {
+          "name": "Get Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/reports/dashboard-stats",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Get Task Completion Report",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/reports/task-completion",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Get Team Performance",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/reports/team-performance",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Get Project Analytics",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/reports/project-analytics",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Get User Productivity",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/reports/user-productivity?userId={{userId}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Export Report",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/reports/export?type=tasks&format=csv&startDate=2025-06-01&endDate=2025-06-30",
             "header": [
               {
                 "key": "Authorization",

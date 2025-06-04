@@ -13,7 +13,8 @@ const {
   searchProjects,
   getComprehensiveStats,
   getTeamAnalytics,
-  getTaskTimeline
+  getTaskTimeline,
+  getTasksByProject
 } = require('../controllers/taskController');
 const { 
   getSubTasks, 
@@ -36,6 +37,9 @@ router.route('/')
 // User-specific routes
 router.get('/my-tasks', authenticate, getMyTasks);
 router.get('/dashboard-stats', authenticate, getTaskStats);
+
+// Project-specific routes
+router.get('/project/:projectId', authenticate, validateMongoId, getTasksByProject);
 
 // Search routes
 router.get('/search', authenticate, searchTasks);

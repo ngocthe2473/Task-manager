@@ -116,9 +116,16 @@ exports.createTeam = async (req, res) => {
       return res.status(400).json({ message: 'Team name is required' });
     }
 
+
+    // Check for duplicate team name (case-insensitive)
+    const existingTeam = await Team.findOne({ name: { $regex: `^${name.trim()}$`, $options: 'i' } });
+    if (existingTeam) {
+      return res.status(409).json({ message: 'A team with this name already exists.' });
+    }
+
     // Create the team with the current user as leader
     const team = await Team.create({
-      name,
+      name: name.trim(),
       description,
       members: [{
         user: req.user.id,

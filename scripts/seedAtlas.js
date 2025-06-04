@@ -11,6 +11,9 @@ const User = require('../models/User');
 const Team = require('../models/Team');
 const Project = require('../models/Project');
 const Task = require('../models/Task');
+const SubTask = require('../models/SubTask');
+const Comment = require('../models/Comment');
+const Notification = require('../models/Notification');
 
 const seedData = async () => {
   try {
@@ -26,7 +29,7 @@ const seedData = async () => {
     await Task.deleteMany();
 
     // Tạo users mẫu
-    console.log('Creating sample users...'.yellow);    const hashedPassword = await bcrypt.hash('123456', 12);
+    console.log('Creating sample users...'.yellow);    const hashedPassword = await bcrypt.hash('Password123', 12);
     
     const users = await User.create([
       {
@@ -64,8 +67,11 @@ const seedData = async () => {
     const team = await Team.create({
       name: 'Nhóm Phát Triển Web',
       description: 'Nhóm phát triển hệ thống quản lý công việc',
-      manager: users[1]._id, // Thế làm manager
-      members: [users[1]._id, users[2]._id, users[3]._id]
+      members: [
+        { user: users[1]._id, team_role: 'leader' },
+        { user: users[2]._id, team_role: 'member' },
+        { user: users[3]._id, team_role: 'member' }
+      ]
     });
 
     // Tạo project mẫu
@@ -78,17 +84,16 @@ const seedData = async () => {
       startDate: new Date(),
       endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 ngày sau
     });
-
     // Tạo tasks mẫu
     console.log('Creating sample tasks...'.yellow);
-    await Task.create([
+    const tasks = await Task.create([
       {
         title: 'Thiết kế giao diện đăng nhập',
         description: 'Tạo form đăng nhập với validation',
         project: project._id,
         assignee: users[1]._id,
         creator: users[0]._id,
-        status: 'done', // Giữ nguyên vì 'done' đúng
+        status: 'done',
         priority: 'high',
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       },
@@ -96,9 +101,9 @@ const seedData = async () => {
         title: 'Phát triển API quản lý tasks',
         description: 'Tạo CRUD operations cho tasks',
         project: project._id,
-        assignee: users[2]._id,
+        assignee: users[2]._id, // Nguyễn Tấn Long
         creator: users[0]._id,
-        status: 'inprogress', // Sửa 'in_progress' thành 'inprogress'
+        status: 'in-progress',
         priority: 'medium',
         dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
       },
@@ -108,11 +113,84 @@ const seedData = async () => {
         project: project._id,
         assignee: users[3]._id,
         creator: users[0]._id,
-        status: 'todo', // Giữ nguyên vì 'todo' đúng
+        status: 'todo',
         priority: 'low',
         dueDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000)
+      },
+      {
+        title: 'Thiết kế giao diện task board',
+        description: 'Tạo giao diện Kanban board cho quản lý tasks',
+        project: project._id,
+        assignee: users[2]._id, // Thêm task cho Nguyễn Tấn Long
+        creator: users[0]._id,
+        status: 'todo',
+        priority: 'high',
+        dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000)
       }
     ]);
+
+    // Tạo subtasks cho mỗi task
+    console.log('Creating sample subtasks...'.yellow);
+    for (const [i, task] of tasks.entries()) {
+      await SubTask.create([
+        {
+          title: `Subtask 1 for ${task.title}`,
+          description: 'Mô tả subtask 1',
+          parentTask: task._id,
+          assignee: users[(i+1)%users.length]._id,
+          status: 'todo',
+          priority: 'medium',
+          dueDate: new Date(Date.now() + (i+2) * 5 * 24 * 60 * 60 * 1000)
+        },
+        {
+          title: `Subtask 2 for ${task.title}`,
+          description: 'Mô tả subtask 2',
+          parentTask: task._id,
+          assignee: users[(i+2)%users.length]._id,
+          status: 'in_progress',
+          priority: 'high',
+          dueDate: new Date(Date.now() + (i+3) * 5 * 24 * 60 * 60 * 1000)
+        }
+      ]);
+    }
+
+    // Tạo comments cho mỗi task
+    console.log('Creating sample comments...'.yellow);
+    for (const [i, task] of tasks.entries()) {
+      const c1 = await Comment.create({
+        text: `Bình luận đầu tiên cho task ${task.title}`,
+        user: users[(i+1)%users.length]._id,
+        task: task._id
+      });
+      // Reply cho comment đầu tiên
+      await Comment.create({
+        text: `Reply cho bình luận đầu tiên của task ${task.title}`,
+        user: users[(i+2)%users.length]._id,
+        task: task._id,
+        parentComment: c1._id
+      });
+    }
+
+    // Tạo notifications cho các user liên quan
+    console.log('Creating sample notifications...'.yellow);
+    for (const [i, task] of tasks.entries()) {
+      await Notification.create([
+        {
+          user: task.assignee,
+          content: `Bạn được giao task: ${task.title}`,
+          type: 'task_assigned',
+          relatedEntity: task._id,
+          onModel: 'Task'
+        },
+        {
+          user: users[0]._id,
+          content: `Task ${task.title} đã được tạo mới trong project ${project.name}`,
+          type: 'project_update',
+          relatedEntity: project._id,
+          onModel: 'Project'
+        }
+      ]);
+    }
 
     console.log('Sample data created successfully!'.green);
     console.log('Users created:'.cyan);

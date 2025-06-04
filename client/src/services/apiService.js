@@ -83,6 +83,20 @@ export const deleteTask = async (id) => {
   return response.data;
 };
 
+// Get tasks by project (all tasks in a project for authorized users)
+export const getTasksByProject = async (projectId, filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.status) params.append('status', filters.status);
+  if (filters.assignee) params.append('assignee', filters.assignee);
+  if (filters.assignedToMe) params.append('assignedToMe', 'true');
+  
+  const queryString = params.toString();
+  const url = `/projects/${projectId}/tasks${queryString ? `?${queryString}` : ''}`;
+  
+  const response = await api.get(url);
+  return response.data.data || response.data || [];
+};
+
 // SubTasks API
 export const getSubTasks = async (taskId) => {
   const response = await api.get(`/tasks/${taskId}/subtasks`);
@@ -139,7 +153,8 @@ export const getProjectStats = async (id) => {
 
 export const getProjectTasks = async (id) => {
   const response = await api.get(`/projects/${id}/tasks`);
-  return response.data;
+  // Handle API response format { success: true, data: tasks }
+  return response.data.data || response.data || [];
 };
 
 // Additional Project API
@@ -412,6 +427,12 @@ export const detailedSearchProjects = async (query, options = {}) => {
   
   const response = await api.get(url);
   return response.data.data || response.data || [];
+};
+
+// Reports API
+export const getReportStats = async () => {
+  const response = await api.get('/reports/stats');
+  return response.data.data || response.data || {};
 };
 
 export default api;

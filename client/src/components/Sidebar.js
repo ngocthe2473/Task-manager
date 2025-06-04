@@ -30,7 +30,8 @@ import {
   ErrorOutline as OverdueIcon,
   AdminPanelSettings as AdminIcon,
   SupervisorAccount as AdminDashboardIcon,
-  Person as ProfileIcon
+  Person as ProfileIcon,
+  Person
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -253,25 +254,44 @@ const Sidebar = ({ open = true, onClose }) => {
     const colors = ['#2196f3', '#4caf50', '#ff9800', '#f44336', '#9c27b0', '#00bcd4'];
     const index = projectId ? projectId.length % colors.length : 0;
     return colors[index];
-  };  const menuItems = [
+  };  // Check if user is admin
+  const isAdmin = userInfo?.role === 'admin' || userInfo?.isAdmin;
+
+  // Common menu items for all users
+  const commonMenuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'Tasks', icon: <TasksIcon />, path: '/tasks' },
-    { text: 'Calendar', icon: <CalendarIcon />, path: '/calendar' },
+    { text: 'Calendar', icon: <CalendarIcon />, path: '/calendar' }
+  ];
+
+  // User-specific menu items (for regular users)
+  const userMenuItems = [
+    { text: 'My Teams', icon: <TeamIcon />, path: '/teams' },
+    { text: 'My Projects', icon: <ProjectIcon />, path: '/projects' },
+    { text: 'Activity Log', icon: <TimelineIcon />, path: '/activity' }
+  ];
+
+  // Admin-only menu items
+  const adminMenuItems = [
     { text: 'Teams', icon: <TeamIcon />, path: '/teams' },
     { text: 'Projects', icon: <ProjectIcon />, path: '/projects' },
     { text: 'Reports', icon: <ReportsIcon />, path: '/reports' },
     { text: 'Activity Log', icon: <TimelineIcon />, path: '/activity' },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' }
-  ];
-
-  const adminMenuItems = [
     { text: 'Admin Dashboard', icon: <AdminDashboardIcon />, path: '/admin' },
     { text: 'Team Management', icon: <AdminIcon />, path: '/team-management' },
-    { text: 'User Profile', icon: <ProfileIcon />, path: '/profile' }
+    { text: 'User Management', icon: <ProfileIcon />, path: '/users' }
   ];
 
-  // Check if user is admin
-  const isAdmin = userInfo?.role === 'admin' || userInfo?.isAdmin;
+  // Get menu items based on user role
+  const getMenuItems = () => {
+    if (isAdmin) {
+      return [...commonMenuItems, ...adminMenuItems];
+    } else {
+      return [...commonMenuItems, ...userMenuItems];
+    }
+  };
+
+  const menuItems = getMenuItems();
 
   const handleNavigation = (path) => {
     navigate(path);
@@ -285,8 +305,23 @@ const Sidebar = ({ open = true, onClose }) => {
       variant="persistent"
       anchor="left"
       open={open}
-    >
-      <SidebarContainer>
+    >      <SidebarContainer>
+        {/* User Role Badge */}
+        <Box sx={{ padding: '16px 24px', textAlign: 'center' }}>
+          <Chip 
+            label={isAdmin ? 'Administrator' : 'User'} 
+            color={isAdmin ? 'error' : 'primary'}
+            variant="filled"
+            size="small"
+            icon={isAdmin ? <AdminIcon /> : <Person />}
+            sx={{ 
+              fontWeight: 600,
+              fontSize: '12px',
+              '& .MuiChip-icon': { fontSize: '16px' }
+            }}
+          />
+        </Box>
+
         {/* Navigation Menu */}
         <Box>
           <SectionTitle>Navigation</SectionTitle>
@@ -301,28 +336,6 @@ const Sidebar = ({ open = true, onClose }) => {
               </StyledListItem>
             ))}          </List>
         </Box>
-
-        {/* Admin Menu - only show for admin users */}
-        {isAdmin && (
-          <>
-            <Divider sx={{ margin: '16px 0' }} />
-            <Box>
-              <SectionTitle>Administration</SectionTitle>
-              <List>
-                {adminMenuItems.map((item) => (
-                  <StyledListItem
-                    key={item.text}
-                    $active={isActive(item.path)}
-                    onClick={() => handleNavigation(item.path)}
-                  >
-                    <ListItemIcon>{item.icon}</ListItemIcon>
-                    <ListItemText primary={item.text} />
-                  </StyledListItem>
-                ))}
-              </List>
-            </Box>
-          </>
-        )}
 
         <Divider sx={{ margin: '16px 0' }} />
 

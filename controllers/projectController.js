@@ -183,8 +183,16 @@ exports.createProject = async (req, res) => {
     // Check if user is admin or team leader for this team
     if (req.user.role !== 'admin' && !teamDoc.isLeader(req.user.id)) {
       return res.status(403).json({ message: 'Not authorized. Only team leaders can create projects for their team.' });
-    }    const project = await Project.create({
-      name,
+    }
+
+    // Check for duplicate project name in the same team
+    const existingProject = await Project.findOne({ name: name.trim(), team: teamDoc._id });
+    if (existingProject) {
+      return res.status(409).json({ message: 'A project with this name already exists in the team.' });
+    }
+
+    const project = await Project.create({
+      name: name.trim(),
       description,
       team: teamDoc._id,
       startDate,
@@ -378,14 +386,13 @@ exports.getMyProjects = async (req, res) => {
   try {
     const { status, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
 
-    const filter = {};
-    if (status) filter.status = status;
+    // First, find all teams where the user is a member
+    const userTeams = await Team.find({
+      'members.user': req.user._id
+    }).select('_id');
 
-    // Filter based on user's team
-    if (req.user.team) {
-      filter.team = req.user.team;
-    } else {
-      // If user has no team, return empty array
+    if (userTeams.length === 0) {
+      // If user is not a member of any team, return empty array
       return res.status(200).json({
         success: true,
         count: 0,
@@ -393,13 +400,20 @@ exports.getMyProjects = async (req, res) => {
       });
     }
 
+    const teamIds = userTeams.map(team => team._id);
+
+    const filter = {
+      team: { $in: teamIds }
+    };
+    if (status) filter.status = status;
+
     const sort = {};
     sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
     const projects = await Project.find(filter)
       .populate({
         path: 'team',
-        select: 'name manager'
+        select: 'name description members'
       })
       .sort(sort);
 
@@ -798,6 +812,108 @@ exports.projectDashboardSummary = async (req, res) => {
     res.json({ success: true, data: summary });
   } catch (error) {
     console.error('Project dashboard summary error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get tasks for a specific project
+// @route   GET /api/projects/:id/tasks
+// @access  Private
+exports.getProjectTasks = async (req, res) => {  try {
+    const { id: projectId } = req.params;
+    const { 
+      status,
+      priority,
+      assignee,
+      assignedToMe,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 50 
+    } = req.query;
+
+    // Check if user has access to this project
+    if (!req.user) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    // Verify project exists
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Check permissions: admin, team leader, or team member
+    const isAdmin = req.user.role === 'admin';
+    const isTeamLeader = await isUserTeamLeaderForProject(req.user.id, projectId);
+    
+    // Check if user is a member of the project's team
+    let isTeamMember = false;
+    if (project.team) {
+      const team = await Team.findById(project.team);
+      if (team) {
+        isTeamMember = team.isMember(req.user.id);
+      }
+    }
+
+    if (!isAdmin && !isTeamLeader && !isTeamMember) {
+      return res.status(403).json({ message: 'Access denied to this project' });
+    }
+
+    // Build filter for tasks
+    const filter = { project: projectId };
+
+    if (status) {
+      filter.status = status;
+    }
+
+    if (priority) {
+      filter.priority = priority;
+    }    if (assignee) {
+      filter.assignee = assignee;
+    }
+      // If assignedToMe is true, only show tasks assigned to current user
+    if (assignedToMe === 'true') {
+      filter.assignee = req.user.id;
+      console.log('Filtering tasks for user:', req.user.id);
+    }
+    
+    console.log('Task filter:', filter);
+    console.log('Query params:', req.query);if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // All team members can see all tasks of projects they have access to
+    // No additional filtering needed - if they can access the project, they can see all tasks
+
+    const tasks = await Task.find(filter)
+      .populate('assignee', 'name email')
+      .populate('creator', 'name email')
+      .populate('project', 'name description')
+      .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .exec();
+
+    const total = await Task.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      count: tasks.length,
+      total,
+      pagination: {
+        page: parseInt(page),
+        pages: Math.ceil(total / limit),
+        limit: parseInt(limit)
+      },
+      data: tasks
+    });
+  } catch (error) {
+    console.error('Error getting project tasks:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

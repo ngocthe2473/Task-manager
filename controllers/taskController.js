@@ -44,6 +44,14 @@ const isUserTeamLeaderForUser = async (leaderId, targetUserId) => {
 // @access  Private
 exports.getTasks = async (req, res) => {
   try {
+    // Check if user is authenticated
+    if (!req.user) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'User not authenticated' 
+      });
+    }
+
     const {
       page = 1,
       limit = 10,
@@ -70,16 +78,16 @@ exports.getTasks = async (req, res) => {
         $gte: new Date(date.setHours(0, 0, 0, 0)),
         $lte: new Date(date.setHours(23, 59, 59, 999))
       };
-    }
-
-    // Add search functionality
+    }    // Add search functionality
     if (search) {
       filter.$or = [
         { title: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } }
       ];
-    }    // Role-based filtering
-    if (req.user.role === 'member') {
+    }
+    
+    // Role-based filtering - Add null check
+    if (req.user && req.user.role === 'member') {
       filter.$or = [
         { assignee: req.user.id },
         { creator: req.user.id }
@@ -358,14 +366,57 @@ exports.deleteTask = async (req, res) => {
 // @access  Private
 exports.getTasksByProject = async (req, res) => {
   try {
+    // Check if user is authenticated
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'User not authenticated' 
+      });
+    }
+
     const { projectId } = req.params;
     const { status, assignee } = req.query;
 
+    // Check if user has access to this project
+    const Project = require('../models/Project');
+    const Team = require('../models/Team');
+    
+    const project = await Project.findById(projectId).populate('team');
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+    }
+
+    // Check if user is member of the project's team
+    const team = await Team.findById(project.team._id);
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        message: 'Team not found'
+      });
+    }
+
+    const isMember = team.members.some(member => 
+      member.user && member.user.toString() === req.user.id.toString()
+    );
+
+    if (!isMember) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You are not a member of this project\'s team'
+      });
+    }
+
     const filter = { project: projectId };
     if (status) filter.status = status;
-    if (assignee) filter.assignee = assignee;    const tasks = await Task.find(filter)
+    if (assignee) filter.assignee = assignee;
+
+    const tasks = await Task.find(filter)
       .populate('assignee', 'name email')
       .populate('creator', 'name email')
+      .populate('project', 'name description')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -375,7 +426,10 @@ exports.getTasksByProject = async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting project tasks:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error' 
+    });
   }
 };
 
@@ -384,6 +438,14 @@ exports.getTasksByProject = async (req, res) => {
 // @access  Private
 exports.getMyTasks = async (req, res) => {
   try {
+    // Check if user is authenticated
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'User not authenticated' 
+      });
+    }
+
     const {
       page = 1,
       limit = 50,
@@ -392,9 +454,7 @@ exports.getMyTasks = async (req, res) => {
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc'
-    } = req.query;
-
-    // Build filter for user's tasks (assigned to user or created by user)
+    } = req.query;    // Build filter for user's tasks (assigned to user or created by user)
     const filter = {
       $or: [
         { assignee: req.user.id },

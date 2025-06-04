@@ -15,7 +15,13 @@ import {
   Tooltip,
   Paper,
   Button,
-  CircularProgress
+  CircularProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -29,7 +35,7 @@ import {
 import { styled } from '@mui/material/styles';
 import { format } from 'date-fns';
 import EditTaskDialog from './EditTaskDialog';
-import { getAllTasks, addTask, updateTask, deleteTask, getMyTasks } from '../services/apiService';
+import { getAllTasks, addTask, updateTask, deleteTask, getMyTasks, getMyTeams, getProjects, getTasksByProject } from '../services/apiService';
 import { getSubTasksByTaskId } from '../services/subtaskService';
 import { useNavigate } from 'react-router-dom';
 
@@ -222,6 +228,11 @@ const StyledFab = styled(Fab)(({ theme }) => ({
 
 const TaskBoard = ({ onTaskClick }) => {
   const [tasks, setTasks] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [showMyTasksOnly, setShowMyTasksOnly] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -257,27 +268,122 @@ const TaskBoard = ({ onTaskClick }) => {
 
   const currentUser = getUserInfo();
 
+  // Load teams user is member of
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const data = await getMyTeams();
+        setTeams(data);
+        if (data.length > 0) {
+          setSelectedTeam(data[0]);
+        }
+      } catch (err) {
+        setError('Failed to fetch teams');
+      }
+    };
+    fetchTeams();
+  }, []);
+
+  // Load projects when team changes
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!selectedTeam) return;
+      try {
+        const allProjects = await getProjects();
+        const filtered = allProjects.filter(p => (p.team?._id || p.team) === (selectedTeam._id || selectedTeam.id));
+        setProjects(filtered);
+        if (filtered.length > 0) {
+          setSelectedProject(filtered[0]);
+        } else {
+          setSelectedProject(null);
+        }
+      } catch (err) {
+        setError('Failed to fetch projects');
+      }
+    };
+    fetchProjects();
+  }, [selectedTeam]);  // Load tasks when project changes
   useEffect(() => {
     const fetchTasks = async () => {
-      try {
-        const response = await getMyTasks();
-        // Filter tasks to only include those assigned to or created by the user
-        const filteredTasks = response.filter(task => 
-          task.assignee?._id === currentUser._id || 
-          task.creator?._id === currentUser._id ||
-          task.assignee === currentUser._id ||
-          task.creator === currentUser._id
-        );
-        setTasks(filteredTasks);
+      if (!selectedProject) {
+        setTasks([]);
+        return;
+      }
+      setLoading(true);      try {
+        const projectId = selectedProject._id || selectedProject.id;
+        console.log('Fetching tasks for project:', projectId); // Debug log
+        
+        // Fetch tasks based on filter preference
+        const filters = showMyTasksOnly ? { assignedToMe: true } : {};
+        const taskData = await getTasksByProject(projectId, filters);
+        console.log('Fetched task data:', taskData); // Debug log
+        
+        setTasks(taskData || []);
         setLoading(false);
       } catch (err) {
+        console.error('Error fetching tasks:', err);
         setError('Failed to fetch tasks');
         setLoading(false);
       }
-    };
-
-    fetchTasks();
-  }, []);
+    };    fetchTasks();
+  }, [selectedProject, showMyTasksOnly]);  // Dropdown UI for team và project
+  const renderTeamProjectSelectors = () => (
+    <Box sx={{ display: 'flex', gap: 3, mb: 3, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+      <FormControl size="small" sx={{ minWidth: 180 }}>
+        <InputLabel id="team-select-label">Team</InputLabel>
+        <Select
+          labelId="team-select-label"
+          value={selectedTeam?._id || selectedTeam?.id || ''}
+          label="Team"
+          onChange={e => {
+            const team = teams.find(t => (t._id || t.id) === e.target.value);
+            setSelectedTeam(team);
+          }}
+        >
+          {teams.map(team => (
+            <MenuItem key={team._id || team.id} value={team._id || team.id}>
+              <Avatar sx={{ width: 24, height: 24, mr: 1, bgcolor: '#1976d2', fontSize: 14 }}>
+                {team.name?.charAt(0) || 'T'}
+              </Avatar>
+              {team.name}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      <FormControl size="small" sx={{ minWidth: 220 }}>
+        <InputLabel id="project-select-label">Project</InputLabel>
+        <Select
+          labelId="project-select-label"
+          value={selectedProject?._id || selectedProject?.id || ''}
+          label="Project"
+          onChange={e => {
+            const project = projects.find(p => (p._id || p.id) === e.target.value);
+            setSelectedProject(project);
+          }}
+        >
+          {projects.map(project => (
+            <MenuItem key={project._id || project.id} value={project._id || project.id}>
+              <Avatar sx={{ width: 24, height: 24, mr: 1, bgcolor: '#43a047', fontSize: 14 }}>
+                {project.name?.charAt(0) || 'P'}
+              </Avatar>
+              {project.name}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      <FormControlLabel
+        control={
+          <Switch
+            checked={showMyTasksOnly}
+            onChange={(e) => setShowMyTasksOnly(e.target.checked)}
+            color="primary"
+          />
+        }
+        label="Chỉ hiển thị task của tôi"
+        sx={{ ml: 2 }}
+      />
+    </Box>
+  );
 
   const handleTaskSave = async (taskData) => {
     try {
@@ -502,7 +608,7 @@ const TaskBoard = ({ onTaskClick }) => {
                       ? task.assignee.name.charAt(0) 
                       : 'U'}
                   </Avatar>
-                  <Typography variant="caption" color="textSecondary">
+                  <Typography variant="caption" color="textSecondary" component="span">
                     {typeof task.assignee === 'object' && task.assignee.name 
                       ? task.assignee.name 
                       : 'Unassigned'}
@@ -535,10 +641,13 @@ const TaskBoard = ({ onTaskClick }) => {
   return (
     <BoardContainer>
       <BoardHeader>
-        <BoardTitle>Task Board</BoardTitle>        <Typography variant="body2" color="textSecondary" component="div">
+        <BoardTitle>Task Board</BoardTitle>
+        <Typography variant="body2" color="textSecondary" component="div">
           {tasks.length} tasks • {getTasksByStatus('done').length} completed
         </Typography>
-      </BoardHeader>      <ColumnContainer container spacing={3}>
+      </BoardHeader>
+      {renderTeamProjectSelectors()}
+      <ColumnContainer container spacing={3}>
         {columns.map((column) => {
           const columnTasks = getTasksByStatus(column.id);
           return (

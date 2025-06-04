@@ -29,6 +29,7 @@ const activityLogRoutes = require('./routes/activityLogRoutes');
 const attachmentRoutes = require('./routes/attachmentRoutes');
 const calendarRoutes = require('./routes/calendarRoutes');
 const searchRoutes = require('./routes/searchRoutes');
+const reportRoutes = require('./routes/reportRoutes_fixed');
 
 const app = express();
 
@@ -90,6 +91,7 @@ app.use('/api/activity-logs', activityLogRoutes);
 app.use('/api/attachments', attachmentRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {

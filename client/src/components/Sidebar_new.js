@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getProjects } from '../services/apiService';
 import {
   Drawer,
   List,
@@ -169,19 +170,36 @@ const Sidebar = ({ open, onClose }) => {
   const location = useLocation();
   const [projectsExpanded, setProjectsExpanded] = useState(true);
 
-  // Mock data
-  const stats = {
-    total: 24,
-    completed: 18,
-    pending: 4,
-    overdue: 2
-  };
 
-  const projects = [
-    { id: 1, name: 'Web Redesign', color: '#2196f3', taskCount: 8 },
-    { id: 2, name: 'Mobile App', color: '#4caf50', taskCount: 12 },
-    { id: 3, name: 'Marketing Campaign', color: '#ff9800', taskCount: 4 }
-  ];
+  // State for real data
+  const [projects, setProjects] = useState([]);
+  const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0, overdue: 0 });
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const data = await getProjects();
+        setProjects(data);
+        // Tính toán stats nếu cần
+        let completed = 0, pending = 0, overdue = 0;
+        const now = new Date();
+        data.forEach(p => {
+          if (p.status === 'completed' || p.status === 'done') completed++;
+          else if (p.status === 'pending' || p.status === 'planning') pending++;
+          if (p.dueDate && new Date(p.dueDate) < now && p.status !== 'completed' && p.status !== 'done') overdue++;
+        });
+        setStats({
+          total: data.length,
+          completed,
+          pending,
+          overdue
+        });
+      } catch (err) {
+        setProjects([]);
+      }
+    };
+    fetchProjects();
+  }, []);
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },

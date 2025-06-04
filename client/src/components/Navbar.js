@@ -10,9 +10,16 @@ import {
   InputBase,
   Menu,
   MenuItem,
-  Button
+  Button,
+  Popover,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  Divider
 } from '@mui/material';
 import { AuthContext } from '../context/AuthContext';
+import { getNotifications, markNotificationAsRead } from '../services/apiService';
 import {
   Menu as MenuIcon,
   Notifications as NotificationsIcon,
@@ -155,6 +162,24 @@ const ModernIconButton = styled(IconButton)(({ theme }) => ({
 const Navbar = () => {
   const [user, setUser] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [notifAnchorEl, setNotifAnchorEl] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [notifLoading, setNotifLoading] = useState(false);
+  // Fetch notifications when open
+  const handleNotifOpen = (event) => {
+    setNotifAnchorEl(event.currentTarget);
+    setNotifLoading(true);
+    getNotifications().then(data => {
+      setNotifications(data);
+      setNotifLoading(false);
+    });
+  };
+  const handleNotifClose = () => setNotifAnchorEl(null);
+
+  const handleMarkAsRead = async (notifId) => {
+    await markNotificationAsRead(notifId);
+    setNotifications(notifications.map(n => n._id === notifId ? { ...n, isRead: true } : n));
+  };
   const [searchValue, setSearchValue] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -287,11 +312,49 @@ const Navbar = () => {
         </CenterSection>
 
         <RightSection>
-          <ModernIconButton>
-            <Badge badgeContent={3} color="error">
+
+          <ModernIconButton onClick={handleNotifOpen}>
+            <Badge badgeContent={notifications.filter(n => !n.isRead).length} color="error">
               <NotificationsIcon />
             </Badge>
           </ModernIconButton>
+          <Popover
+            open={Boolean(notifAnchorEl)}
+            anchorEl={notifAnchorEl}
+            onClose={handleNotifClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            PaperProps={{ sx: { minWidth: 320, maxWidth: 400 } }}
+          >
+            <Box sx={{ p: 2, fontWeight: 600 }}>Notifications</Box>
+            <Divider />
+            {notifLoading ? (
+              <Box sx={{ p: 2 }}>Loading...</Box>
+            ) : notifications.length === 0 ? (
+              <Box sx={{ p: 2, color: '#888' }}>No notifications</Box>
+            ) : (
+              <List dense>
+                {notifications.map((notif) => (
+                  <ListItem
+                    key={notif._id}
+                    alignItems="flex-start"
+                    sx={{ bgcolor: notif.isRead ? '#fff' : '#e3f2fd', cursor: 'pointer' }}
+                    onClick={() => handleMarkAsRead(notif._id)}
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: notif.isRead ? '#bdbdbd' : '#2196f3', width: 32, height: 32 }}>
+                        {notif.type === 'task_assigned' ? '📝' : notif.type === 'comment' ? '💬' : '🔔'}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={notif.content}
+                      secondary={new Date(notif.createdAt).toLocaleString()}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Popover>
           
           <ModernIconButton>
             <MessageIcon />

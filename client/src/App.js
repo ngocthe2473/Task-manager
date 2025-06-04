@@ -7,13 +7,11 @@ import Dashboard from './components/Dashboard';
 import TaskBoard from './components/TaskBoard';
 import Calendar from './components/Calendar';
 import Teams from './components/Teams';
-import Settings from './components/Settings';
-import TaskDetail from './components/TaskDetail';
 import ProjectManagement from './components/ProjectManagement';
 import AdminDashboard from './components/AdminDashboard';
 import Profile from './components/Profile';
-import Reports from './components/Reports';
-import ActivityLog from './components/ActivityLog';
+import Reports from './components/ReportsPage';
+import ActivityLog from './components/ActivityLogPage_new';
 import TeamManagement from './components/TeamManagement';
 import AddTaskDialog from './components/AddTaskDialog';
 import Login from './components/Login';
@@ -22,6 +20,7 @@ import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import TaskDetail from './components/TaskDetail';
 
 const App = () => {
   const [selectedTask, setSelectedTask] = useState(null);
@@ -134,26 +133,6 @@ const App = () => {
                         }}
                       >
                         <Teams />
-                      </Box>
-                    </Box>
-                  </>
-                </PrivateRoute>
-              } />              <Route path="/settings" element={
-                <PrivateRoute>
-                  <>
-                    <Navbar />
-                    <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
-                      <Sidebar />
-                      <Box
-                        component="main"
-                        sx={{
-                          flexGrow: 1,
-                          p: 0,
-                          overflowY: 'auto',
-                          backgroundColor: '#f7f8fa'
-                        }}
-                      >
-                        <Settings />
                       </Box>
                     </Box>
                   </>

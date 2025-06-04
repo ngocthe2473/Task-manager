@@ -128,7 +128,7 @@ exports.getCalendarView = async (req, res) => {
       tasks = await Task.find(taskFilter)
         .populate('assignee', 'name email avatar')
         .populate('project', 'name color')
-        .populate('createdBy', 'name email')
+        .populate('creator', 'name email')
         .sort({ dueDate: 1 });
     }
 
@@ -137,7 +137,6 @@ exports.getCalendarView = async (req, res) => {
       subtasks = await SubTask.find(subtaskFilter)
         .populate('assignee', 'name email avatar')
         .populate('task', 'title project')
-        .populate('createdBy', 'name email')
         .sort({ dueDate: 1 });
     }
 

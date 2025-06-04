@@ -271,10 +271,13 @@ const ProjectManagement = () => {
           ...formData,
           team: formData.team || undefined // Send undefined if no team selected
         };
-        
+        // Nếu đang edit (selectedProject có _id), chuyển sang update
+        if (selectedProject && selectedProject._id) {
+          await handleUpdateProject();
+          return;
+        }
         const response = await addProject(projectData);
         const newProject = response.data || response; // Handle different response structures
-        
         setOpenDialog(false);
         resetForm();
         setSnackbar({
