@@ -1,5 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { loginUser } from '../services/apiService';
 import {
   Container,
   Box,
@@ -50,27 +51,12 @@ const Login = () => {
       [name]: name === 'remember' ? checked : value
     });
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch('/api/users/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Đăng nhập thất bại');
-      }
+    setError('');    try {
+      // Use API service instead of direct fetch
+      const data = await loginUser(formData.email, formData.password);
 
       // Đăng nhập thành công
       login(data);

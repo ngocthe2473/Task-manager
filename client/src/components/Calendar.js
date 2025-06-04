@@ -16,14 +16,30 @@ import {
   Popover,
   Divider,
   Stack,
+  Badge,
+  Tooltip,
+  Fade,
+  Zoom,
+  alpha,
+  LinearProgress,
+  ButtonGroup,
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import CloseIcon from '@mui/icons-material/Close';
-import { getAllTasks } from '../services/fakeDatabaseService';
+import {
+  ArrowBack as ArrowBackIcon,
+  ArrowForward as ArrowForwardIcon,
+  AccessTime as AccessTimeIcon,
+  PersonOutline as PersonOutlineIcon,
+  CalendarToday as CalendarTodayIcon,
+  Close as CloseIcon,
+  Star as StarIcon,
+  Schedule as ScheduleIcon,
+  Group as GroupIcon,
+  TrendingUp as TrendingUpIcon,
+  Notifications as NotificationsIcon,
+  FilterList as FilterListIcon,
+} from '@mui/icons-material';
+import { styled, keyframes } from '@mui/material/styles';
+import { getCalendarTasks } from '../services/apiService';
 import { 
   format, 
   addDays, 
@@ -40,6 +56,127 @@ import {
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
+// Animations
+const slideIn = keyframes`
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+`;
+
+const pulse = keyframes`
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+`;
+
+const glow = keyframes`
+  0% {
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 123, 255, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+  }
+`;
+
+// Styled Components
+const GlassPaper = styled(Paper)(({ theme }) => ({
+  background: alpha(theme.palette.background.paper, 0.9),
+  backdropFilter: 'blur(20px)',
+  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+  borderRadius: '20px',
+  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+  transition: 'all 0.3s ease-in-out',
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+  },
+}));
+
+const NeonButton = styled(Button)(({ theme }) => ({
+  background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+  border: 0,
+  borderRadius: '25px',
+  color: 'white',
+  padding: '8px 24px',
+  boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
+  transition: 'all 0.3s ease',
+  textTransform: 'none',
+  fontWeight: 600,
+  '&:hover': {
+    animation: `${glow} 1.5s ease-in-out infinite`,
+    transform: 'translateY(-2px)',
+  },
+}));
+
+const TaskCard = styled(Box)(({ theme, priority }) => {
+  const getGradient = (priority) => {
+    switch (priority) {
+      case 'High':
+        return 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+      case 'Medium':
+        return 'linear-gradient(135deg, #ffa726, #ff9800)';
+      case 'Low':
+        return 'linear-gradient(135deg, #42a5f5, #1976d2)';
+      default:
+        return 'linear-gradient(135deg, #78909c, #546e7a)';
+    }
+  };
+
+  return {
+    background: getGradient(priority),
+    borderRadius: '12px',
+    padding: '12px 16px',
+    color: 'white',
+    cursor: 'pointer',
+    position: 'relative',
+    overflow: 'hidden',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      top: 0,
+      left: '-100%',
+      width: '100%',
+      height: '100%',
+      background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+      transition: 'left 0.5s ease',
+    },
+    '&:hover': {
+      transform: 'translateY(-4px) scale(1.02)',
+      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)',
+      '&::before': {
+        left: '100%',
+      },
+    },
+  };
+});
+
+const StatsCard = styled(Card)(({ theme }) => ({
+  background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)}, ${alpha(theme.palette.secondary.main, 0.1)})`,
+  borderRadius: '16px',
+  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+  backdropFilter: 'blur(10px)',
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    transform: 'translateY(-4px)',
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
+  },
+}));
+
 const Calendar = () => {
   const theme = useTheme();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -49,6 +186,12 @@ const Calendar = () => {
   const [hoveredTask, setHoveredTask] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [taskStats, setTaskStats] = useState({
+    total: 0,
+    completed: 0,
+    inProgress: 0,
+    overdue: 0,
+  });
 
   // Tạo khung giờ từ 8:00 đến 20:00
   const timeSlots = Array.from({ length: 13 }, (_, i) => {
@@ -59,7 +202,7 @@ const Calendar = () => {
   useEffect(() => {
     const fetchTasks = async () => {
       try {
-        const taskData = await getAllTasks();
+        const taskData = await getCalendarTasks();
         // Thêm thông tin thời gian ngẫu nhiên cho các task
         const enhancedTasks = taskData.map(task => {
           const dueDate = task.dueDate || task.due;
@@ -81,6 +224,23 @@ const Calendar = () => {
     };
     fetchTasks();
   }, []);
+
+  // Calculate stats when tasks change
+  useEffect(() => {
+    if (tasks.length > 0) {
+      const today = new Date();
+      const stats = {
+        total: tasks.length,
+        completed: tasks.filter(task => task.status === 'done').length,
+        inProgress: tasks.filter(task => task.status === 'inprogress').length,
+        overdue: tasks.filter(task => {
+          const dueDate = new Date(task.dueDate || task.due);
+          return dueDate < today && task.status !== 'done';
+        }).length,
+      };
+      setTaskStats(stats);
+    }
+  }, [tasks]);
 
   const getTaskColor = (priority, status) => {
     if (status === 'done') return '#00c875';
@@ -340,11 +500,14 @@ const Calendar = () => {
                   {selectedTask.startTime} - {selectedTask.endTime}
                 </Typography>
               </Box>
-              
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CalendarTodayIcon fontSize="small" color="action" />
                 <Typography variant="body2">
-                  {selectedTask.dueDate}
+                  {selectedTask.dueDate instanceof Date 
+                    ? format(selectedTask.dueDate, 'MMM dd, yyyy') 
+                    : typeof selectedTask.dueDate === 'string' 
+                      ? format(new Date(selectedTask.dueDate), 'MMM dd, yyyy')
+                      : 'No due date'}
                 </Typography>
               </Box>
               
@@ -819,9 +982,12 @@ const Calendar = () => {
               )}
               
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Box>
-                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 0.5 }}>
-                    <strong>Due:</strong> {hoveredTask.dueDate}
+                <Box>                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 0.5 }}>
+                    <strong>Due:</strong> {hoveredTask.dueDate instanceof Date 
+                      ? format(hoveredTask.dueDate, 'MMM dd, yyyy') 
+                      : typeof hoveredTask.dueDate === 'string' 
+                        ? format(new Date(hoveredTask.dueDate), 'MMM dd, yyyy')
+                        : 'No due date'}
                   </Typography>
                   <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
                     <strong>Time:</strong> {hoveredTask.startTime} - {hoveredTask.endTime}
@@ -889,73 +1055,478 @@ const Calendar = () => {
     }
   };
 
-  return (
-    <Box sx={{ flexGrow: 1, padding: 3 }}>
-      {/* Header với các nút điều hướng và chọn chế độ xem */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', textTransform: 'capitalize' }}>
-          Upcoming
+  const renderEnhancedHeader = () => (
+    <GlassPaper sx={{ p: 3, mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box>
           <Typography 
-            component="span" 
-            variant="h4" 
+            variant="h3" 
             sx={{ 
-              ml: 2,
-              color: theme.palette.text.secondary,
-              fontWeight: 'normal'
+              fontWeight: 800,
+              background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+              backgroundClip: 'text',
+              textFillColor: 'transparent',
+              mb: 1,
             }}
           >
+            Calendar Pro
+          </Typography>
+          <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 300 }}>
             {getDateTitle()}
           </Typography>
-        </Typography>
-        
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          <IconButton onClick={handlePreviousPeriod} size="small">
-            <ArrowBackIcon />
-          </IconButton>
-          <Button 
-            variant="text"
-            onClick={handleToday}
-            sx={{ mx: 1 }}
+        </Box>
+
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <ButtonGroup variant="contained" sx={{ borderRadius: '25px' }}>
+            <IconButton onClick={handlePreviousPeriod}>
+              <ArrowBackIcon />
+            </IconButton>
+            <NeonButton onClick={handleToday} sx={{ mx: 1 }}>
+              Today
+            </NeonButton>
+            <IconButton onClick={handleNextPeriod}>
+              <ArrowForwardIcon />
+            </IconButton>
+          </ButtonGroup>
+
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={handleViewChange}
+            sx={{
+              '& .MuiToggleButton-root': {
+                borderRadius: '20px',
+                border: 'none',
+                margin: '0 4px',
+                background: alpha(theme.palette.primary.main, 0.1),
+                '&.Mui-selected': {
+                  background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                  color: 'white',
+                },
+              },
+            }}
           >
-            Today
-          </Button>
-          <IconButton onClick={handleNextPeriod} size="small">
-            <ArrowForwardIcon />
-          </IconButton>
-          
-          <Box sx={{ ml: 2 }}>
-            <ToggleButtonGroup
-              value={viewMode}
-              exclusive
-              onChange={handleViewChange}
-              aria-label="calendar view"
-              size="small"
-            >
-              <ToggleButton value="day">Day</ToggleButton>
-              <ToggleButton value="week">Week</ToggleButton>
-              <ToggleButton value="month">Month</ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
+            <ToggleButton value="day">Day</ToggleButton>
+            <ToggleButton value="week">Week</ToggleButton>
+            <ToggleButton value="month">Month</ToggleButton>
+          </ToggleButtonGroup>
         </Box>
       </Box>
 
-      {/* Nội dung lịch */}
-      <Paper 
-        sx={{ 
-          p: 2, 
-          mb: 3,
-          backgroundColor: theme.palette.background.paper,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.12)'
+      {/* Quick Stats */}
+      <Grid container spacing={2}>
+        <Grid item xs={3}>
+          <StatsCard>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
+                <ScheduleIcon sx={{ color: theme.palette.primary.main, mr: 1 }} />
+                <Typography variant="h4" fontWeight="bold">
+                  {taskStats.total}
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary">Total Tasks</Typography>
+            </CardContent>
+          </StatsCard>
+        </Grid>
+        <Grid item xs={3}>
+          <StatsCard>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
+                <TrendingUpIcon sx={{ color: theme.palette.success.main, mr: 1 }} />
+                <Typography variant="h4" fontWeight="bold" color="success.main">
+                  {taskStats.completed}
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary">Completed</Typography>
+            </CardContent>
+          </StatsCard>
+        </Grid>
+        <Grid item xs={3}>
+          <StatsCard>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
+                <GroupIcon sx={{ color: theme.palette.info.main, mr: 1 }} />
+                <Typography variant="h4" fontWeight="bold" color="info.main">
+                  {taskStats.inProgress}
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary">In Progress</Typography>
+            </CardContent>
+          </StatsCard>
+        </Grid>
+        <Grid item xs={3}>
+          <StatsCard>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
+                <NotificationsIcon sx={{ color: theme.palette.error.main, mr: 1 }} />
+                <Typography variant="h4" fontWeight="bold" color="error.main">
+                  {taskStats.overdue}
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary">Overdue</Typography>
+            </CardContent>
+          </StatsCard>
+        </Grid>
+      </Grid>
+    </GlassPaper>
+  );
+  const renderEnhancedTaskCard = (task, height = 'auto') => (
+    <Zoom in timeout={300} key={`task-zoom-${task.id}`}>
+      <TaskCard
+        priority={task.priority}
+        sx={{ height, minHeight: '60px', mb: 0.5 }}
+        onClick={() => handleTaskClick(task)}
+        onMouseEnter={(e) => handleTaskHover(e, task)}
+        onMouseLeave={handlePopoverClose}
+      >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+          <Typography variant="subtitle2" fontWeight="bold" sx={{ flex: 1 }}>
+            {task.title}
+          </Typography>
+          <Chip
+            size="small"
+            label={task.priority}
+            sx={{
+              background: 'rgba(255, 255, 255, 0.2)',
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: '0.7rem',
+            }}
+          />
+        </Box>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, opacity: 0.9 }}>
+          <AccessTimeIcon sx={{ fontSize: 14 }} />
+          <Typography variant="caption">
+            {task.startTime} - {task.endTime}
+          </Typography>
+        </Box>
+
+        {task.assigneeName && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+            <Avatar sx={{ width: 20, height: 20, fontSize: '0.7rem' }}>
+              {task.assigneeName.charAt(0)}
+            </Avatar>
+            <Typography variant="caption" sx={{ opacity: 0.9 }}>
+              {task.assigneeName}
+            </Typography>
+          </Box>
+        )}
+
+        {/* Priority indicator */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: 'rgba(255, 255, 255, 0.8)',
+            animation: task.priority === 'High' ? `${pulse} 2s infinite` : 'none',
+          }}
+        />
+      </TaskCard>
+    </Zoom>
+  );
+
+  // Enhanced Month View with animations
+  const renderEnhancedMonthView = () => {
+    // Lấy tất cả ngày trong tháng hiện tại
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(currentDate);
+    const startDate = startOfWeek(monthStart, { weekStartsOn: 1 }); // Bắt đầu từ thứ 2
+    const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    const days = eachDayOfInterval({ start: startDate, end: endDate });
+    
+    // Tạo các hàng tuần (mỗi tuần có 7 ngày)
+    const weeks = [];
+    let week = [];
+    
+    days.forEach((day) => {
+      if (week.length === 7) {
+        weeks.push(week);
+        week = [];
+      }
+      week.push(day);
+    });
+    
+    if (week.length > 0) {
+      weeks.push(week);
+    }
+    
+    const dayNames = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+    
+    return (
+      <GlassPaper sx={{ p: 0, overflow: 'hidden' }}>
+        {/* Header với tên các ngày trong tuần */}
+        <Box sx={{ 
+          display: 'flex', 
+          width: '100%', 
+          borderBottom: '1px solid #e0e0e0',
+          borderLeft: '1px solid #e0e0e0',
+          borderTop: '1px solid #e0e0e0'
+        }}>
+          {dayNames.map((name, index) => (
+            <Box 
+              key={index} 
+              sx={{ 
+                flex: 1,
+                p: 2,
+                textAlign: 'center',
+                fontWeight: 'bold',
+                color: index === 6 ? 'error.main' : 'text.primary', // CN màu đỏ
+                borderRight: '1px solid #e0e0e0'
+              }}
+            >
+              {name}
+            </Box>
+          ))}
+        </Box>
+        
+        {weeks.map((week, weekIndex) => (
+          <Fade in timeout={300 + weekIndex * 100} key={weekIndex}>
+            <Box sx={{ display: 'flex', width: '100%' }}>
+              {week.map((day, dayIndex) => {
+                const isToday = isSameDay(day, new Date());
+                const isCurrentMonth = isSameMonth(day, currentDate);
+                const tasksForDay = getTasksForDay(day);
+                
+                return (
+                  <Box
+                    key={dayIndex}
+                    sx={{
+                      flex: 1,
+                      height: 140,
+                      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      p: 1,
+                      position: 'relative',
+                      background: !isCurrentMonth
+                        ? alpha(theme.palette.grey[100], 0.5)
+                        : isToday
+                        ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)}, ${alpha(theme.palette.secondary.main, 0.1)})`
+                        : 'transparent',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        background: alpha(theme.palette.primary.main, 0.05),
+                        transform: 'scale(1.02)',
+                        zIndex: 10,
+                      },
+                    }}
+                  >
+                    {/* Enhanced day number */}
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: isToday ? 800 : 'normal',
+                          background: isToday
+                            ? `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`
+                            : 'transparent',
+                          backgroundClip: 'text',
+                          textFillColor: isToday ? 'transparent' : 'inherit',
+                          width: 32,
+                          height: 32,
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: isToday ? `2px solid ${theme.palette.primary.main}` : 'none',
+                        }}
+                      >
+                        {format(day, 'd')}
+                      </Typography>
+                    </Box>
+
+                    {/* Enhanced tasks display */}
+                    <Box sx={{ maxHeight: 80, overflow: 'hidden' }}>                      {tasksForDay.slice(0, 2).map((task, index) => (
+                        <React.Fragment key={`task-${task.id}-${index}`}>
+                          {renderEnhancedTaskCard(task, '30px')}
+                        </React.Fragment>
+                      ))}
+                      {tasksForDay.length > 2 && (
+                        <Chip
+                          label={`+${tasksForDay.length - 2} more`}
+                          size="small"
+                          sx={{
+                            background: alpha(theme.palette.primary.main, 0.1),
+                            color: theme.palette.primary.main,
+                            fontSize: '0.7rem',
+                            height: 20,
+                          }}
+                        />
+                      )}
+                    </Box>
+
+                    {/* Task count badge */}
+                    {tasksForDay.length > 0 && (
+                      <Badge
+                        badgeContent={tasksForDay.length}
+                        color="primary"
+                        sx={{
+                          position: 'absolute',
+                          top: 8,
+                          right: 8,
+                          '& .MuiBadge-badge': {
+                            background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                            animation: tasksForDay.some(t => t.priority === 'High') ? `${pulse} 2s infinite` : 'none',
+                          },
+                        }}
+                      />
+                    )}
+                  </Box>
+                );
+              })}
+            </Box>
+          </Fade>
+        ))}
+      </GlassPaper>
+    );
+  };
+
+  // Enhanced Detail Panel
+  const renderEnhancedDetailPanel = () => (
+    <Fade in timeout={500}>
+      <GlassPaper
+        sx={{
+          width: '400px',
+          p: 3,
+          ml: 2,
+          position: 'relative',
+          animation: `${slideIn} 0.5s ease-out`,
         }}
       >
-        {viewMode === 'day' && renderDayView()}
-        {viewMode === 'week' && renderWeekView()}
-        {viewMode === 'month' && renderMonthView()}
-        {renderTaskPopover()}
-      </Paper>
+        <IconButton
+          size="small"
+          sx={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            background: alpha(theme.palette.error.main, 0.1),
+            '&:hover': { background: alpha(theme.palette.error.main, 0.2) },
+          }}
+          onClick={() => setSelectedTask(null)}
+        >
+          <CloseIcon />
+        </IconButton>
 
-      {/* Date picker popup - tương tự như ảnh mẫu đầu tiên */}
-      {/* Phần này có thể thêm sau nếu cần */}
+        <Box sx={{ pr: 6 }}>
+          <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
+            {selectedTask.title}
+          </Typography>
+
+          <Stack spacing={3}>
+            {/* Time info with enhanced styling */}
+            <Box sx={{ 
+              p: 2, 
+              borderRadius: 2, 
+              background: alpha(theme.palette.primary.main, 0.05),
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <AccessTimeIcon color="primary" />
+                <Typography variant="subtitle2" fontWeight="bold">
+                  Schedule
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                {selectedTask.startTime} - {selectedTask.endTime}
+              </Typography>              <Typography variant="body2" color="text.secondary">
+                {selectedTask.dueDate instanceof Date 
+                  ? format(selectedTask.dueDate, 'MMM dd, yyyy') 
+                  : typeof selectedTask.dueDate === 'string' 
+                    ? format(new Date(selectedTask.dueDate), 'MMM dd, yyyy')
+                    : 'No due date'}
+              </Typography>
+            </Box>
+
+            {/* Assignee info */}
+            {selectedTask.assigneeName && (
+              <Box sx={{ 
+                p: 2, 
+                borderRadius: 2, 
+                background: alpha(theme.palette.info.main, 0.05),
+                border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`,
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Avatar sx={{ width: 40, height: 40 }}>
+                    {selectedTask.assigneeName.charAt(0)}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      {selectedTask.assigneeName}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Assignee
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+            )}
+
+            {/* Priority indicator */}
+            <Box sx={{ 
+              p: 2, 
+              borderRadius: 2, 
+              background: alpha(theme.palette.warning.main, 0.05),
+              border: `1px solid ${alpha(theme.palette.warning.main, 0.1)}`,
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <StarIcon sx={{ color: selectedTask.color }} />
+                <Typography variant="subtitle2" fontWeight="bold">
+                  Priority: {selectedTask.priority}
+                </Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={selectedTask.priority === 'High' ? 100 : selectedTask.priority === 'Medium' ? 60 : 30}
+                sx={{
+                  height: 8,
+                  borderRadius: 4,
+                  background: alpha(theme.palette.grey[300], 0.3),
+                  '& .MuiLinearProgress-bar': {
+                    background: `linear-gradient(90deg, ${selectedTask.color}, ${alpha(selectedTask.color, 0.7)})`,
+                  },
+                }}
+              />
+            </Box>
+
+            {/* Description */}
+            {selectedTask.description && (
+              <Box sx={{ 
+                p: 2, 
+                borderRadius: 2, 
+                background: alpha(theme.palette.grey[100], 0.5),
+              }}>
+                <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
+                  Description
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {selectedTask.description}
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </Box>
+      </GlassPaper>
+    </Fade>
+  );
+
+  return (
+    <Box sx={{ flexGrow: 1, p: 3, background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.02)}, ${alpha(theme.palette.secondary.main, 0.02)})`, minHeight: '100vh' }}>
+      {renderEnhancedHeader()}
+      
+      <Box sx={{ display: 'flex' }}>
+        <Box sx={{ flex: 1 }}>
+          {viewMode === 'day' && renderDayView()}
+          {viewMode === 'week' && renderWeekView()}
+          {viewMode === 'month' && renderEnhancedMonthView()}
+        </Box>
+        
+        {selectedTask && renderEnhancedDetailPanel()}
+      </Box>
+
+      {renderTaskPopover()}
     </Box>
   );
 };

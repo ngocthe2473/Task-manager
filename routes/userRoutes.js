@@ -1,33 +1,46 @@
 const express = require('express');
 const router = express.Router();
 const { 
-  registerUser, 
-  loginUser, 
-  getUserProfile, 
-  updateUserProfile,
   getUsers,
   getUser,
   updateUser,
-  deleteUser
+  deleteUser,
+  getUserProfile,
+  updateUserProfile,
+  searchUsers,
+  advancedSearchUsers,
+  advancedUserAnalytics,
+  autocompleteUser,
+  exportUsersCSV
 } = require('../controllers/userController');
-const { protect, admin } = require('../middleware/authMiddleware');
-
-// Public Routes
-router.post('/register', registerUser);
-router.post('/login', loginUser);
+const { authenticate, authorize } = require('../middlewares/auth');
+const { 
+  validateUserUpdate, 
+  validateMongoId, 
+  validatePagination 
+} = require('../middlewares/validation');
 
 // Protected Routes
 router.route('/profile')
-  .get(protect, getUserProfile)
-  .put(protect, updateUserProfile);
+  .get(authenticate, getUserProfile)
+  .put(authenticate, validateUserUpdate, updateUserProfile);
 
 // Admin Routes
 router.route('/')
-  .get(protect, admin, getUsers);
+  .get(authenticate, authorize(['admin']), validatePagination, getUsers);
 
 router.route('/:id')
-  .get(protect, getUser)
-  .put(protect, admin, updateUser)
-  .delete(protect, admin, deleteUser);
+  .get(authenticate, validateMongoId, getUser)
+  .put(authenticate, authorize(['admin']), validateMongoId, validateUserUpdate, updateUser)
+  .delete(authenticate, authorize(['admin']), validateMongoId, deleteUser);
+
+// Route search user by email/name cho mọi user đăng nhập
+router.get('/search', authenticate, searchUsers);
+
+// Advanced APIs
+router.get('/advanced-search', authenticate, authorize(['admin']), advancedSearchUsers);
+router.get('/advanced-analytics', authenticate, authorize(['admin']), advancedUserAnalytics);
+router.get('/autocomplete', authenticate, autocompleteUser);
+router.get('/export', authenticate, authorize(['admin']), exportUsersCSV);
 
 module.exports = router;

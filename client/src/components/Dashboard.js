@@ -1,441 +1,893 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, Grid, Paper, Typography, LinearProgress, CircularProgress,
-  FormControl, InputLabel, Select, MenuItem, Card, CardContent,
-  Divider, Chip, List, ListItem, ListItemText, ListItemIcon
-} from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { useNavigate } from 'react-router-dom';
 import {
-  TrendingUp, TrendingDown, Schedule, Assignment,
-  CheckCircle, Warning, Person, Today
+  Box,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  Button,
+  Avatar,
+  Chip,
+  LinearProgress,
+  CircularProgress,
+  Paper,
+  IconButton,
+  Tooltip
+} from '@mui/material';
+import {
+  Dashboard as DashboardIcon,
+  TrendingUp as TrendingUpIcon,
+  Assignment as AssignmentIcon,
+  People as PeopleIcon,
+  Schedule as ScheduleIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
+  Timeline as TimelineIcon,
+  Speed as SpeedIcon,
+  Star as StarIcon,
+  CalendarToday as CalendarIcon,
+  ArrowForward as ArrowForwardIcon
 } from '@mui/icons-material';
-import { getAllTasks } from '../services/fakeDatabaseService';
+import { styled } from '@mui/material/styles';
+import { getAllTasks, getProjects, getUsers, getMyTasks, getDashboardStats } from '../services/apiService';
+import { format } from 'date-fns';
 
-const Item = styled(Paper)(({ theme }) => ({
-  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
-  ...theme.typography.body2,
-  padding: theme.spacing(2),
-  color: theme.palette.text.secondary,
+// Modern minimalist styled components
+const DashboardContainer = styled(Box)(({ theme }) => ({
+  padding: '24px',
+  backgroundColor: '#fafafa',
+  minHeight: '100vh'
+}));
+
+const DashboardHeader = styled(Box)(({ theme }) => ({
+  marginBottom: '32px',
+}));
+
+const WelcomeTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '28px',
+  fontWeight: 700,
+  color: '#333',
+  marginBottom: '8px',
+  letterSpacing: '-0.5px',
+}));
+
+const WelcomeSubtitle = styled(Typography)(({ theme }) => ({
+  fontSize: '16px',
+  color: '#666',
+}));
+
+const StyledCard = styled(Card)(({ theme }) => ({
+  height: '100%',
+  borderRadius: '16px',
+  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+  border: '1px solid #e0e0e0',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)',
+    transform: 'translateY(-2px)'
+  }
+}));
+
+const StatCard = styled(Card)(({ theme }) => ({
+  height: '100%',
+  borderRadius: '16px',
+  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+  border: '1px solid #e0e0e0',
+  overflow: 'hidden',
+}));
+
+const CardTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '16px',
+  fontWeight: 600,
+  color: '#333',
+  marginBottom: '16px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px'
+}));
+
+const StatValue = styled(Typography)(({ theme }) => ({
+  fontSize: '32px',
+  fontWeight: 700,
+  color: '#333',
+  marginBottom: '8px'
+}));
+
+const StatLabel = styled(Typography)(({ theme }) => ({
+  fontSize: '14px',
+  color: '#666'
+}));
+
+const StyledPaper = styled(Paper)(({ theme }) => ({
+  padding: '20px',
+  borderRadius: '16px',
+  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+  border: '1px solid #e0e0e0',
+}));
+
+const SectionTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '18px',
+  fontWeight: 600,
+  color: '#333',
+  marginBottom: '16px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px'
+}));
+
+const TaskItem = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '12px 0',
+  borderBottom: '1px solid #f0f0f0',
+  '&:last-child': {
+    borderBottom: 'none',
+    paddingBottom: 0
+  }
+}));
+
+const TaskInfo = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px'
+}));
+
+const TaskAvatar = styled(Avatar)(({ theme, priority }) => {
+  const colors = {
+    low: '#4caf50',
+    medium: '#ff9800',
+    high: '#f44336',
+    urgent: '#e91e63'
+  };
+  
+  return {
+    width: 32,
+    height: 32,
+    backgroundColor: colors[priority] || colors.medium,
+    fontSize: 14
+  };
+});
+
+const TaskDetails = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column'
+}));
+
+const TaskTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '14px',
+  fontWeight: 600,
+  color: '#333'
+}));
+
+const TaskMeta = styled(Typography)(({ theme }) => ({
+  fontSize: '12px',
+  color: '#666'
+}));
+
+const StatusChip = styled(Chip)(({ theme, status }) => {
+  const colors = {
+    done: { bg: '#e8f5e8', color: '#2e7d32' },
+    'in-progress': { bg: '#e3f2fd', color: '#1976d2' },
+    review: { bg: '#fff3e0', color: '#f57c00' },
+    todo: { bg: '#f5f5f5', color: '#757575' },
+    overdue: { bg: '#ffebee', color: '#d32f2f' }
+  };
+  
+  const colorScheme = colors[status] || colors.todo;
+  
+  return {
+    backgroundColor: colorScheme.bg,
+    color: colorScheme.color,
+    fontWeight: 600,
+    fontSize: '11px',
+    height: '20px'
+  };
+});
+
+const TeamMember = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  padding: '8px 0',
+  borderBottom: '1px solid #f0f0f0',
+  '&:last-child': {
+    borderBottom: 'none'
+  }
+}));
+
+const MemberAvatar = styled(Avatar)(({ theme }) => ({
+  width: 36,
+  height: 36,
+  fontSize: 14,
+}));
+
+const MemberInfo = styled(Box)(({ theme }) => ({
+  marginLeft: '12px'
+}));
+
+const MemberName = styled(Typography)(({ theme }) => ({
+  fontSize: '14px',
+  fontWeight: 600,
+  color: '#333'
+}));
+
+const MemberRole = styled(Typography)(({ theme }) => ({
+  fontSize: '12px',
+  color: '#666'
+}));
+
+const ViewAllButton = styled(Button)(({ theme }) => ({
+  textTransform: 'none',
+  fontWeight: 600,
+  fontSize: '14px',
+  padding: '8px 16px',
+  marginTop: '16px'
+}));
+
+const ProjectCard = styled(Card)(({ theme }) => ({
+  height: '100%',
+  borderRadius: '16px',
+  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+  border: '1px solid #e0e0e0',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)',
+    transform: 'translateY(-2px)'
+  }
+}));
+
+const ProjectHeader = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginBottom: '16px'
+}));
+
+const ProjectTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '16px',
+  fontWeight: 600,
+  color: '#333'
 }));
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [timeFrame, setTimeFrame] = useState('week'); // day, week, month
-  const [taskStats, setTaskStats] = useState({
-    total: 0,
-    completed: 0,
-    inProgress: 0,
-    pending: 0,
-    overdue: 0,
+  const [stats, setStats] = useState({
+    totalTasks: 0,
+    completedTasks: 0,
+    inProgressTasks: 0,
+    upcomingTasks: 0,
+    overdueTasks: 0,
+    productivity: 0
   });
+  const [recentTasks, setRecentTasks] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [teamStats, setTeamStats] = useState([]);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
   
-  const [advancedStats, setAdvancedStats] = useState({
-    completionRate: 0,
-    averageCompletionTime: 0,
-    tasksByPriority: { high: 0, medium: 0, low: 0 },
-    recentActivity: [],
-    productivityTrend: 'up', // up, down, stable
-    upcomingDeadlines: [],
-    teamPerformance: [],
-    weeklyProgress: []
-  });
+  // Get user info from localStorage 
+  const getUserInfo = () => {
+    try {
+      const userInfo = localStorage.getItem('userInfo');
+      if (userInfo) {
+        const userData = JSON.parse(userInfo);
+        return userData.user || { name: 'User', role: 'User' };
+      }
+    } catch (error) {
+      console.error('Error parsing user info:', error);
+    }
+    return { name: 'User', role: 'User' };
+  };
+  const user = getUserInfo();
 
   useEffect(() => {
-    const fetchTaskData = async () => {
+    const fetchData = async () => {
       try {
-        const tasks = await getAllTasks();
+        // Fetch dashboard stats and user's tasks
+        const dashboardData = await getDashboardStats();
+        const userTasks = await getMyTasks(); // This should only return tasks assigned to or created by the user
         
-        // Filter tasks based on timeframe
-        const now = new Date();
-        const filteredTasks = tasks.filter(task => {
-          const taskDate = new Date(task.createdAt || task.updatedAt || now);
-          const daysDiff = (now - taskDate) / (1000 * 60 * 60 * 24);
+        // Filter tasks to only include those assigned to or created by the user
+        const filteredTasks = userTasks.filter(task => 
+          task.assignee?._id === user._id || 
+          task.creator?._id === user._id ||
+          task.assignee === user._id ||
+          task.creator === user._id
+        );
+        
+        // Set stats from filtered tasks
+        setStats({
+          totalTasks: filteredTasks.length,
+          completedTasks: filteredTasks.filter(task => task.status === 'done').length,
+          inProgressTasks: filteredTasks.filter(task => task.status === 'in-progress').length,
+          upcomingTasks: filteredTasks.filter(task => task.status === 'todo').length,
+          overdueTasks: filteredTasks.filter(task => 
+            task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done'
+          ).length,
+          productivity: Math.round((filteredTasks.filter(task => task.status === 'done').length / filteredTasks.length) * 100) || 0
+        });
+        
+        // Set recent tasks from filtered tasks
+        setRecentTasks(
+          [...filteredTasks]
+            .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
+            .slice(0, 5)
+        );
+        
+        // Process team stats for multiple teams
+        const userTeams = dashboardData.teamStats?.filter(team => 
+          team.members.some(member => member.id === user._id)
+        ) || [];
+        
+        setTeamStats(userTeams);
+        
+        // Set team members from all teams user belongs to
+        const allTeamMembers = [];
+        userTeams.forEach(team => {
+          team.members.forEach(member => {
+            if (member.id !== user._id) { // Exclude current user
+              allTeamMembers.push({
+                id: member.id,
+                name: member.name,
+                role: member.role,
+                teamName: team.teamName,
+                avatar: null
+              });
+            }
+          });
+        });
+        setTeamMembers(allTeamMembers);
+        
+        // Fetch and filter projects
+        const allProjects = await getProjects();
+        const userProjectIds = filteredTasks.map(task => task.project?._id).filter(Boolean);
+        const userProjects = allProjects.filter(project => 
+          userProjectIds.includes(project._id)
+        );
+        
+        // Process projects data
+        const processedProjects = userProjects.map(project => {
+          const projectTasks = filteredTasks.filter(task => 
+            task.project && task.project._id === project._id
+          );
+          const completedProjectTasks = projectTasks.filter(task => task.status === 'done').length;
+          const progress = projectTasks.length > 0 ? 
+            Math.round((completedProjectTasks / projectTasks.length) * 100) : 0;
           
-          switch (timeFrame) {
-            case 'day':
-              return daysDiff <= 1;
-            case 'week':
-              return daysDiff <= 7;
-            case 'month':
-              return daysDiff <= 30;
-            default:
-              return true;
-          }
+          return {
+            ...project,
+            id: project._id,
+            taskCount: projectTasks.length,
+            completedTasks: completedProjectTasks,
+            progress: progress,
+            color: getProjectColor(project._id)
+          };
         });
         
-        // Calculate basic statistics
-        const total = filteredTasks.length;
-        const completed = filteredTasks.filter(task => task.status === 'done').length;
-        const inProgress = filteredTasks.filter(task => task.status === 'inprogress').length;
-        const review = filteredTasks.filter(task => task.status === 'review').length;
-        const pending = filteredTasks.filter(task => task.status === 'todo').length;
+        setProjects(processedProjects);
         
-        // Calculate overdue tasks
-        const overdue = filteredTasks.filter(task => {
-          if (task.status !== 'done' && task.dueDate) {
-            const dueDate = new Date(task.dueDate);
-            return dueDate < now;
-          }
-          return false;
-        }).length;
+        // Create upcoming events from user's tasks
+        const today = new Date();
+        const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
         
-        setTaskStats({
-          total,
-          completed,
-          inProgress: inProgress + review,
-          pending,
-          overdue,
-        });
-
-        // Calculate advanced statistics
-        const completionRate = total > 0 ? (completed / total) * 100 : 0;
-        
-        // Priority distribution
-        const tasksByPriority = {
-          high: filteredTasks.filter(task => task.priority === 'high').length,
-          medium: filteredTasks.filter(task => task.priority === 'medium').length,
-          low: filteredTasks.filter(task => task.priority === 'low').length
-        };
-
-        // Upcoming deadlines (next 7 days)
-        const upcomingDeadlines = tasks
+        const upcomingTaskEvents = filteredTasks
           .filter(task => {
-            if (task.status === 'done' || !task.dueDate) return false;
+            if (!task.dueDate) return false;
             const dueDate = new Date(task.dueDate);
-            const daysDiff = (dueDate - now) / (1000 * 60 * 60 * 24);
-            return daysDiff >= 0 && daysDiff <= 7;
+            return dueDate >= today && dueDate <= nextWeek && task.status !== 'done';
           })
           .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-          .slice(0, 5);
-
-        // Recent activity (last completed tasks)
-        const recentActivity = tasks
-          .filter(task => task.status === 'done')
-          .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
-          .slice(0, 5);
-
-        // Productivity trend calculation
-        const previousPeriodTasks = tasks.filter(task => {
-          const taskDate = new Date(task.createdAt || task.updatedAt || now);
-          const daysDiff = (now - taskDate) / (1000 * 60 * 60 * 24);
+          .slice(0, 3)
+          .map(task => ({
+            id: task._id,
+            title: `Task: ${task.title}`,
+            date: formatDate(task.dueDate),
+            time: task.priority === 'high' ? 'High Priority' : task.priority === 'urgent' ? 'Urgent' : 'Normal',
+            type: 'task'
+          }));
           
-          switch (timeFrame) {
-            case 'day':
-              return daysDiff > 1 && daysDiff <= 2;
-            case 'week':
-              return daysDiff > 7 && daysDiff <= 14;
-            case 'month':
-              return daysDiff > 30 && daysDiff <= 60;
-            default:
-              return false;
-          }
-        });
-
-        const previousCompleted = previousPeriodTasks.filter(task => task.status === 'done').length;
-        const currentCompleted = completed;
-        
-        let productivityTrend = 'stable';
-        if (currentCompleted > previousCompleted) productivityTrend = 'up';
-        else if (currentCompleted < previousCompleted) productivityTrend = 'down';
-
-        setAdvancedStats({
-          completionRate,
-          averageCompletionTime: 0, // Would need more detailed tracking
-          tasksByPriority,
-          recentActivity,
-          productivityTrend,
-          upcomingDeadlines,
-          teamPerformance: [], // Would need team data
-          weeklyProgress: [] // Would need historical data
-        });
-        
+        setUpcomingEvents(upcomingTaskEvents);
         setLoading(false);
       } catch (error) {
-        console.error('Error loading task data:', error);
+        console.error('Error fetching data:', error);
         setLoading(false);
       }
     };
-
-    fetchTaskData();
+    
+    fetchData();
   }, []);
 
-  // Calculate completion percentage
-  const completionPercentage = taskStats.total > 0 
-    ? (taskStats.completed / taskStats.total) * 100 
-    : 0;
+  // Navigation handler for View All Tasks
+  const handleViewAllTasks = () => {
+    // Navigate to Tasks page using React Router
+    navigate('/tasks');
+  };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-        <CircularProgress />
-      </Box>
-    );
+  // Helper function to generate project colors
+  const getProjectColor = (projectId) => {
+    const colors = ['#2196f3', '#4caf50', '#ff9800', '#f44336', '#9c27b0', '#00bcd4', '#795548'];
+    const index = projectId ? projectId.length % colors.length : 0;
+    return colors[index];
+  };
+
+  // Helper function to format date
+  const formatDate = (dateString) => {
+    try {
+      return format(new Date(dateString), 'MMM dd');
+    } catch (error) {
+      return 'N/A';
+    }
+  };
+  
+  // Helper function to check if a date is overdue
+  const isOverdue = (dueDate) => {
+    return dueDate && new Date(dueDate) < new Date();
+  };
+  
+  // Calculate current time
+  const currentTime = new Date();
+  const currentHour = currentTime.getHours();
+  let greeting = 'Good Evening';
+  if (currentHour < 12) {
+    greeting = 'Good Morning';
+  } else if (currentHour < 18) {
+    greeting = 'Good Afternoon';
   }
+
   return (
-    <Box sx={{ flexGrow: 1, padding: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" gutterBottom component="div">
-          Dashboard
-        </Typography>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Time Frame</InputLabel>
-          <Select
-            value={timeFrame}
-            label="Time Frame"
-            onChange={(e) => setTimeFrame(e.target.value)}
-          >
-            <MenuItem value="day">Today</MenuItem>
-            <MenuItem value="week">This Week</MenuItem>
-            <MenuItem value="month">This Month</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
+    <DashboardContainer>
+      <DashboardHeader>
+        <WelcomeTitle>{greeting}, {user.name}!</WelcomeTitle>
+        <WelcomeSubtitle>
+          Here's what's happening with your projects today.
+        </WelcomeSubtitle>
+      </DashboardHeader>
       
-      {/* Main Statistics Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Item>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Assignment sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="h6" color="text.primary">
-                Total Tasks
-              </Typography>
-            </Box>
-            <Typography variant="h3" color="primary">
-              {taskStats.total}
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-              {advancedStats.productivityTrend === 'up' ? (
-                <TrendingUp sx={{ fontSize: 16, color: 'success.main', mr: 0.5 }} />
-              ) : advancedStats.productivityTrend === 'down' ? (
-                <TrendingDown sx={{ fontSize: 16, color: 'error.main', mr: 0.5 }} />
-              ) : null}
-              <Typography variant="caption" color="text.secondary">
-                {timeFrame === 'day' ? 'Today' : timeFrame === 'week' ? 'This week' : 'This month'}
-              </Typography>
-            </Box>
-          </Item>
-        </Grid>
-        
-        <Grid item xs={12} sm={6} md={3}>
-          <Item>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <CheckCircle sx={{ mr: 1, color: 'success.main' }} />
-              <Typography variant="h6" color="text.primary">
-                Completed
-              </Typography>
-            </Box>
-            <Typography variant="h3" color="success.main">
-              {taskStats.completed}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {advancedStats.completionRate.toFixed(1)}% completion rate
-            </Typography>
-          </Item>
-        </Grid>
-        
-        <Grid item xs={12} sm={6} md={3}>
-          <Item>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Schedule sx={{ mr: 1, color: 'info.main' }} />
-              <Typography variant="h6" color="text.primary">
-                In Progress
-              </Typography>
-            </Box>
-            <Typography variant="h3" color="info.main">
-              {taskStats.inProgress}
-            </Typography>
-          </Item>
-        </Grid>
-        
-        <Grid item xs={12} sm={6} md={3}>
-          <Item>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Warning sx={{ mr: 1, color: 'error.main' }} />
-              <Typography variant="h6" color="text.primary">
-                Overdue
-              </Typography>
-            </Box>
-            <Typography variant="h3" color="error.main">
-              {taskStats.overdue}
-            </Typography>
-            {taskStats.overdue > 0 && (
-              <Chip 
-                label="Needs Attention" 
-                color="error" 
-                size="small" 
-                sx={{ mt: 1 }}
-              />
-            )}
-          </Item>
-        </Grid>
-      </Grid>
-
-      <Grid container spacing={3}>
-        {/* Project Progress */}
-        <Grid item xs={12} md={8}>
-          <Item>
-            <Typography variant="h6" gutterBottom>
-              Project Progress
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Box sx={{ width: '100%', mr: 1 }}>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={advancedStats.completionRate} 
-                  color="primary" 
-                  sx={{ height: 10, borderRadius: 5 }} 
-                />
-              </Box>
-              <Box sx={{ minWidth: 35 }}>
-                <Typography variant="body2" color="text.secondary">
-                  {Math.round(advancedStats.completionRate)}%
-                </Typography>
-              </Box>
-            </Box>
-            <Typography variant="body2" color="text.secondary">
-              {taskStats.completed} of {taskStats.total} tasks completed
-            </Typography>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+          <CircularProgress size={60} />
+        </Box>
+      ) : (
+        <>
+          {/* Stats Overview */}
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid item xs={12} sm={6} lg={3}>
+              <StatCard>
+                <CardContent>
+                  <CardTitle>
+                    <AssignmentIcon sx={{ color: '#2196f3' }} />
+                    Total Tasks
+                  </CardTitle>
+                  <StatValue>{stats.totalTasks}</StatValue>
+                  <StatLabel>Across all projects</StatLabel>
+                </CardContent>
+              </StatCard>
+            </Grid>
             
-            {/* Task Distribution */}
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                Task Distribution
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, minWidth: 150 }}>
-                  <Typography variant="body2">To Do</Typography>
-                  <Typography variant="body2">{taskStats.pending}</Typography>
+            <Grid item xs={12} sm={6} lg={3}>
+              <StatCard>
+                <CardContent>
+                  <CardTitle>
+                    <CheckCircleIcon sx={{ color: '#4caf50' }} />
+                    Completed
+                  </CardTitle>
+                  <StatValue>{stats.completedTasks}</StatValue>
+                  <StatLabel>Tasks finished</StatLabel>
+                </CardContent>
+              </StatCard>
+            </Grid>
+            
+            <Grid item xs={12} sm={6} lg={3}>
+              <StatCard>
+                <CardContent>
+                  <CardTitle>
+                    <ScheduleIcon sx={{ color: '#ff9800' }} />
+                    In Progress
+                  </CardTitle>
+                  <StatValue>{stats.inProgressTasks}</StatValue>
+                  <StatLabel>Tasks in progress</StatLabel>
+                </CardContent>
+              </StatCard>
+            </Grid>
+            
+            <Grid item xs={12} sm={6} lg={3}>
+              <StatCard>
+                <CardContent>
+                  <CardTitle>
+                    <WarningIcon sx={{ color: '#f44336' }} />
+                    Overdue
+                  </CardTitle>
+                  <StatValue>{stats.overdueTasks}</StatValue>
+                  <StatLabel>Tasks past due date</StatLabel>
+                </CardContent>
+              </StatCard>
+            </Grid>
+          </Grid>
+          
+          <Grid container spacing={3}>
+            {/* Recent Tasks */}
+            <Grid item xs={12} lg={8}>
+              <StyledPaper>
+                <SectionTitle>
+                  <AssignmentIcon sx={{ color: '#2196f3' }} />
+                  Recent Tasks
+                </SectionTitle>
+                <Box>
+                  {recentTasks.length > 0 ? (
+                    recentTasks.map(task => (
+                      <TaskItem key={task.id}>
+                        <TaskInfo>                          <TaskAvatar priority={task.priority}>
+                            {task.title ? task.title.charAt(0) : 'T'}
+                          </TaskAvatar>
+                          <TaskDetails>
+                            <TaskTitle>{task.title}</TaskTitle>
+                            <TaskMeta>
+                              {task.project?.name || 'No Project'} • Due {formatDate(task.dueDate)}
+                            </TaskMeta>
+                          </TaskDetails>
+                        </TaskInfo>                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          {task.assigneeName && (
+                            <Tooltip title={task.assigneeName}>
+                              <Avatar 
+                                sx={{ width: 24, height: 24, fontSize: 12 }}
+                              >
+                                {task.assigneeName.charAt(0)}
+                              </Avatar>
+                            </Tooltip>
+                          )}                          <StatusChip 
+                            label={task.status === 'in-progress' ? 'In Progress' : 
+                                   (task.status ? task.status.charAt(0).toUpperCase() + task.status.slice(1) : 'Unknown')}
+                            status={isOverdue(task.dueDate) && task.status !== 'done' ? 'overdue' : 
+                                    (task.status || 'todo')}
+                            size="small"
+                          />
+                        </Box>
+                      </TaskItem>
+                    ))
+                  ) : (
+                    <Typography variant="body2" color="textSecondary">
+                      No recent tasks found.
+                    </Typography>
+                  )}
                 </Box>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={(taskStats.pending / taskStats.total) * 100 || 0} 
-                  color="warning" 
-                  sx={{ height: 8, borderRadius: 5, mb: 2, minWidth: 120 }} 
-                />
+                <ViewAllButton 
+                  variant="outlined"
+                  color="primary"
+                  endIcon={<ArrowForwardIcon />}
+                  fullWidth
+                  onClick={handleViewAllTasks}
+                >
+                  View All Tasks
+                </ViewAllButton>
+              </StyledPaper>
+                {/* Team Productivity - Multiple Teams */}
+              <StyledPaper sx={{ mt: 3 }}>
+                <SectionTitle>
+                  <SpeedIcon sx={{ color: '#2196f3' }} />
+                  Team Productivity
+                </SectionTitle>
                 
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, minWidth: 150 }}>
-                  <Typography variant="body2">In Progress</Typography>
-                  <Typography variant="body2">{taskStats.inProgress}</Typography>
-                </Box>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={(taskStats.inProgress / taskStats.total) * 100 || 0} 
-                  color="info" 
-                  sx={{ height: 8, borderRadius: 5, mb: 2, minWidth: 120 }} 
-                />
+                {teamStats.length > 0 ? (
+                  <Grid container spacing={3}>
+                    {teamStats.map((team, index) => (
+                      <Grid item xs={12} key={team.teamId}>
+                        <Box sx={{ 
+                          p: 2, 
+                          border: '1px solid #e0e0e0', 
+                          borderRadius: '12px',
+                          mb: index < teamStats.length - 1 ? 2 : 0
+                        }}>
+                          <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', mb: 2 }}>
+                            {team.teamName}
+                          </Typography>
+                          
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} md={4}>
+                              <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+                                <CircularProgress
+                                  variant="determinate"
+                                  value={team.productivity}
+                                  size={120}
+                                  thickness={5}
+                                  sx={{
+                                    color: index === 0 ? '#2196f3' : index === 1 ? '#4caf50' : '#ff9800',
+                                    '& .MuiCircularProgress-circle': {
+                                      strokeLinecap: 'round',
+                                    },
+                                  }}
+                                />
+                                <Box
+                                  sx={{
+                                    top: 0,
+                                    left: 0,
+                                    bottom: 0,
+                                    right: 0,
+                                    position: 'absolute',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexDirection: 'column'
+                                  }}
+                                >
+                                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#333' }}>
+                                    {team.productivity}%
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ color: '#666' }}>
+                                    Efficiency
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </Grid>
+                            
+                            <Grid item xs={12} md={8}>
+                              <Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
+                                    Tasks Completed
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ color: '#666' }}>
+                                    {team.completedTasks} / {team.totalTasks}
+                                  </Typography>
+                                </Box>
+                                <LinearProgress 
+                                  variant="determinate"
+                                  value={(team.completedTasks / (team.totalTasks || 1)) * 100}
+                                  sx={{
+                                    height: 8,
+                                    borderRadius: 4,
+                                    backgroundColor: '#f0f0f0',
+                                    mb: 2,
+                                    '& .MuiLinearProgress-bar': {
+                                      borderRadius: 4,
+                                      backgroundColor: index === 0 ? '#2196f3' : index === 1 ? '#4caf50' : '#ff9800',
+                                    }
+                                  }}
+                                />
+                                
+                                <Typography variant="body2" sx={{ color: '#666', mb: 1 }}>
+                                  Team Members: {team.members.length}
+                                </Typography>
+                                
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                  {team.members.slice(0, 3).map((member) => (
+                                    <Tooltip key={member.id} title={member.name}>
+                                      <Avatar 
+                                        sx={{ 
+                                          width: 28, 
+                                          height: 28, 
+                                          fontSize: 12,
+                                          bgcolor: `hsl(${member.id.length * 60}, 70%, 60%)`
+                                        }}
+                                      >
+                                        {member.name.charAt(0)}
+                                      </Avatar>
+                                    </Tooltip>
+                                  ))}
+                                  {team.members.length > 3 && (
+                                    <Avatar sx={{ width: 28, height: 28, fontSize: 10, bgcolor: '#999' }}>
+                                      +{team.members.length - 3}
+                                    </Avatar>
+                                  )}
+                                </Box>
+                              </Box>
+                            </Grid>
+                          </Grid>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <Box sx={{ 
+                    textAlign: 'center', 
+                    py: 4,
+                    color: '#999'
+                  }}>
+                    <SpeedIcon sx={{ fontSize: 48, mb: 2 }} />
+                    <Typography variant="h6" sx={{ mb: 1 }}>
+                      No Team Data Available
+                    </Typography>
+                    <Typography variant="body2">
+                      You are not a member of any team yet.
+                    </Typography>
+                  </Box>
+                )}
+              </StyledPaper>
+            </Grid>
+            
+            <Grid item xs={12} lg={4}>              {/* Team Members by Teams */}
+              <StyledPaper>
+                <SectionTitle>
+                  <PeopleIcon sx={{ color: '#2196f3' }} />
+                  Team Members
+                </SectionTitle>
                 
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, minWidth: 150 }}>
-                  <Typography variant="body2">Completed</Typography>
-                  <Typography variant="body2">{taskStats.completed}</Typography>
+                <Box>
+                  {teamStats.length > 0 ? (
+                    teamStats.map((team, index) => (
+                      <Box key={team.teamId} sx={{ mb: index < teamStats.length - 1 ? 3 : 0 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#333', mb: 2 }}>
+                          {team.teamName}
+                        </Typography>
+                        {team.members.map((member) => (
+                          <TeamMember key={member.id}>
+                            <MemberAvatar sx={{ bgcolor: `hsl(${member.id.length * 60}, 70%, 60%)` }}>
+                              {member.name ? member.name.charAt(0) : 'U'}
+                            </MemberAvatar>
+                            <MemberInfo>
+                              <MemberName>{member.name}</MemberName>
+                              <MemberRole>{member.role}</MemberRole>
+                            </MemberInfo>
+                            <IconButton size="small" sx={{ ml: 'auto' }}>
+                              <ArrowForwardIcon fontSize="small" />
+                            </IconButton>
+                          </TeamMember>
+                        ))}
+                      </Box>
+                    ))
+                  ) : (
+                    <Box sx={{ 
+                      textAlign: 'center', 
+                      py: 3,
+                      color: '#999'
+                    }}>
+                      <PeopleIcon sx={{ fontSize: 36, mb: 1 }} />
+                      <Typography variant="body2">
+                        No team members found
+                      </Typography>
+                    </Box>
+                  )}
                 </Box>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={(taskStats.completed / taskStats.total) * 100 || 0} 
-                  color="success" 
-                  sx={{ height: 8, borderRadius: 5, minWidth: 120 }} 
-                />
-              </Box>
-            </Box>
-          </Item>
-        </Grid>
-
-        {/* Priority Distribution */}
-        <Grid item xs={12} md={4}>
-          <Item>
-            <Typography variant="h6" gutterBottom>
-              Priority Distribution
-            </Typography>
-            <Box sx={{ mt: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Chip label="High" color="error" size="small" sx={{ mr: 1 }} />
-                  <Typography variant="body2">High Priority</Typography>
+              </StyledPaper>
+                {/* Upcoming Events */}
+              <StyledPaper sx={{ mt: 3 }}>
+                <SectionTitle>
+                  <CalendarIcon sx={{ color: '#2196f3' }} />
+                  Upcoming Events
+                </SectionTitle>
+                
+                <Box>
+                  {upcomingEvents.length > 0 ? (
+                    upcomingEvents.map((event) => (
+                      <Box 
+                        key={event.id} 
+                        sx={{
+                          p: 2,
+                          mb: 2,
+                          border: '1px solid #e0e0e0',
+                          borderRadius: '12px',
+                          backgroundColor: '#ffffff'
+                        }}
+                      >
+                        <Typography variant="body2" sx={{ color: '#2196f3', fontWeight: 500, mb: 1 }}>
+                          {event.date} • {event.time}
+                        </Typography>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#333' }}>
+                          {event.title}
+                        </Typography>
+                      </Box>
+                    ))
+                  ) : (
+                    <Box sx={{ 
+                      textAlign: 'center', 
+                      py: 3,
+                      color: '#999'
+                    }}>
+                      <CalendarIcon sx={{ fontSize: 36, mb: 1 }} />
+                      <Typography variant="body2">
+                        No upcoming deadlines
+                      </Typography>
+                    </Box>
+                  )}
                 </Box>
-                <Typography variant="h6">{advancedStats.tasksByPriority.high}</Typography>
+              </StyledPaper>
+            </Grid>
+              {/* Projects */}
+            <Grid item xs={12}>
+              <Box sx={{ mt: 3 }}>
+                <SectionTitle>
+                  <TimelineIcon sx={{ color: '#2196f3' }} />
+                  Active Projects
+                </SectionTitle>
+                
+                {projects.length > 0 ? (
+                  <Grid container spacing={3}>
+                    {projects.map((project) => (
+                      <Grid item xs={12} md={4} key={project.id}>
+                        <ProjectCard>
+                          <CardContent>
+                            <ProjectHeader>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Avatar 
+                                  sx={{
+                                    width: 32,
+                                    height: 32,
+                                    bgcolor: project.color
+                                  }}
+                                >
+                                  {project.name ? project.name.charAt(0) : 'P'}
+                                </Avatar>
+                                <ProjectTitle>{project.name}</ProjectTitle>
+                              </Box>
+                              <Chip
+                                label={`${project.completedTasks}/${project.taskCount} tasks`}
+                                size="small"
+                                sx={{
+                                  backgroundColor: project.color + '20',
+                                  color: project.color,
+                                  fontWeight: 600,
+                                  fontSize: '11px',
+                                }}
+                              />
+                            </ProjectHeader>
+                            
+                            <Box sx={{ mb: 2 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="body2" sx={{ color: '#666' }}>
+                                  Progress
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: '#666', fontWeight: 600 }}>
+                                  {project.progress}%
+                                </Typography>
+                              </Box>
+                              <LinearProgress
+                                variant="determinate"
+                                value={project.progress}
+                                sx={{
+                                  height: 8,
+                                  borderRadius: 4,
+                                  backgroundColor: '#f0f0f0',
+                                  '& .MuiLinearProgress-bar': {
+                                    borderRadius: 4,
+                                    backgroundColor: project.color,
+                                  }
+                                }}
+                              />
+                            </Box>
+                            
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="caption" sx={{ color: '#666' }}>
+                                {project.description || 'No description'}
+                              </Typography>
+                              <Button 
+                                variant="text" 
+                                color="primary" 
+                                endIcon={<ArrowForwardIcon />}
+                                size="small"
+                                sx={{ textTransform: 'none', fontWeight: 600 }}
+                              >
+                                View Details
+                              </Button>
+                            </Box>
+                          </CardContent>
+                        </ProjectCard>
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <Box sx={{ 
+                    textAlign: 'center', 
+                    py: 4,
+                    border: '2px dashed #e0e0e0',
+                    borderRadius: '16px',
+                    backgroundColor: '#fafafa'
+                  }}>
+                    <TimelineIcon sx={{ fontSize: 48, color: '#ccc', mb: 2 }} />
+                    <Typography variant="h6" sx={{ color: '#999', mb: 1 }}>
+                      No Active Projects
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#666' }}>
+                      Create your first project to get started
+                    </Typography>
+                  </Box>
+                )}
               </Box>
-              
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Chip label="Med" color="warning" size="small" sx={{ mr: 1 }} />
-                  <Typography variant="body2">Medium Priority</Typography>
-                </Box>
-                <Typography variant="h6">{advancedStats.tasksByPriority.medium}</Typography>
-              </Box>
-              
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Chip label="Low" color="info" size="small" sx={{ mr: 1 }} />
-                  <Typography variant="body2">Low Priority</Typography>
-                </Box>
-                <Typography variant="h6">{advancedStats.tasksByPriority.low}</Typography>
-              </Box>
-            </Box>
-          </Item>
-        </Grid>
-
-        {/* Upcoming Deadlines */}
-        <Grid item xs={12} md={6}>
-          <Item>
-            <Typography variant="h6" gutterBottom>
-              Upcoming Deadlines
-            </Typography>
-            {advancedStats.upcomingDeadlines.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                No upcoming deadlines
-              </Typography>
-            ) : (
-              <List dense>
-                {advancedStats.upcomingDeadlines.map((task, index) => (
-                  <ListItem key={index} divider>
-                    <ListItemIcon>
-                      <Today fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={task.title}
-                      secondary={`Due: ${new Date(task.dueDate).toLocaleDateString()}`}
-                    />
-                    <Chip 
-                      label={task.priority} 
-                      size="small" 
-                      color={task.priority === 'high' ? 'error' : task.priority === 'medium' ? 'warning' : 'info'}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </Item>
-        </Grid>
-
-        {/* Recent Activity */}
-        <Grid item xs={12} md={6}>
-          <Item>
-            <Typography variant="h6" gutterBottom>
-              Recent Activity
-            </Typography>
-            {advancedStats.recentActivity.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                No recent activity
-              </Typography>
-            ) : (
-              <List dense>
-                {advancedStats.recentActivity.map((task, index) => (
-                  <ListItem key={index} divider>
-                    <ListItemIcon>
-                      <CheckCircle fontSize="small" color="success" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={task.title}
-                      secondary={`Completed ${new Date(task.updatedAt || task.createdAt).toLocaleDateString()}`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </Item>
-        </Grid>
-      </Grid>
-    </Box>
+            </Grid>
+          </Grid>
+        </>
+      )}
+    </DashboardContainer>
   );
 };
 

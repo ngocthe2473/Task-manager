@@ -1,116 +1,110 @@
 require('dotenv').config();
 const express = require('express');
-const colors = require('colors');
-const connectDB = require('./config/db');
-const path = require('path');
-const { errorHandler } = require('./middleware/errorMiddleware');
-const http = require('http');
-const socketIo = require('socket.io');
-const { startScheduledJobs } = require('./services/notificationScheduler');
+const fileUpload = require('express-fileupload');
+const { basicRateLimit } = require('./middlewares/rateLimiting');
+// Mở comment đoạn này nếu bạn muốn bỏ qua lỗi kết nối MongoDB
+// process.env.SKIP_MONGODB = "true";
 
-// Kết nối database
-connectDB();
+const connectDB = require('./config/db');
+if (process.env.SKIP_MONGODB !== "true") {
+  // Connect to database
+  connectDB();
+} else {
+  console.log('Running without MongoDB connection (using mock data)'.yellow.bold);
+}
+
+const path = require('path');
+
+// Route files
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const teamRoutes = require('./routes/teamRoutes');
+const projectRoutes = require('./routes/projectRoutes');
+const taskRoutes = require('./routes/taskRoutes');
+const subTaskRoutes = require('./routes/subTaskRoutes');
+const commentRoutes = require('./routes/commentRoutes');
+const timeLogRoutes = require('./routes/timeLogRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const activityLogRoutes = require('./routes/activityLogRoutes');
+const attachmentRoutes = require('./routes/attachmentRoutes');
+const calendarRoutes = require('./routes/calendarRoutes');
+const searchRoutes = require('./routes/searchRoutes');
+const reportRoutes = require('./routes/reportRoutes_fixed');
 
 const app = express();
 
-// Middleware xử lý JSON
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// Apply basic rate limiting to all requests
+app.use(basicRateLimit);
 
-// Middleware CORS
+// Body parser
+app.use(express.json());
+
+// File upload middleware
+app.use(fileUpload({
+  createParentPath: true,
+  limits: { 
+    fileSize: 50 * 1024 * 1024 // 50MB max file size
+  },
+  abortOnLimit: true,
+  responseOnLimit: "File size limit exceeded"
+}));
+
+// Enable CORS and Handle Host Headers
+const cors = require('cors');
+app.use(cors());
+
+// Set trusted proxy
+app.set('trust proxy', 1);
+
+// Allow specific domains including your custom domain
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header(
-    'Access-Control-Allow-Headers',
-    'Origin, X-Requested-With, Content-Type, Accept, Authorization'
-  );
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-    return res.status(200).json({});
+  const allowedDomains = ['localhost:3000', 'localhost:3001', 'task.nongthivdct.vn'];
+  const host = req.headers.host;
+  
+  // Check if the host is in our allowed domains
+  if (allowedDomains.includes(host) || host.includes('localhost')) {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Headers',
+      'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    if (req.method === 'OPTIONS') {
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+      return res.status(200).json({});
+    }
+    next();
+  } else {
+    console.log(`Rejected host: ${host}`);
+    next();
   }
-  next();
 });
 
-// Mount routes (API)
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/teams', require('./routes/teamRoutes'));
-app.use('/api/projects', require('./routes/projectRoutes'));
-app.use('/api/tasks', require('./routes/taskRoutes'));
-app.use('/api/comments', require('./routes/commentRoutes'));
-app.use('/api/timelogs', require('./routes/timeLogRoutes'));
-app.use('/api/notifications', require('./routes/notificationRoutes'));
-app.use('/api/activitylogs', require('./routes/activityLogRoutes'));
+// Mount routers
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/subtasks', subTaskRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/timelogs', timeLogRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/activity-logs', activityLogRoutes);
+app.use('/api/attachments', attachmentRoutes);
+app.use('/api/calendar', calendarRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/reports', reportRoutes);
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Phục vụ static file React build ở production
+// Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'client', 'build')));
+  // Set static folder
+  app.use(express.static('client/build'));
+
   app.get('*', (req, res) => {
     res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
   });
 }
 
-// Middleware xử lý lỗi
-app.use(errorHandler);
-
-// Khởi động server
 const PORT = process.env.PORT || 5000;
-const server = http.createServer(app);
 
-// Socket.IO setup
-const io = socketIo(server, {
-  cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    methods: ["GET", "POST"]
-  }
+app.listen(PORT, () => {
+  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
-
-// Store connected users
-const connectedUsers = new Map();
-
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`.cyan);
-
-  // User authentication and registration
-  socket.on('join', (userId) => {
-    connectedUsers.set(userId, socket.id);
-    socket.userId = userId;
-    console.log(`User ${userId} joined with socket ${socket.id}`.green);
-  });
-
-  // Handle disconnection
-  socket.on('disconnect', () => {
-    if (socket.userId) {
-      connectedUsers.delete(socket.userId);
-      console.log(`User ${socket.userId} disconnected`.yellow);
-    }
-  });
-});
-
-// Make io available globally for sending notifications
-global.io = io;
-global.connectedUsers = connectedUsers;
-
-server.listen(PORT, () => {
-  console.log(
-    `Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`.yellow.bold
-  );
-  
-  // Start scheduled notification jobs
-  startScheduledJobs();
-});
-
-// Graceful shutdown
-const gracefulShutdown = () => {
-  console.log('\nShutting down server gracefully...'.yellow.bold);
-  server.close(() => {
-    process.exit(0);
-  });
-};
-
-process.on('SIGINT', gracefulShutdown);
-process.on('SIGTERM', gracefulShutdown);

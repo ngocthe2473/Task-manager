@@ -1,136 +1,400 @@
-import React, { useContext, useState } from 'react';
-import { AppBar, Toolbar, Typography, Box, Avatar, IconButton, Menu, MenuItem, Button, Badge, InputBase } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import AddIcon from '@mui/icons-material/Add';
+import React, { useState, useContext, useEffect } from 'react';
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  IconButton,
+  Badge,
+  Avatar,
+  Box,
+  InputBase,
+  Menu,
+  MenuItem,
+  Button,
+  Popover,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  Divider
+} from '@mui/material';
 import { AuthContext } from '../context/AuthContext';
-import { styled, alpha } from '@mui/material/styles';
-import SearchIcon from '@mui/icons-material/Search';
-import NotificationCenter from './NotificationCenter';
+import { getNotifications, markNotificationAsRead } from '../services/apiService';
+import {
+  Menu as MenuIcon,
+  Notifications as NotificationsIcon,
+  Search as SearchIcon,
+  Message as MessageIcon,
+  Add as AddIcon,
+  Settings as SettingsIcon,
+  Logout as LogoutIcon,
+  Person as PersonIcon
+} from '@mui/icons-material';
+import { styled } from '@mui/material/styles';
+import { useNavigate } from 'react-router-dom';
+import { searchTasks, searchProjectsByName } from '../services/apiService';
 
-const Search = styled('div')(({ theme }) => ({
-  position: 'relative',
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: alpha(theme.palette.common.white, 0.15),
-  '&:hover': {
-    backgroundColor: alpha(theme.palette.common.white, 0.25),
-  },
-  marginRight: theme.spacing(2),
-  marginLeft: 0,
-  width: '100%',
-  [theme.breakpoints.up('sm')]: {
-    marginLeft: theme.spacing(3),
-    width: 'auto',
-  },
+// Modern minimalist styled components
+const StyledAppBar = styled(AppBar)(({ theme }) => ({
+  backgroundColor: '#ffffff',
+  color: '#333333',
+  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24)',
+  borderBottom: '1px solid #e0e0e0',
 }));
 
-const SearchIconWrapper = styled('div')(({ theme }) => ({
-  padding: theme.spacing(0, 2),
-  height: '100%',
-  position: 'absolute',
-  pointerEvents: 'none',
+const StyledToolbar = styled(Toolbar)(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: '0 24px',
+  minHeight: '64px',
+}));
+
+const LeftSection = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'center',
+  gap: '16px',
 }));
 
-const StyledInputBase = styled(InputBase)(({ theme }) => ({
-  color: 'inherit',
+const CenterSection = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'center',
+  flex: 1,
+  maxWidth: '400px',
+}));
+
+const RightSection = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+}));
+
+const MenuButton = styled(IconButton)(({ theme }) => ({
+  color: '#666',
+  '&:hover': {
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+  },
+}));
+
+const Logo = styled(Typography)(({ theme }) => ({
+  fontWeight: 700,
+  fontSize: '1.5rem',
+  color: '#2196f3',
+  letterSpacing: '-0.5px',
+}));
+
+const SearchContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  backgroundColor: '#f5f5f5',
+  borderRadius: '24px',
+  padding: '8px 16px',
+  width: '100%',
+  maxWidth: '400px',
+  border: '1px solid transparent',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    backgroundColor: '#f0f0f0',
+  },
+  '&:focus-within': {
+    backgroundColor: '#ffffff',
+    border: '1px solid #2196f3',
+    boxShadow: '0 0 0 3px rgba(33, 150, 243, 0.1)',
+  },
+}));
+
+const SearchInput = styled(InputBase)(({ theme }) => ({
+  marginLeft: '8px',
+  flex: 1,
+  color: '#333',
   '& .MuiInputBase-input': {
-    padding: theme.spacing(1, 1, 1, 0),
-    paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-    transition: theme.transitions.create('width'),
-    width: '100%',
-    [theme.breakpoints.up('md')]: {
-      width: '20ch',
+    padding: '4px 0',
+    fontSize: '14px',
+    '&::placeholder': {
+      color: '#999',
+      opacity: 1,
     },
   },
 }));
 
+const UserSection = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  cursor: 'pointer',
+  padding: '8px 12px',
+  borderRadius: '12px',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+  },
+}));
+
+const UserInfo = styled(Box)(({ theme }) => ({
+  marginLeft: '12px',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-start',
+}));
+
+const NewTaskButton = styled(Button)(({ theme }) => ({
+  backgroundColor: '#2196f3',
+  color: '#ffffff',
+  textTransform: 'none',
+  borderRadius: '24px',
+  padding: '8px 20px',
+  fontWeight: 600,
+  fontSize: '14px',
+  boxShadow: '0 2px 4px rgba(33, 150, 243, 0.3)',
+  '&:hover': {
+    backgroundColor: '#1976d2',
+    boxShadow: '0 4px 8px rgba(33, 150, 243, 0.4)',
+  },
+}));
+
+const ModernIconButton = styled(IconButton)(({ theme }) => ({
+  color: '#666',
+  '&:hover': {
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    color: '#333',
+  },
+}));
+
 const Navbar = () => {
-  const navigate = useNavigate();
-  const { userInfo, logout } = useContext(AuthContext);
+  const [user, setUser] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
-  
-  const handleMenu = (event) => {
+  const [notifAnchorEl, setNotifAnchorEl] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [notifLoading, setNotifLoading] = useState(false);
+  // Fetch notifications when open
+  const handleNotifOpen = (event) => {
+    setNotifAnchorEl(event.currentTarget);
+    setNotifLoading(true);
+    getNotifications().then(data => {
+      setNotifications(data);
+      setNotifLoading(false);
+    });
+  };
+  const handleNotifClose = () => setNotifAnchorEl(null);
+
+  const handleMarkAsRead = async (notifId) => {
+    await markNotificationAsRead(notifId);
+    setNotifications(notifications.map(n => n._id === notifId ? { ...n, isRead: true } : n));
+  };
+  const [searchValue, setSearchValue] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const userInfo = localStorage.getItem('userInfo');
+    if (userInfo) {
+      setUser(JSON.parse(userInfo).user);
+    }
+  }, []);
+
+  // Search handler
+  useEffect(() => {
+    if (!searchValue) {
+      setSearchResults([]);
+      setSearchOpen(false);
+      return;
+    }
+    setSearchLoading(true);
+    // Gọi song song cả task và project
+    Promise.all([
+      searchTasks(searchValue, 5),
+      searchProjectsByName(searchValue, 5)
+    ]).then(([tasks, projects]) => {
+      const results = [];
+      if (tasks && tasks.length > 0) {
+        results.push(...tasks.map(t => ({ type: 'task', id: t._id, title: t.title })));
+      }
+      if (projects && projects.length > 0) {
+        results.push(...projects.map(p => ({ type: 'project', id: p._id, title: p.name })));
+      }
+      setSearchResults(results);
+      setSearchOpen(true);
+    }).finally(() => setSearchLoading(false));
+  }, [searchValue]);
+
+  const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
   };
 
-  const handleClose = () => {
+  const handleMenuClose = () => {
     setAnchorEl(null);
   };
-  
+
   const handleLogout = () => {
-    logout();
+    localStorage.removeItem('userInfo');
     navigate('/login');
   };
-  
-  const handleSettings = () => {
-    handleClose();
-    navigate('/settings');
+
+  const handleSearchChange = (e) => {
+    setSearchValue(e.target.value);
+  };
+
+  const handleResultClick = (item) => {
+    setSearchOpen(false);
+    setSearchValue('');
+    if (item.type === 'task') {
+      navigate(`/tasks/${item.id}`);
+    } else if (item.type === 'project') {
+      navigate(`/projects/${item.id}`);
+    }
   };
 
   return (
-    <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: '1px solid #e0e0e0', bgcolor: 'white' }}>
-      <Toolbar>
-        <Typography variant="h6" color="inherit" sx={{ flexGrow: 1 }}>
-          Task Manager
-        </Typography>
-        <Search>
-          <SearchIconWrapper>
-            <SearchIcon />
-          </SearchIconWrapper>
-          <StyledInputBase placeholder="Search…" inputProps={{ 'aria-label': 'search' }} />
-        </Search>
-        <div style={{ flexGrow: 1 }} />
-        <Button 
-          variant="contained" 
-          color="secondary" 
-          startIcon={<AddIcon />}
-          sx={{ marginRight: 2 }}
-        >
-          New Task        </Button>
-        <NotificationCenter />
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <IconButton
-            onClick={handleMenu}
-            size="small"
-            sx={{ ml: 2 }}
-            aria-controls="menu-appbar"
-            aria-haspopup="true"
+    <StyledAppBar position="fixed">
+      <StyledToolbar>
+        <LeftSection>
+          <Logo variant="h6">
+            TaskFlow Pro
+          </Logo>
+        </LeftSection>
+
+        <CenterSection>
+          <Box sx={{ position: 'relative', width: '100%' }}>
+            <SearchContainer>
+              <SearchIcon sx={{ color: '#999' }} />
+              <SearchInput
+                placeholder="Search tasks, projects..."
+                value={searchValue}
+                onChange={handleSearchChange}
+                onFocus={() => searchResults.length > 0 && setSearchOpen(true)}
+                sx={{ minWidth: 200 }}
+              />
+            </SearchContainer>
+            {searchOpen && (searchResults.length > 0 || searchLoading) && (
+              <Box sx={{
+                position: 'absolute',
+                top: '110%',
+                left: 0,
+                width: '100%',
+                bgcolor: '#fff',
+                boxShadow: 3,
+                borderRadius: 2,
+                zIndex: 10,
+                maxHeight: 300,
+                overflowY: 'auto',
+                p: 1
+              }}>
+                {searchLoading && (
+                  <Typography sx={{ p: 1, color: '#888' }}>Loading...</Typography>
+                )}
+                {!searchLoading && searchResults.length === 0 && (
+                  <Typography sx={{ p: 1, color: '#888' }}>No results found</Typography>
+                )}
+                {searchResults.map((item, idx) => (
+                  <Box
+                    key={item.type + item.id}
+                    sx={{
+                      p: 1,
+                      cursor: 'pointer',
+                      borderRadius: 1,
+                      '&:hover': { bgcolor: '#f5f5f5' },
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}
+                    onClick={() => handleResultClick(item)}
+                  >
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {item.type === 'task' ? '📝' : '📁'}
+                    </Typography>
+                    <Typography variant="body2">{item.title}</Typography>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+        </CenterSection>
+
+        <RightSection>
+
+          <ModernIconButton onClick={handleNotifOpen}>
+            <Badge badgeContent={notifications.filter(n => !n.isRead).length} color="error">
+              <NotificationsIcon />
+            </Badge>
+          </ModernIconButton>
+          <Popover
+            open={Boolean(notifAnchorEl)}
+            anchorEl={notifAnchorEl}
+            onClose={handleNotifClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            PaperProps={{ sx: { minWidth: 320, maxWidth: 400 } }}
           >
-            <Avatar 
-              alt={userInfo?.name} 
-              src={userInfo?.avatar}
-              sx={{ width: 32, height: 32 }}
-            >
-              {userInfo?.name ? userInfo.name.charAt(0) : 'U'}
-            </Avatar>
-          </IconButton>
+            <Box sx={{ p: 2, fontWeight: 600 }}>Notifications</Box>
+            <Divider />
+            {notifLoading ? (
+              <Box sx={{ p: 2 }}>Loading...</Box>
+            ) : notifications.length === 0 ? (
+              <Box sx={{ p: 2, color: '#888' }}>No notifications</Box>
+            ) : (
+              <List dense>
+                {notifications.map((notif) => (
+                  <ListItem
+                    key={notif._id}
+                    alignItems="flex-start"
+                    sx={{ bgcolor: notif.isRead ? '#fff' : '#e3f2fd', cursor: 'pointer' }}
+                    onClick={() => handleMarkAsRead(notif._id)}
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: notif.isRead ? '#bdbdbd' : '#2196f3', width: 32, height: 32 }}>
+                        {notif.type === 'task_assigned' ? '📝' : notif.type === 'comment' ? '💬' : '🔔'}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={notif.content}
+                      secondary={new Date(notif.createdAt).toLocaleString()}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Popover>
           
-          <Menu
-            id="menu-appbar"
-            anchorEl={anchorEl}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'right',
-            }}
-            keepMounted
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-            open={Boolean(anchorEl)}
-            onClose={handleClose}
-          >
-            <MenuItem onClick={handleSettings}>Tài khoản của tôi</MenuItem>
-            <MenuItem onClick={handleLogout}>Đăng xuất</MenuItem>
-          </Menu>
-        </Box>
-      </Toolbar>
-    </AppBar>
+          <ModernIconButton>
+            <MessageIcon />
+          </ModernIconButton>
+
+          {user && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body1">
+                {user.name}
+              </Typography>
+              <IconButton
+                onClick={handleMenuOpen}
+                size="small"
+                sx={{ ml: 2 }}
+              >
+                <Avatar sx={{ width: 32, height: 32 }}>
+                  {user.name.charAt(0)}
+                </Avatar>
+              </IconButton>
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+              >
+                <MenuItem onClick={() => {
+                  handleMenuClose();
+                  navigate('/profile');
+                }}>
+                  Profile
+                </MenuItem>
+                <MenuItem onClick={handleLogout}>
+                  Logout
+                </MenuItem>
+              </Menu>
+            </Box>
+          )}
+        </RightSection>
+      </StyledToolbar>
+    </StyledAppBar>
   );
 };
 
 export default Navbar;
-
-

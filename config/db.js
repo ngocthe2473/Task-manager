@@ -1,33 +1,22 @@
 const mongoose = require('mongoose');
+const colors = require('colors');
 
 const connectDB = async () => {
   try {
-    // Try MongoDB Atlas first
-    let mongoUri = process.env.MONGO_URI;
+    // Loại bỏ các options đã deprecated trong MongoDB Driver 4.0+
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 5000, // Timeout sau 5s
+    });
     
-    // If Atlas connection fails in development, fallback to local
-    if (process.env.NODE_ENV === 'development') {
-      try {
-        console.log('Attempting to connect to MongoDB Atlas...'.yellow);
-        const conn = await mongoose.connect(mongoUri, {
-          serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
-        });
-        console.log(`MongoDB Atlas Connected: ${conn.connection.host}`.cyan.underline);
-        return;
-      } catch (atlasError) {
-        console.log('MongoDB Atlas connection failed, trying local MongoDB...'.yellow);
-        mongoUri = 'mongodb://localhost:27017/taskmanager';
-      }
-    }
-
-    const conn = await mongoose.connect(mongoUri);
-    console.log(`MongoDB Connected: ${conn.connection.host}`.cyan.underline);
+    console.log(`MongoDB Connected: ${conn.connection.host}`.cyan.underline.bold);
   } catch (error) {
     console.error(`Error: ${error.message}`.red.underline.bold);
-    console.log('\nTo fix MongoDB Atlas connection:'.yellow);
-    console.log('1. Add your IP address to MongoDB Atlas Network Access whitelist'.yellow);
-    console.log('2. Or use 0.0.0.0/0 to allow all IPs (not recommended for production)'.yellow);
-    console.log('3. Or install and run MongoDB locally: https://www.mongodb.com/try/download/community'.yellow);
+    
+    // Log thêm thông tin để debug
+    console.error('Vui lòng thực hiện một trong các bước sau:'.yellow);
+    console.error('1. Thêm IP của bạn vào MongoDB Atlas whitelist'.yellow);
+    console.error('2. Sử dụng MongoDB local thay vì Atlas'.yellow);
+    
     process.exit(1);
   }
 };

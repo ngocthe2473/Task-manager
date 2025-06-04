@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { getUserProfile, updateUserProfile } from '../services/apiService';
 import {
   Box,
   Typography,
@@ -39,23 +40,25 @@ const Profile = () => {
       setLoading(true);
       setError('');
       try {
-        const res = await fetch('/api/users/profile', {
+        const res = await fetch('http://localhost:5000/api/users/profile', {
           headers: {
             Authorization: `Bearer ${userInfo?.token}`,
           },
         });
-        if (!res.ok) throw new Error('Không thể lấy thông tin người dùng');
         const data = await res.json();
-        if (!ignore) {
-          setProfile(data);
+        if (!res.ok) throw new Error(data.message || 'Không thể lấy thông tin người dùng');
+        if (!ignore && data.success) {
+          setProfile(data.data);
           setEditData({
-            name: data.name || '',
-            email: data.email || '',
-            language: data.language || 'vi',
-            role: data.role || '',
-            avatar: data.avatar || ''
+            name: data.data.name || '',
+            email: data.data.email || '',
+            language: data.data.language || 'vi',
+            role: data.data.role || '',
+            avatar: data.data.avatar || ''
           });
-          setAvatarPreview(data.avatar || '');
+          setAvatarPreview(data.data.avatar || '');
+        } else if (!ignore) {
+          setError(data.message || 'Không thể lấy thông tin người dùng');
         }
       } catch (err) {
         if (!ignore) setError(err.message);
@@ -97,33 +100,38 @@ const Profile = () => {
     setSuccess('');
     try {
       const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+      // Chỉ gửi các trường backend chấp nhận
+      const payload = {
+        name: editData.name,
+        email: editData.email
+      };
+      // Nếu có password mới thì gửi thêm (nếu bạn có chức năng đổi password)
+      if (editData.password) payload.password = editData.password;
 
-      const res = await fetch('/api/users/profile', {
+      const res = await fetch('http://localhost:5000/api/users/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${userInfo?.token}`,
           ...(csrfToken && { 'X-CSRF-Token': csrfToken })
         },
-        body: JSON.stringify(editData),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Cập nhật thất bại');
 
-      setProfile(data);
+      // data.success và data.data trả về từ backend
+      setProfile(data.data);
       // Chỉ updateUser khi thực sự có thay đổi
       if (
-        data.name !== userInfo?.name ||
-        data.email !== userInfo?.email ||
-        data.language !== userInfo?.language ||
-        data.role !== userInfo?.role ||
-        data.avatar !== userInfo?.avatar
+        data.data.name !== userInfo?.name ||
+        data.data.email !== userInfo?.email
       ) {
-        updateUser(data);
+        updateUser(data.data);
       }
       setSuccess('Cập nhật thành công!');
-      if (data.avatar) setAvatarPreview(data.avatar);
+      if (data.data.avatar) setAvatarPreview(data.data.avatar);
     } catch (err) {
       setError(err.message);
     }

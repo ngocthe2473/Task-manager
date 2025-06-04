@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Card, CardContent, Typography, Box, Avatar, Chip, IconButton, Tooltip, Menu, MenuItem } from '@mui/material';
+import { Card, CardContent, Typography, Box, Avatar, Chip, IconButton, Tooltip, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import AlarmIcon from '@mui/icons-material/Alarm';
-// import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-// import { addTask } from '../services/fakeDatabaseService';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 const StyledCard = styled(Card)(({ theme }) => ({
   position: 'relative',
@@ -36,7 +36,7 @@ const priorityColors = {
   Low: '#4caf50'
 };
 
-const TaskCard = ({ task, onClick, onEdit, onDelete }) => {
+const TaskCard = ({ task, onClick, onEdit, onDelete, canEdit, canDelete, canComment }) => {
   const [anchorEl, setAnchorEl] = React.useState(null);
   if (!task) return null;
   const { title, description, priority, assignee, assigneeName, dueDate, due } = task;
@@ -44,7 +44,7 @@ const TaskCard = ({ task, onClick, onEdit, onDelete }) => {
   const displayPriority = priority || 'Medium';
   const displayDueDate = dueDate || due || '';
   const getInitials = (name) => {
-    if (!name) return '?';
+    if (!name || typeof name !== 'string') return '?';
     return name.charAt(0) || '?';
   };
   const dueDateObj = new Date(displayDueDate);
@@ -70,28 +70,92 @@ const TaskCard = ({ task, onClick, onEdit, onDelete }) => {
   };
 
   return (
-    <StyledCard onClick={() => onClick && onClick(task)} sx={{ borderLeft: `6px solid ${priorityColors[displayPriority] || '#ccc'}` }}>
+    <Card 
+      sx={{ 
+        mb: 2,
+        cursor: 'pointer',
+        '&:hover': {
+          boxShadow: 3
+        }
+      }}
+      onClick={onClick}
+    >
       <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-          <Avatar sx={{ width: 32, height: 32, bgcolor: '#1976d2', mr: 1 }}>{getInitials(assigneeName)}</Avatar>
-          <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>{displayTitle}</Typography>
-          <Tooltip title="More">
-            <IconButton size="small" onClick={handleMenuOpen}>
-              <MoreVertIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose} onClick={e => e.stopPropagation()}>
-            <MenuItem onClick={handleEdit}>Edit</MenuItem>
-            <MenuItem onClick={handleDelete}>Delete</MenuItem>
-          </Menu>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+          <Typography variant="h6" component="div" sx={{ flex: 1 }}>
+            {displayTitle}
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Chip 
+              label={displayPriority}
+              size="small"
+              color={
+                displayPriority === 'High' ? 'error' :
+                displayPriority === 'Medium' ? 'warning' :
+                'info'
+              }
+            />
+            {(canEdit || canDelete) && (
+              <IconButton size="small" onClick={handleMenuOpen}>
+                <MoreVertIcon />
+              </IconButton>
+            )}
+          </Box>
         </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{description}</Typography>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          <Chip label={displayPriority} size="small" sx={{ bgcolor: priorityColors[displayPriority] || '#ccc', color: 'white' }} />
-          {displayDueDate && <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><AlarmIcon fontSize="small" /><Typography variant="caption">{displayDueDate}</Typography></Box>}
+
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {description || 'No description'}
+        </Typography>
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {assigneeName && (
+              <Tooltip title={assigneeName}>
+                <Avatar sx={{ width: 24, height: 24, fontSize: 12 }}>
+                  {getInitials(assigneeName)}
+                </Avatar>
+              </Tooltip>
+            )}
+            <Typography variant="caption" color={isOverdue ? 'error' : isDueSoon ? 'warning.main' : 'text.secondary'}>
+              Due: {formatDate(displayDueDate)}
+            </Typography>
+          </Box>
+          <Chip 
+            label={task.status}
+            size="small"
+            color={
+              task.status === 'done' ? 'success' :
+              task.status === 'in-progress' ? 'primary' :
+              task.status === 'review' ? 'warning' :
+              'default'
+            }
+          />
         </Box>
       </CardContent>
-    </StyledCard>
+
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+      >
+        {canEdit && (
+          <MenuItem onClick={handleEdit}>
+            <ListItemIcon>
+              <EditIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Edit</ListItemText>
+          </MenuItem>
+        )}
+        {canDelete && (
+          <MenuItem onClick={handleDelete}>
+            <ListItemIcon>
+              <DeleteIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Delete</ListItemText>
+          </MenuItem>
+        )}
+      </Menu>
+    </Card>
   );
 };
 

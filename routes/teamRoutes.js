@@ -1,17 +1,69 @@
 const express = require('express');
-const { protect, admin } = require('../middlewares/auth');
+const { authenticate, authorize, authorizeTeamRole } = require('../middlewares/auth');
+const {
+  validateTeamCreation,
+  validateTeamUpdate,
+  validateMongoId,
+  validatePagination
+} = require('../middlewares/validation');
+const { createRateLimit } = require('../middlewares/rateLimiting');
 const {
   getTeams,
+  getTeamById,
   createTeam,
-  addTeamMember
+  updateTeam,
+  deleteTeam,
+  addTeamMember,
+  removeTeamMember,
+  getTeamStats,
+  changeTeamRole,
+  getMyTeam,
+  getMyTeamMembers,
+  checkUserIsTeamLeader,
+  searchTeams,
+  advancedSearchTeams,
+  advancedTeamAnalytics,
+  autocompleteTeam,
+  exportTeamsCSV
 } = require('../controllers/teamController');
 const router = express.Router();
 
 router.route('/')
-  .get(protect, getTeams)
-  .post(protect, admin, createTeam);
+  .get(authenticate, validatePagination, getTeams)
+  .post(authenticate, createRateLimit, validateTeamCreation, createTeam);
+
+// Get user's teams
+router.get('/my', authenticate, getMyTeam);
+
+// Get user's team members
+router.get('/my-members', authenticate, getMyTeamMembers);
+
+// Check if user is team leader
+router.get('/check-leader', authenticate, checkUserIsTeamLeader);
+
+router.route('/:id')
+  .get(authenticate, validateMongoId, getTeamById)
+  .put(authenticate, authorizeTeamRole('id', 'leader'), validateMongoId, validateTeamUpdate, updateTeam)
+  .delete(authenticate, authorize(['admin']), validateMongoId, deleteTeam);
 
 router.route('/:id/members')
-  .put(protect, addTeamMember);
+  .post(authenticate, authorizeTeamRole('id', 'leader'), validateMongoId, addTeamMember)
+  .delete(authenticate, authorizeTeamRole('id', 'leader'), validateMongoId, removeTeamMember);
+
+router.get('/:id/stats', authenticate, validateMongoId, getTeamStats);
+router.put('/:id/members/:userId/role', 
+  authenticate, 
+  authorizeTeamRole('id', 'leader'), 
+  validateMongoId, 
+  changeTeamRole
+);
+
+router.get('/search', authenticate, searchTeams);
+
+// Advanced APIs
+router.get('/advanced-search', authenticate, advancedSearchTeams);
+router.get('/advanced-analytics', authenticate, advancedTeamAnalytics);
+router.get('/autocomplete', authenticate, autocompleteTeam);
+router.get('/export', authenticate, exportTeamsCSV);
 
 module.exports = router;

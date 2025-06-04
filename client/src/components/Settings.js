@@ -1,273 +1,432 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
-  Box, Paper, Tabs, Tab, Typography, TextField, Button, Avatar, FormControl,
-  Select, MenuItem, Switch, List, ListItem, ListItemIcon, ListItemText,
-  ListItemSecondaryAction, Grid, InputAdornment, IconButton, Divider,
-  FormControlLabel
+  Container,
+  Typography,
+  Box,
+  Paper,
+  Tabs,
+  Tab,
+  Switch,
+  FormControlLabel,
+  TextField,
+  Button,
+  Avatar,
+  Divider,
+  Grid,
+  Card,
+  CardContent,
+  IconButton,
+  Chip,
+  Alert,
+  Snackbar,
+  CircularProgress
 } from '@mui/material';
-import {
-  Person, Notifications, Security, Palette, Lock as LockIcon,
-  Visibility, VisibilityOff, Notifications as NotificationsIcon
-} from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
+import { getUserProfile, updateUserProfile } from '../services/apiService';
+import {
+  Person as PersonIcon,
+  Security as SecurityIcon,
+  Notifications as NotificationsIcon,
+  Palette as PaletteIcon,
+  Storage as StorageIcon,
+  AccountCircle as AccountIcon,
+  Phone as PhoneIcon,
+  Shield as ShieldIcon,
+  Key as KeyIcon,
+  Backup as BackupIcon,
+  Edit as EditIcon,
+  PhotoCamera as PhotoCameraIcon
+} from '@mui/icons-material';
+import { styled } from '@mui/material/styles';
+
+// Modern minimalist styled components
+const SettingsContainer = styled(Container)(({ theme }) => ({
+  padding: '32px 24px',
+  maxWidth: '1000px',
+}));
+
+const SettingsHeader = styled(Box)(({ theme }) => ({
+  marginBottom: '32px',
+}));
+
+const SettingsTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '32px',
+  fontWeight: 700,
+  color: '#333',
+  marginBottom: '8px',
+  letterSpacing: '-0.5px',
+}));
+
+const SettingsSubtitle = styled(Typography)(({ theme }) => ({
+  fontSize: '16px',
+  color: '#666',
+}));
+
+const StyledTabs = styled(Tabs)(({ theme }) => ({
+  borderBottom: '1px solid #e0e0e0',
+  marginBottom: '32px',
+  '& .MuiTab-root': {
+    textTransform: 'none',
+    fontSize: '14px',
+    fontWeight: 600,
+    minHeight: '48px',
+    color: '#666',
+    '&.Mui-selected': {
+      color: '#2196f3',
+    },
+  },
+  '& .MuiTabs-indicator': {
+    backgroundColor: '#2196f3',
+    height: '3px',
+    borderRadius: '2px',
+  },
+}));
+
+const SettingsSection = styled(Paper)(({ theme }) => ({
+  padding: '24px',
+  marginBottom: '24px',
+  borderRadius: '16px',
+  border: '1px solid #e0e0e0',
+  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
+}));
+
+const SectionTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '18px',
+  fontWeight: 600,
+  color: '#333',
+  marginBottom: '16px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+}));
+
+const SettingItem = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '16px 0',
+  borderBottom: '1px solid #f0f0f0',
+  '&:last-child': {
+    borderBottom: 'none',
+  },
+}));
+
+const SettingLabel = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
+}));
+
+const SettingTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '14px',
+  fontWeight: 600,
+  color: '#333',
+}));
+
+const SettingDescription = styled(Typography)(({ theme }) => ({
+  fontSize: '13px',
+  color: '#666',
+  lineHeight: 1.4,
+}));
+
+const ProfileCard = styled(Card)(({ theme }) => ({
+  marginBottom: '24px',
+  borderRadius: '16px',
+  border: '1px solid #e0e0e0',
+  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
+}));
+
+const ProfileHeader = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '20px',
+  marginBottom: '24px',
+}));
+
+const LargeAvatar = styled(Avatar)(({ theme }) => ({
+  width: 80,
+  height: 80,
+  fontSize: '32px',
+  fontWeight: 600,
+  backgroundColor: '#2196f3',
+}));
+
+const AvatarUpload = styled(Box)(({ theme }) => ({
+  position: 'relative',
+  display: 'inline-block',
+}));
+
+const AvatarButton = styled(IconButton)(({ theme }) => ({
+  position: 'absolute',
+  bottom: -4,
+  right: -4,
+  backgroundColor: '#2196f3',
+  color: '#ffffff',
+  width: 32,
+  height: 32,
+  boxShadow: '0 2px 8px rgba(33, 150, 243, 0.4)',
+  '&:hover': {
+    backgroundColor: '#1976d2',
+  },
+}));
+
+const StyledTextField = styled(TextField)(({ theme }) => ({
+  '& .MuiOutlinedInput-root': {
+    borderRadius: '8px',
+    '&:hover .MuiOutlinedInput-notchedOutline': {
+      borderColor: '#2196f3',
+    },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+      borderColor: '#2196f3',
+    },
+  },
+}));
+
+const SaveButton = styled(Button)(({ theme }) => ({
+  backgroundColor: '#2196f3',
+  color: '#ffffff',
+  textTransform: 'none',
+  borderRadius: '8px',
+  padding: '10px 24px',
+  fontWeight: 600,
+  boxShadow: '0 2px 4px rgba(33, 150, 243, 0.3)',
+  '&:hover': {
+    backgroundColor: '#1976d2',
+    boxShadow: '0 4px 8px rgba(33, 150, 243, 0.4)',
+  },
+}));
+
+const StyledSwitch = styled(Switch)(({ theme }) => ({
+  '& .MuiSwitch-switchBase.Mui-checked': {
+    color: '#2196f3',
+    '& + .MuiSwitch-track': {
+      backgroundColor: '#2196f3',
+    },
+  },
+}));
+
+const StatusChip = styled(Chip)(({ theme }) => ({
+  backgroundColor: '#e8f5e8',
+  color: '#2e7d32',
+  fontWeight: 600,
+  fontSize: '12px',
+}));
 
 const Settings = () => {
+  const [currentTab, setCurrentTab] = useState(0);
   const { userInfo, updateUser } = useContext(AuthContext);
-  const [tabValue, setTabValue] = useState(0);
-  const [userData, setUserData] = useState({
-    name: '', email: '', language: 'English', role: '', avatar: '', theme: 'light'
+  const [isLoading, setIsLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
   });
-  const [notificationSettings, setNotificationSettings] = useState({
-    dueDateReminders: true
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    department: '',
+    role: ''
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
-  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (userInfo) {
-      setUserData({
+      setFormData({
         name: userInfo.name || '',
         email: userInfo.email || '',
-        language: userInfo.language || 'English',
-        role: userInfo.role || 'Admin',
-        avatar: userInfo.avatar || '',
-        theme: userInfo.theme || 'light'
+        phone: userInfo.phone || '',
+        department: userInfo.department || '',
+        role: userInfo.role || ''
       });
     }
-
-    const fetchUserData = async () => {
-      try {
-        const res = await fetch('/api/users/profile', {
-          headers: { Authorization: `Bearer ${userInfo?.token}` }
-        });
-        if (!res.ok) throw new Error('Failed to fetch user data');
-        const data = await res.json();
-        setUserData(data);
-        // Không gọi updateUser ở đây để tránh vòng lặp fetch-request
-      } catch (err) {
-        console.error('Error fetching user data:', err);
-        setError('Failed to load user data');
-      }
-    };
-
-    fetchUserData();
-    // eslint-disable-next-line
   }, [userInfo]);
 
-  const handleTabChange = (e, newValue) => setTabValue(newValue);
-
-  const handleInputChange = (e) => {
-    setUserData({ ...userData, [e.target.name]: e.target.value });
+  const handleTabChange = (event, newValue) => {
+    setCurrentTab(newValue);
   };
 
-  const handleChangePhoto = () => fileInputRef.current.click();
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setUserData({ ...userData, avatar: event.target.result });
-    };
-    reader.readAsDataURL(file);
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
-  const handleSaveChanges = async () => {
+  const handleSave = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      const res = await fetch('/api/users/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${userInfo?.token}`
-        },
-        body: JSON.stringify(userData)
+      setIsLoading(true);
+      const updatedUser = await updateUser(formData);
+      setSnackbar({
+        open: true,
+        message: 'Settings updated successfully',
+        severity: 'success'
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to update profile');
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
-      updateUser(data);
-    } catch (err) {
-      setError(err.message || 'Failed to update profile');
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message || 'Failed to update settings',
+        severity: 'error'
+      });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleNotificationChange = (e) => {
-    setNotificationSettings({
-      ...notificationSettings,
-      [e.target.name]: e.target.checked
-    });
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
   };
 
-  return (
-    <Box sx={{ maxWidth: '1200px', margin: '0 auto', padding: 3 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Settings</Typography>
+  const renderProfileTab = () => (
+    <Box>
+      <ProfileCard>
+        <CardContent>
+          <ProfileHeader>
+            <AvatarUpload>
+              <LargeAvatar>{userInfo?.name?.charAt(0) || 'U'}</LargeAvatar>
+              <AvatarButton>
+                <PhotoCameraIcon fontSize="small" />
+              </AvatarButton>
+            </AvatarUpload>
+            <Box>
+              <Typography variant="h6">{userInfo?.name}</Typography>
+              <StatusChip
+                label="Active"
+                icon={<span className="dot" />}
+                size="small"
+              />
+            </Box>
+          </ProfileHeader>
 
-      <Paper>
-        <Tabs value={tabValue} onChange={handleTabChange} centered>
-          <Tab icon={<Person />} label="Profile" />
-          <Tab icon={<Notifications />} label="Notifications" />
-          <Tab icon={<Security />} label="Security" />
-          <Tab icon={<Palette />} label="Appearance" />
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6}>
+              <StyledTextField
+                fullWidth
+                label="Full Name"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <StyledTextField
+                fullWidth
+                label="Email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <StyledTextField
+                fullWidth
+                label="Phone"
+                value={formData.phone}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <StyledTextField
+                fullWidth
+                label="Department"
+                value={formData.department}
+                onChange={(e) => handleInputChange('department', e.target.value)}
+              />
+            </Grid>
+          </Grid>
+          
+          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+            <SaveButton
+              variant="contained"
+              onClick={handleSave}
+              disabled={isLoading}
+              startIcon={isLoading ? <CircularProgress size={20} /> : null}
+            >
+              {isLoading ? 'Saving...' : 'Save Changes'}
+            </SaveButton>
+          </Box>
+        </CardContent>
+      </ProfileCard>
+    </Box>
+  );
+
+  const TabPanel = ({ children, value, index }) => (
+    <Box hidden={value !== index}>
+      {value === index && children}
+    </Box>
+  );
+
+  const tabs = [
+    { label: 'Profile', icon: <PersonIcon /> },
+    { label: 'Notifications', icon: <NotificationsIcon /> },
+    { label: 'Appearance', icon: <PaletteIcon /> },
+    { label: 'Privacy', icon: <SecurityIcon /> }
+  ];
+
+  return (
+    <SettingsContainer>
+      <SettingsHeader>
+        <SettingsTitle>Settings</SettingsTitle>
+        <Typography variant="subtitle1" color="text.secondary">
+          Manage your account settings and preferences
+        </Typography>
+      </SettingsHeader>
+
+      <Paper sx={{ borderRadius: '16px', overflow: 'hidden' }}>
+        <Tabs 
+          value={currentTab} 
+          onChange={handleTabChange}
+          variant="fullWidth"
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            '& .MuiTab-root': {
+              minHeight: '64px',
+            }
+          }}
+        >
+          {tabs.map((tab, index) => (
+            <Tab
+              key={index}
+              icon={tab.icon}
+              label={tab.label}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 500,
+              }}
+            />
+          ))}
         </Tabs>
 
-        {/* Tab 1 - Profile */}
-        {tabValue === 0 && (
-          <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', mb: 4 }}>
-              <Avatar src={userData.avatar} sx={{ width: 80, height: 80, mr: 2 }} />
-              <Box>
-                <Typography variant="h6">{userData.name}</Typography>
-                <Typography variant="body2">{userData.email} • {userData.role}</Typography>
-                <Button variant="outlined" size="small" onClick={handleChangePhoto}>Change Photo</Button>
-                <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*" onChange={handleFileChange} />
-              </Box>
-            </Box>
-
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <TextField label="Full Name" fullWidth name="name" value={userData.name} onChange={handleInputChange} />
-              </Grid>
-              <Grid item xs={6}>
-                <TextField label="Email Address" fullWidth name="email" value={userData.email} onChange={handleInputChange} />
-              </Grid>
-              <Grid item xs={6}>
-                <FormControl fullWidth>
-                  <Select name="language" value={userData.language} onChange={handleInputChange}>
-                    <MenuItem value="English">English</MenuItem>
-                    <MenuItem value="Tiếng Việt">Tiếng Việt</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={6}>
-                <TextField label="Role" fullWidth name="role" value={userData.role} disabled />
-              </Grid>
-            </Grid>
-
-            {error && <Typography color="error" sx={{ mt: 2 }}>{error}</Typography>}
-            {success && <Typography color="success.main" sx={{ mt: 2 }}>Profile updated successfully!</Typography>}
-
-            <Button variant="contained" sx={{ mt: 3 }} onClick={handleSaveChanges} disabled={loading}>
-              {loading ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </Box>
-        )}
-
-        {/* Tab 2 - Notifications */}
-        {tabValue === 1 && (
-          <Box sx={{ p: 3 }}>
-            <List>
-              <ListItem>
-                <ListItemIcon><NotificationsIcon /></ListItemIcon>
-                <ListItemText primary="Due Date Reminders" secondary="Get reminders for approaching due dates" />
-                <ListItemSecondaryAction>
-                  <Switch edge="end" name="dueDateReminders" checked={notificationSettings.dueDateReminders} onChange={handleNotificationChange} />
-                </ListItemSecondaryAction>
-              </ListItem>
-            </List>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-              <Button variant="contained">Save Preferences</Button>
-            </Box>
-          </Box>
-        )}
-
-        {/* Tab 3 - Security */}
-        {tabValue === 2 && (
-          <Box sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>Security Settings</Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth label="Current Password" type={showPassword ? "text" : "password"}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start"><LockIcon /></InputAdornment>,
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton onClick={() => setShowPassword(!showPassword)}>
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    )
-                  }} />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth label="New Password" type={showPassword ? "text" : "password"}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><LockIcon /></InputAdornment> }} />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth label="Confirm New Password" type={showPassword ? "text" : "password"}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><LockIcon /></InputAdornment> }} />
-              </Grid>
-              <Grid item xs={12}>
-                <Divider sx={{ my: 2 }} />
-                <FormControlLabel control={<Switch />} label="Enable Two-Factor Authentication" />
-                <Typography variant="body2" color="textSecondary">
-                  Add an extra layer of security to your account.
-                </Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-                  <Button variant="contained">Update Security Settings</Button>
-                </Box>
-              </Grid>
-            </Grid>
-          </Box>
-        )}
-
-        {/* Tab 4 - Appearance */}
-        {tabValue === 3 && (
-          <Box sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>Appearance Settings</Typography>
-            <Grid container spacing={2}>
-              {['light', 'dark'].map((theme) => (
-                <Grid item key={theme}>
-                  <Paper
-                    elevation={userData.theme === theme ? 8 : 1}
-                    onClick={() => setUserData({ ...userData, theme })}
-                    sx={{
-                      width: 100, height: 80, bgcolor: theme === 'light' ? '#fff' : '#333',
-                      color: theme === 'light' ? '#000' : '#fff',
-                      border: userData.theme === theme ? '2px solid #1976d2' : 'none',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}
-                  >
-                    <Typography>{theme.charAt(0).toUpperCase() + theme.slice(1)}</Typography>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-
-            <Divider sx={{ my: 3 }} />
-
-            <Typography variant="subtitle1">Color Accent</Typography>
-            <Grid container spacing={1} sx={{ mt: 1 }}>
-              {['#1976d2', '#e91e63', '#4caf50', '#ff9800', '#9c27b0'].map((color) => (
-                <Grid item key={color}>
-                  <Box
-                    onClick={() => console.log('Color selected:', color)}
-                    sx={{
-                      width: 40, height: 40, bgcolor: color, borderRadius: '50%',
-                      border: '2px solid white', boxShadow: '0 0 0 1px #ddd',
-                      '&:hover': { boxShadow: '0 0 0 2px #aaa' }, cursor: 'pointer'
-                    }}
-                  />
-                </Grid>
-              ))}
-            </Grid>
-
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-              <Button variant="contained">Save Appearance</Button>
-            </Box>
-          </Box>
-        )}
+        <Box sx={{ p: 3 }}>
+          <TabPanel value={currentTab} index={0}>
+            {renderProfileTab()}
+          </TabPanel>
+          <TabPanel value={currentTab} index={1}>
+            <Typography>Notification settings coming soon...</Typography>
+          </TabPanel>
+          <TabPanel value={currentTab} index={2}>
+            <Typography>Appearance settings coming soon...</Typography>
+          </TabPanel>
+          <TabPanel value={currentTab} index={3}>
+            <Typography>Privacy settings coming soon...</Typography>
+          </TabPanel>
+        </Box>
       </Paper>
-    </Box>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </SettingsContainer>
   );
 };
 

@@ -15,85 +15,21 @@ import {
   Select,
   MenuItem,
   OutlinedInput,
-  Checkbox
+  Checkbox,
+  CircularProgress
 } from '@mui/material';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import CommentIcon from '@mui/icons-material/Comment';
 import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PersonIcon from '@mui/icons-material/Person';
-import { getAllTasks } from '../services/fakeDatabaseService';
-
-// Utility function to generate fake activity logs based on tasks
-const generateActivityLogs = (tasks, users) => {
-  const activities = [];
-  const actionTypes = ['created', 'updated', 'completed', 'commented', 'assigned'];
-  
-  tasks.forEach(task => {
-    // Generate creation activity
-    activities.push({
-      id: `act-${activities.length + 1}`,
-      type: 'created',
-      taskId: task.id,
-      taskTitle: task.title,
-      userId: task.assignee,
-      timestamp: new Date(task.createdAt),
-      details: `created task "${task.title}"`
-    });
-    
-    // Generate comment activities
-    task.comments?.forEach(comment => {
-      activities.push({
-        id: `act-${activities.length + 1}`,
-        type: 'commented',
-        taskId: task.id,
-        taskTitle: task.title,
-        userId: comment.user,
-        timestamp: new Date(comment.createdAt),
-        details: `commented on "${task.title}": "${comment.text.substring(0, 50)}${comment.text.length > 50 ? '...' : ''}"`
-      });
-    });
-    
-    // Generate random activities
-    for (let i = 0; i < Math.floor(Math.random() * 3) + 1; i++) {
-      const type = actionTypes[Math.floor(Math.random() * actionTypes.length)];
-      const date = new Date(task.createdAt);
-      date.setDate(date.getDate() + Math.floor(Math.random() * 7) + 1);
-      
-      if (type !== 'created' && type !== 'commented') {
-        activities.push({
-          id: `act-${activities.length + 1}`,
-          type,
-          taskId: task.id,
-          taskTitle: task.title,
-          userId: users[Math.floor(Math.random() * users.length)].id,
-          timestamp: date,
-          details: getActivityDetails(type, task)
-        });
-      }
-    }
-  });
-  
-  // Sort by timestamp descending
-  return activities.sort((a, b) => b.timestamp - a.timestamp);
-};
-
-const getActivityDetails = (type, task) => {
-  switch (type) {
-    case 'updated':
-      return `updated task "${task.title}"`;
-    case 'completed':
-      return `marked task "${task.title}" as complete`;
-    case 'assigned':
-      return `was assigned to task "${task.title}"`;
-    default:
-      return `acted on task "${task.title}"`;
-  }
-};
+import { getActivityLogs, getUsers } from '../services/apiService';
 
 const ActivityLog = () => {
   const [activities, setActivities] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     actionTypes: ['created', 'updated', 'completed', 'commented', 'assigned'],
     users: [],
@@ -103,24 +39,31 @@ const ActivityLog = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const taskData = await getAllTasks();
-        const users = [
-          { id: '1', name: 'John Doe', email: 'john@example.com', avatar: 'https://i.pravatar.cc/150?img=1' },
-          { id: '2', name: 'Jane Smith', email: 'jane@example.com', avatar: 'https://i.pravatar.cc/150?img=2' },
-          { id: '3', name: 'Mike Johnson', email: 'mike@example.com', avatar: 'https://i.pravatar.cc/150?img=3' },
-          { id: '4', name: 'Sarah Brown', email: 'sarah@example.com', avatar: 'https://i.pravatar.cc/150?img=4' },
-          { id: '5', name: 'Alex Wilson', email: 'alex@example.com', avatar: 'https://i.pravatar.cc/150?img=5' }
-        ];
+        setLoading(true);
+        setError(null);
         
-        const activityData = generateActivityLogs(taskData, users);
-        setActivities(activityData);
+        const [activityData, usersData] = await Promise.all([
+          getActivityLogs(),
+          getUsers()
+        ]);
+        
+        console.log('Activity logs received:', activityData);
+        console.log('Users received:', usersData);
+        
+        setUsers(usersData || []);
+        setActivities(activityData || []);
+        
+        // Set initial filter to include all users
         setFilters(prev => ({
           ...prev,
-          users: users.map(user => user.id)
+          users: (usersData || []).map(user => user._id || user.id)
         }));
-        setLoading(false);
       } catch (error) {
         console.error('Error loading activities:', error);
+        setError('Failed to load activity logs');
+        setActivities([]);
+        setUsers([]);
+      } finally {
         setLoading(false);
       }
     };
@@ -186,22 +129,42 @@ const ActivityLog = () => {
       return date.toLocaleDateString();
     }
   };
-
-  const filteredActivities = activities.filter(activity => 
-    filters.actionTypes.includes(activity.type) && 
-    filters.users.includes(activity.userId)
-  );
+  const filteredActivities = activities.filter(activity => {
+    const activityType = activity.action || activity.type || 'unknown';
+    const activityUserId = activity.user?._id || activity.user?.id || activity.userId || activity.user;
+    
+    return filters.actionTypes.includes(activityType) && 
+           filters.users.includes(activityUserId);
+  });
 
   const getUserName = (userId) => {
-    const users = [
-      { id: '1', name: 'John Doe' },
-      { id: '2', name: 'Jane Smith' },
-      { id: '3', name: 'Mike Johnson' },
-      { id: '4', name: 'Sarah Brown' },
-      { id: '5', name: 'Alex Wilson' }
-    ];
-    return users.find(user => user.id === userId)?.name || 'Unknown User';
+    if (typeof userId === 'object' && userId.name) {
+      return userId.name || userId.username || userId.email;
+    }
+    const user = users.find(user => (user._id || user.id) === userId);
+    return user?.name || user?.username || user?.email || 'Unknown User';
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ flexGrow: 1, padding: 3, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ flexGrow: 1, padding: 3 }}>
+        <Typography variant="h4" gutterBottom component="div">
+          Activity Log
+        </Typography>
+        <Paper sx={{ p: 3, textAlign: 'center' }}>
+          <Typography color="error">{error}</Typography>
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ flexGrow: 1, padding: 3 }}>
@@ -257,18 +220,11 @@ const ActivityLog = () => {
                     ))
                   }
                 </Box>
-              )}
-            >
-              {[
-                { id: '1', name: 'John Doe' },
-                { id: '2', name: 'Jane Smith' },
-                { id: '3', name: 'Mike Johnson' },
-                { id: '4', name: 'Sarah Brown' },
-                { id: '5', name: 'Alex Wilson' }
-              ].map((user) => (
-                <MenuItem key={user.id} value={user.id}>
-                  <Checkbox checked={filters.users.indexOf(user.id) > -1} />
-                  {user.name}
+              )}            >
+              {users.map((user) => (
+                <MenuItem key={user._id || user.id} value={user._id || user.id}>
+                  <Checkbox checked={filters.users.indexOf(user._id || user.id) > -1} />
+                  {user.name || user.username || user.email}
                 </MenuItem>
               ))}
             </Select>
@@ -286,49 +242,55 @@ const ActivityLog = () => {
             <ListItem>
               <ListItemText primary="No activities found matching your filters." />
             </ListItem>
-          ) : (
-            filteredActivities.map((activity, index) => (
-              <React.Fragment key={activity.id}>
-                {index > 0 && <Divider variant="inset" component="li" />}
-                <ListItem alignItems="flex-start">
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: `${getActivityColor(activity.type)}.light` }}>
-                      {getActivityIcon(activity.type)}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography component="span" variant="body1" fontWeight="bold">
-                          {getUserName(activity.userId)}
-                        </Typography>
-                        <Chip 
-                          label={activity.type} 
-                          size="small" 
-                          color={getActivityColor(activity.type)}
-                          sx={{ height: 20 }}
-                        />
-                      </Box>
-                    }
-                    secondary={
-                      <React.Fragment>
-                        <Typography component="span" variant="body2" color="text.primary">
-                          {activity.details}
-                        </Typography>
-                        <Typography
-                          component="span"
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ display: 'block', mt: 0.5 }}
-                        >
-                          {formatDate(activity.timestamp)}
-                        </Typography>
-                      </React.Fragment>
-                    }
-                  />
-                </ListItem>
-              </React.Fragment>
-            ))
+          ) : (            filteredActivities.map((activity, index) => {
+              const activityType = activity.action || activity.type || 'unknown';
+              const activityUserId = activity.user?._id || activity.user?.id || activity.userId || activity.user;
+              const activityDetails = activity.description || activity.details || `${activityType} action performed`;
+              const activityDate = new Date(activity.createdAt || activity.timestamp || Date.now());
+              
+              return (
+                <React.Fragment key={activity._id || activity.id || index}>
+                  {index > 0 && <Divider variant="inset" component="li" />}
+                  <ListItem alignItems="flex-start">
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: `${getActivityColor(activityType)}.light` }}>
+                        {getActivityIcon(activityType)}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography component="span" variant="body1" fontWeight="bold">
+                            {getUserName(activityUserId)}
+                          </Typography>
+                          <Chip 
+                            label={activityType} 
+                            size="small" 
+                            color={getActivityColor(activityType)}
+                            sx={{ height: 20 }}
+                          />
+                        </Box>
+                      }
+                      secondary={
+                        <React.Fragment>
+                          <Typography component="span" variant="body2" color="text.primary">
+                            {activityDetails}
+                          </Typography>
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ display: 'block', mt: 0.5 }}
+                          >
+                            {formatDate(activityDate)}
+                          </Typography>
+                        </React.Fragment>
+                      }
+                    />
+                  </ListItem>
+                </React.Fragment>
+              );
+            })
           )}
         </List>
       </Paper>
