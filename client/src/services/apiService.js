@@ -174,8 +174,17 @@ export const getUsers = async () => {
 // Calendar API
 export const getCalendarTasks = async (params = {}) => {
   const response = await api.get('/calendar', { params });
-  // Handle API response format { success: true, data: tasks }
-  return response.data.data || response.data || [];
+  // Handle API response format { success: true, data: { events, stats, ... } }
+  if (response.data && response.data.data && Array.isArray(response.data.data.events)) {
+    return response.data.data.events;
+  }
+  if (Array.isArray(response.data.data)) {
+    return response.data.data;
+  }
+  if (Array.isArray(response.data)) {
+    return response.data;
+  }
+  return [];
 };
 
 // Teams API

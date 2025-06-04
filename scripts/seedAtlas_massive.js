@@ -246,7 +246,7 @@ const generateMassiveData = async () => {
         name: `${template.name} ${i > projectTemplates.length ? `- Phase ${Math.floor(i / projectTemplates.length) + 1}` : ''}`,
         description: template.description + ` Dự án được thực hiện bởi ${randomTeam.name} với timeline ${Math.floor(duration)} ngày và budget được phân bổ theo từng milestone.`,
         team: randomTeam._id,
-        status: ['planning', 'in_progress', 'completed', 'on_hold'][Math.floor(Math.random() * 4)],
+        status: ['planning', 'in_progress', 'completed'][Math.floor(Math.random() * 3)],
         priority: template.priority,
         startDate: startDate,
         endDate: new Date(startDate.getTime() + duration * 24 * 60 * 60 * 1000),
@@ -258,13 +258,11 @@ const generateMassiveData = async () => {
     }
 
     const projects = await Project.insertMany(projectsData);
-    console.log(`✅ Created ${projects.length} projects`);
-
-    // Create 2000+ tasks with realistic distribution
+    console.log(`✅ Created ${projects.length} projects`);    // Create 2000+ tasks with realistic distribution
     console.log('📋 Creating massive task collection...');
     const taskTypes = ['Feature', 'Bug Fix', 'Enhancement', 'Research', 'Documentation', 'Testing', 'Refactoring', 'Security', 'Performance', 'Integration'];
-    const taskPriorities = ['Low', 'Medium', 'High', 'Urgent'];
-    const taskStatuses = ['TODO', 'IN_PROGRESS', 'REVIEW', 'TESTING', 'DONE'];
+    const taskPriorities = ['low', 'medium', 'high'];
+    const taskStatuses = ['todo', 'inprogress', 'review', 'done'];
     
     const tasksData = [];
     for (let i = 0; i < 2500; i++) {
@@ -314,20 +312,12 @@ const generateMassiveData = async () => {
           'Create workflow automation'
         ][Math.floor(Math.random() * 30)]} - ${project.name}`,
         description: `Chi tiết implement cho task ${taskType.toLowerCase()} trong project ${project.name}. Task này require ${['frontend skills', 'backend development', 'database optimization', 'API integration', 'security implementation'][Math.floor(Math.random() * 5)]} và expected delivery trong ${Math.floor(Math.random() * 10) + 1} ngày làm việc.`,
-        assignedTo: assignee.user,
-        reporter: reporter.user,
+        assignee: assignee.user,
+        creator: reporter.user,
         project: project._id,
         priority: priority,
         status: status,
-        tags: [taskType.toLowerCase(), priority.toLowerCase(), project.tags[0]?.toLowerCase()].filter(Boolean),
         dueDate: dueDate,
-        estimatedHours: Math.floor(Math.random() * 40) + 4, // 4-44 hours
-        actualHours: status === 'DONE' ? Math.floor(Math.random() * 50) + 2 : 0,
-        progress: status === 'DONE' ? 100 : 
-                 status === 'TESTING' ? Math.floor(Math.random() * 20) + 80 :
-                 status === 'REVIEW' ? Math.floor(Math.random() * 20) + 70 :
-                 status === 'IN_PROGRESS' ? Math.floor(Math.random() * 60) + 10 :
-                 Math.floor(Math.random() * 10),
         createdAt: createdDate,
         updatedAt: new Date(createdDate.getTime() + Math.random() * (Date.now() - createdDate.getTime()))
       });
@@ -363,9 +353,8 @@ const generateMassiveData = async () => {
         ][Math.floor(Math.random() * 15)]}`,
         description: `Chi tiết subtask cho ${parentTask.title}. Cần hoàn thành trong ${Math.floor(Math.random() * 5) + 1} ngày.`,
         parentTask: parentTask._id,
-        assignedTo: assignee._id,
-        status: ['TODO', 'IN_PROGRESS', 'DONE'][Math.floor(Math.random() * 3)],
-        priority: ['Low', 'Medium', 'High'][Math.floor(Math.random() * 3)],
+        assignedTo: assignee._id,        status: ['todo', 'in_progress', 'done'][Math.floor(Math.random() * 3)],
+        priority: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)],
         estimatedHours: Math.floor(Math.random() * 8) + 1,
         actualHours: Math.floor(Math.random() * 10),
         dueDate: new Date(parentTask.createdAt.getTime() + Math.random() * 14 * 24 * 60 * 60 * 1000),
@@ -405,10 +394,9 @@ const generateMassiveData = async () => {
     for (let i = 0; i < 12000; i++) {
       const task = tasks[Math.floor(Math.random() * tasks.length)];
       const author = users[Math.floor(Math.random() * users.length)];
-      
-      commentsData.push({
-        content: commentTemplates[Math.floor(Math.random() * commentTemplates.length)] + ` (Comment #${i + 1})`,
-        author: author._id,
+        commentsData.push({
+        text: commentTemplates[Math.floor(Math.random() * commentTemplates.length)] + ` (Comment #${i + 1})`,
+        user: author._id,
         task: task._id,
         createdAt: new Date(task.createdAt.getTime() + Math.random() * (Date.now() - task.createdAt.getTime()))
       });
@@ -424,12 +412,11 @@ const generateMassiveData = async () => {
       const task = tasks[Math.floor(Math.random() * tasks.length)];
       const user = users[Math.floor(Math.random() * users.length)];
       const date = new Date(task.createdAt.getTime() + Math.random() * (Date.now() - task.createdAt.getTime()));
-      const hours = Math.random() * 8 + 0.5; // 0.5 to 8.5 hours
-      
-      timeLogsData.push({
+      const hours = Math.random() * 7 + 1; // 1 to 8 hours
+        timeLogsData.push({
         user: user._id,
         task: task._id,
-        hours: parseFloat(hours.toFixed(2)),
+        duration: parseFloat(hours.toFixed(2)),
         description: [
           'Development work',
           'Code review',
@@ -452,50 +439,43 @@ const generateMassiveData = async () => {
 
     // Create 15000+ notifications
     console.log('🔔 Creating massive notification system...');
-    const notificationTypes = ['task_assigned', 'task_updated', 'task_completed', 'comment_added', 'due_date_reminder', 'project_update'];
+    const notificationTypes = ['task_assigned', 'comment', 'due_date_reminder', 'project_update'];
     const notificationsData = [];
     
     for (let i = 0; i < 15000; i++) {
       const user = users[Math.floor(Math.random() * users.length)];
       const type = notificationTypes[Math.floor(Math.random() * notificationTypes.length)];
       const task = tasks[Math.floor(Math.random() * tasks.length)];
-      
-      notificationsData.push({
+        notificationsData.push({
         user: user._id,
         type: type,
-        title: `${type.replace('_', ' ').toUpperCase()}: ${task.title}`,
-        message: `Notification #${i + 1} - ${type} for task: ${task.title.substring(0, 50)}...`,
-        relatedTask: type.includes('task') ? task._id : undefined,
-        relatedProject: type.includes('project') ? task.project : undefined,
+        content: `Notification #${i + 1} - ${type} for task: ${task.title.substring(0, 50)}...`,
+        relatedEntity: type.includes('task') ? task._id : undefined,
+        onModel: type.includes('task') ? 'Task' : type.includes('project') ? 'Project' : undefined,
         isRead: Math.random() < 0.7, // 70% read
         createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000) // Last 30 days
       });
     }
 
     const notifications = await Notification.insertMany(notificationsData);
-    console.log(`✅ Created ${notifications.length} notifications`);
-
-    // Create 20000+ activity logs
+    console.log(`✅ Created ${notifications.length} notifications`);    // Create 20000+ activity logs
     console.log('📈 Creating comprehensive activity logging...');
-    const activities = [
-      'created_task', 'updated_task', 'completed_task', 'assigned_task', 'commented_task',
-      'created_project', 'updated_project', 'joined_team', 'left_team', 'uploaded_file',
-      'deleted_task', 'moved_task', 'changed_priority', 'changed_status', 'added_tag'
-    ];
+    const activities = ['create', 'update', 'delete', 'login', 'logout'];
+    const entityTypes = ['User', 'Team', 'Project', 'Task', 'Comment', 'TimeLog'];
     
     const activityLogsData = [];
     for (let i = 0; i < 20000; i++) {
       const user = users[Math.floor(Math.random() * users.length)];
       const activity = activities[Math.floor(Math.random() * activities.length)];
+      const entityType = entityTypes[Math.floor(Math.random() * entityTypes.length)];
       const task = tasks[Math.floor(Math.random() * tasks.length)];
       const project = projects[Math.floor(Math.random() * projects.length)];
       
       activityLogsData.push({
         user: user._id,
         action: activity,
-        description: `${user.name} ${activity.replace('_', ' ')} ${activity.includes('task') ? task.title : project.name}`,
-        relatedTask: activity.includes('task') ? task._id : undefined,
-        relatedProject: activity.includes('project') ? project._id : task.project,
+        entityType: entityType,
+        entityId: entityType === 'Task' ? task._id : entityType === 'Project' ? project._id : user._id,
         metadata: {
           userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           ip: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`

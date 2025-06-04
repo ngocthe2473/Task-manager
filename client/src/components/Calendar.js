@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Box,
   Typography,
@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import { styled, keyframes } from '@mui/material/styles';
 import { getCalendarTasks } from '../services/apiService';
+import { AuthContext } from '../context/AuthContext';
 import { 
   format, 
   addDays, 
@@ -179,6 +180,7 @@ const StatsCard = styled(Card)(({ theme }) => ({
 
 const Calendar = () => {
   const theme = useTheme();
+  const { userInfo } = useContext(AuthContext);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState([]);
   const [viewMode, setViewMode] = useState('month'); // 'day', 'week', 'month'
@@ -192,21 +194,36 @@ const Calendar = () => {
     inProgress: 0,
     overdue: 0,
   });
-
   // Tạo khung giờ từ 8:00 đến 20:00
   const timeSlots = Array.from({ length: 13 }, (_, i) => {
     const hour = i + 8;
     return `${hour < 10 ? '0' + hour : hour}:00`;
   });
 
+  const getTaskColor = (priority, status) => {
+    if (status === 'done') return '#00c875';
+    
+    const colorMap = {
+      'high': '#ff7066',
+      'medium': '#fdab3d', 
+      'low': '#579bfc'
+    };
+    
+    return colorMap[priority?.toLowerCase()] || '#e0e0e0';
+  };
+
   useEffect(() => {
     const fetchTasks = async () => {
       try {
-        const taskData = await getCalendarTasks();
-        // Thêm thông tin thời gian ngẫu nhiên cho các task
-        const enhancedTasks = taskData.map(task => {
-          const dueDate = task.dueDate || task.due;
-          // Tạo giờ ngẫu nhiên
+        if (!userInfo || !userInfo.id) {
+          console.log('No user info available, skipping task fetch');
+          return;
+        }
+        console.log('Fetching calendar tasks for user:', userInfo.id);
+        const events = await getCalendarTasks();
+        console.log('Fetched calendar events:', events);
+        const enhancedTasks = events.map(task => {
+          const dueDate = task.dueDate || task.due || task.end;
           const randomStartHour = 9 + Math.floor(Math.random() * 10);
           const randomEndHour = randomStartHour + 1 + Math.floor(Math.random() * 2);
           return {
@@ -223,7 +240,7 @@ const Calendar = () => {
       }
     };
     fetchTasks();
-  }, []);
+  }, [userInfo]);
 
   // Calculate stats when tasks change
   useEffect(() => {
@@ -239,20 +256,7 @@ const Calendar = () => {
         }).length,
       };
       setTaskStats(stats);
-    }
-  }, [tasks]);
-
-  const getTaskColor = (priority, status) => {
-    if (status === 'done') return '#00c875';
-    
-    const colorMap = {
-      'High': '#ff7066',
-      'Medium': '#fdab3d',
-      'Low': '#579bfc'
-    };
-    
-    return colorMap[priority] || '#e0e0e0';
-  };
+    }  }, [tasks]);
 
   const handleViewChange = (event, newValue) => {
     if (newValue !== null) {

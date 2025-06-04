@@ -75,11 +75,9 @@ exports.getCalendarView = async (req, res) => {
     }
     if (project) {
       taskFilter.project = project;
-    }
-
-    // Role-based filtering
-    if (req.user.role === 'member') {
-      // Members can only see their own tasks and tasks from their team
+    }    // Role-based filtering
+    if (req.user.role === 'member' || req.user.role === 'user') {
+      // Members and users can only see their own tasks and tasks from their team
       if (req.user.team) {
         const teamProjects = await Project.find({ team: req.user.team }).select('_id');
         const projectIds = teamProjects.map(p => p._id);
@@ -114,7 +112,7 @@ exports.getCalendarView = async (req, res) => {
         });
       }
     } else if (req.user.role === 'admin' && team) {
-      // Managers can filter by specific team if provided
+      // Admins can filter by specific team if provided
       const teamProjects = await Project.find({ team }).select('_id');
       const projectIds = teamProjects.map(p => p._id);
       taskFilter.project = { $in: projectIds };

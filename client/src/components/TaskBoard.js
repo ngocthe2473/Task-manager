@@ -63,10 +63,16 @@ const BoardTitle = styled(Typography)(({ theme }) => ({
   letterSpacing: '-0.5px',
 }));
 
-const ColumnContainer = styled(Grid)(({ theme }) => ({
-  height: 'calc(100vh - 120px)', // Tăng chiều cao hơn nữa
+const ColumnContainer = styled(Box)(({ theme }) => ({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(4, 25%)', // 4 cột, mỗi cột chính xác 25%
+  gap: '16px',
+  height: 'calc(100vh - 120px)',
   overflowY: 'auto',
-  padding: '0 12px', // Tăng padding horizontal
+  padding: '0 12px',
+  [theme.breakpoints.down('md')]: {
+    gridTemplateColumns: '1fr', // 1 cột trên mobile
+  },
 }));
 
 const Column = styled(Paper)(({ theme }) => ({
@@ -77,6 +83,7 @@ const Column = styled(Paper)(({ theme }) => ({
   height: 'fit-content',
   minHeight: '600px', // Tăng chiều cao tối thiểu
   width: '100%',
+  minWidth: 0, // Cho phép column co lại khi cần
 }));
 
 const ColumnHeader = styled(Box)(({ theme }) => ({
@@ -646,40 +653,37 @@ const TaskBoard = ({ onTaskClick }) => {
           {tasks.length} tasks • {getTasksByStatus('done').length} completed
         </Typography>
       </BoardHeader>
-      {renderTeamProjectSelectors()}
-      <ColumnContainer container spacing={3}>
+      {renderTeamProjectSelectors()}      <ColumnContainer>
         {columns.map((column) => {
           const columnTasks = getTasksByStatus(column.id);
           return (
-            <Grid item xs={12} sm={6} md={6} lg={4} xl={4} key={column.id}>
-              <Column>
-                <ColumnHeader>
-                  <ColumnTitle>
-                    <Box
-                      sx={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        backgroundColor: column.color
-                      }}
-                    />
-                    {column.title}
-                  </ColumnTitle>
-                  <TaskCount label={columnTasks.length} />
-                </ColumnHeader>
+            <Column key={column.id}>
+              <ColumnHeader>
+                <ColumnTitle>
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      backgroundColor: column.color
+                    }}
+                  />
+                  {column.title}
+                </ColumnTitle>
+                <TaskCount label={columnTasks.length} />
+              </ColumnHeader>
 
-                <Box>
-                  {columnTasks.map(renderTask)}
-                  
-                  <AddTaskButton
-                    startIcon={<AddIcon />}
-                    onClick={handleNewTask}
-                  >
-                    Add Task
-                  </AddTaskButton>
-                </Box>
-              </Column>
-            </Grid>
+              <Box>
+                {columnTasks.map(renderTask)}
+                
+                <AddTaskButton
+                  startIcon={<AddIcon />}
+                  onClick={handleNewTask}
+                >
+                  Add Task
+                </AddTaskButton>
+              </Box>
+            </Column>
           );
         })}
       </ColumnContainer>
